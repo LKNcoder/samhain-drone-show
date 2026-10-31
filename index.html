@@ -487,12 +487,22 @@ import { OrbitControls } from "three/addons/controls/OrbitControls.js";
 import { VRButton } from "three/addons/webxr/VRButton.js";
 import { SHAPE_PAGES, findShapeById, generateTextDrones } from "./shapes.js";
 
+  <script type="module">
+import * as THREE from "three";
+import { OrbitControls } from "three/addons/controls/OrbitControls.js";
+import { VRButton } from "three/addons/webxr/VRButton.js";
+import { SHAPE_PAGES, findShapeById, generateTextDrones } from "./shapes.js";
+
+// Mathematical constant for golden ratio phyllotaxis spacing
+const GOLDEN = Math.PI * (3 - Math.sqrt(5));
+
 function formatTime(s) {
   if (isNaN(s) || s === undefined || s === null) return "00:00";
   const m = Math.floor(s / 60);
   const sec = Math.floor(s % 60);
   return String(m).padStart(2, "0") + ":" + String(sec).padStart(2, "0");
 }
+
 
 const MAX_DRONES = 1200;
 let activeDroneCount = 400;
@@ -592,7 +602,9 @@ const currentColors = new Float32Array(MAX_DRONES * 3);
 const targetColors = new Float32Array(MAX_DRONES * 3);
 const droneSwatchIndices = new Uint8Array(MAX_DRONES);
 
-// Centered Circular Hearth Slots
+// Golden-angle spiral distribution for the circular hearth launchpad
+const GOLDEN = Math.PI * (3 - Math.sqrt(5));
+
 const groundPositions = new Float32Array(MAX_DRONES * 3);
 function updateGroundPositions(n) {
   for (let i = 0; i < n; i++) {
