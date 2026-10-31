@@ -1,90 +1,51 @@
 import * as THREE from "three";
+import { SVGLoader } from "three/addons/loaders/SVGLoader.js";
 
 export const GOLDEN = Math.PI * (3 - Math.sqrt(5));
 
-// Universal Client-Side SVG Parser (Pure JS, Zero AI)
-export function parseAndSampleSVG(svgString, out, count, swatchOut, scale = 0.28, altitude = 16, invertY = true) {
-  const parser = new DOMParser();
-  const doc = parser.parseFromString(svgString, "image/svg+xml");
-  const svgEl = doc.querySelector("svg");
-  if (!svgEl) return;
+// Universal W3C SVG-to-Drone Compiler (Strict Single-Layer Z = 0)
+export function compileSVGToDrones(svgString, out, count, swatchOut, scale = 0.065, altitude = 16) {
+  const loader = new SVGLoader();
+  const svgData = loader.parse(svgString);
 
-  const paths = [];
+  const curves = [];
   let totalLength = 0;
 
-  // Extract all vector drawing primitives
-  const elements = svgEl.querySelectorAll("path, polygon, polyline, line, rect, circle, ellipse");
-  elements.forEach((el, elIdx) => {
-    let p;
-    const tag = el.tagName.toLowerCase();
-
-    if (tag === "polygon" || tag === "polyline") {
-      p = document.createElementNS("http://www.w3.org/2000/svg", "path");
-      const rawPoints = el.getAttribute("points") || "";
-      const pts = rawPoints.trim().split(/[\s,]+/).map(Number);
-      if (pts.length >= 4) {
-        let d = `M ${pts[0]} ${pts[1]}`;
-        for (let i = 2; i < pts.length; i += 2) d += ` L ${pts[i]} ${pts[i + 1]}`;
-        if (tag === "polygon") d += " Z";
-        p.setAttribute("d", d);
-      }
-    } else if (tag === "line") {
-      p = document.createElementNS("http://www.w3.org/2000/svg", "path");
-      p.setAttribute("d", `M ${el.getAttribute("x1")||0} ${el.getAttribute("y1")||0} L ${el.getAttribute("x2")||0} ${el.getAttribute("y2")||0}`);
-    } else if (tag === "rect") {
-      p = document.createElementNS("http://www.w3.org/2000/svg", "path");
-      const x = parseFloat(el.getAttribute("x")||0), y = parseFloat(el.getAttribute("y")||0);
-      const w = parseFloat(el.getAttribute("width")||0), h = parseFloat(el.getAttribute("height")||0);
-      p.setAttribute("d", `M ${x} ${y} L ${x+w} ${y} L ${x+w} ${y+h} L ${x} ${y+h} Z`);
-    } else if (tag === "circle") {
-      p = document.createElementNS("http://www.w3.org/2000/svg", "path");
-      const cx = parseFloat(el.getAttribute("cx")||0), cy = parseFloat(el.getAttribute("cy")||0), r = parseFloat(el.getAttribute("r")||0);
-      p.setAttribute("d", `M ${cx-r} ${cy} A ${r} ${r} 0 1 0 ${cx+r} ${cy} A ${r} ${r} 0 1 0 ${cx-r} ${cy}`);
-    } else if (tag === "ellipse") {
-      p = document.createElementNS("http://www.w3.org/2000/svg", "path");
-      const cx = parseFloat(el.getAttribute("cx")||0), cy = parseFloat(el.getAttribute("cy")||0);
-      const rx = parseFloat(el.getAttribute("rx")||0), ry = parseFloat(el.getAttribute("ry")||0);
-      p.setAttribute("d", `M ${cx-rx} ${cy} A ${rx} ${ry} 0 1 0 ${cx+rx} ${cy} A ${rx} ${ry} 0 1 0 ${cx-rx} ${cy}`);
-    } else {
-      p = document.createElementNS("http://www.w3.org/2000/svg", "path");
-      p.setAttribute("d", el.getAttribute("d") || "");
-    }
-
-    if (p) {
-      const len = p.getTotalLength();
-      if (len > 0) {
-        // Map swatch index based on element index or fill/stroke attribute
-        const fill = el.getAttribute("fill") || "";
-        const swatch = fill.includes("#") ? (elIdx % 3) : (elIdx % 2);
-        paths.push({ path: p, len, swatch });
+  svgData.paths.forEach((path, pIdx) => {
+    const swatch = pIdx % 3;
+    path.subPaths.forEach(subPath => {
+      const len = subPath.getLength();
+      if (len > 0.05) {
+        curves.push({ subPath, len, swatch });
         totalLength += len;
       }
-    }
+    });
   });
 
-  if (paths.length === 0) return;
+  if (curves.length === 0 || totalLength === 0) return;
 
-  // Bounding box measurement
   let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
-  const samplePts = [];
+  const sampled = [];
 
   for (let i = 0; i < count; i++) {
     const targetDist = (i / count) * totalLength;
     let accum = 0;
-    let selected = paths[paths.length - 1];
-    let distOnPath = 0;
+    let selected = curves[curves.length - 1];
+    let distOnCurve = 0;
 
-    for (const p of paths) {
-      if (accum + p.len >= targetDist) {
-        selected = p;
-        distOnPath = targetDist - accum;
+    for (const c of curves) {
+      if (accum + c.len >= targetDist) {
+        selected = c;
+        distOnCurve = targetDist - accum;
         break;
       }
-      accum += p.len;
+      accum += c.len;
     }
 
-    const pt = selected.path.getPointAtLength(distOnPath);
-    samplePts.push({ x: pt.x, y: pt.y, swatch: selected.swatch });
+    const u = THREE.MathUtils.clamp(distOnCurve / selected.len, 0, 1);
+    const pt = selected.subPath.getPointAt(u);
+    sampled.push({ x: pt.x, y: pt.y, swatch: selected.swatch });
+
     if (pt.x < minX) minX = pt.x; if (pt.x > maxX) maxX = pt.x;
     if (pt.y < minY) minY = pt.y; if (pt.y > maxY) maxY = pt.y;
   }
@@ -92,13 +53,13 @@ export function parseAndSampleSVG(svgString, out, count, swatchOut, scale = 0.28
   const cx = (minX + maxX) / 2;
   const cy = (minY + maxY) / 2;
 
+  // Single plane (Z = 0) with inverted Y so SVGs render right-side up in Three.js sky
   for (let i = 0; i < count; i++) {
-    const pt = samplePts[i];
-    out[i * 3]     = (pt.x - cx) * scale;
-    // Invert SVG Y axis so SVG is right-side up in Three.js sky
-    out[i * 3 + 1] = invertY ? (altitude - (pt.y - cy) * scale) : (altitude + (pt.y - cy) * scale);
-    out[i * 3 + 2] = 0.0; // Strictly single-layer
-    if (swatchOut) swatchOut[i] = pt.swatch;
+    const p = sampled[i];
+    out[i * 3]     = (p.x - cx) * scale;
+    out[i * 3 + 1] = altitude - (p.y - cy) * scale;
+    out[i * 3 + 2] = 0.0;
+    if (swatchOut) swatchOut[i] = p.swatch;
   }
 }
 
@@ -134,7 +95,7 @@ const GLYPH_PATHS = {
   '?': "M 0.1 1.05 C 0.1 1.45 0.8 1.45 0.8 1.05 C 0.8 0.7 0.45 0.7 0.45 0.35 M 0.45 0 L 0.45 0.1"
 };
 
-// Continuous Vector Stroke Text Generator (Guaranteed Upright)
+// Vector Text Generator with BLESSED on top and SAMHAIN below
 export function generateTextDrones(out, text, count, font = "Impact", scale = 0.28, altitude = 16) {
   const words = text.trim().toUpperCase().split(/\s+/);
   let lines = [text.trim().toUpperCase()];
@@ -148,8 +109,8 @@ export function generateTextDrones(out, text, count, font = "Impact", scale = 0.
   const paths = [];
   let totalLength = 0;
 
+  // startY places Line 0 (BLESSED) higher (+Y) and Line 1 (SAMHAIN) lower (-Y)
   const totalLines = lines.length;
-  // BLESSED on top (+Y), SAMHAIN below (-Y)
   const startY = ((totalLines - 1) * lineSpacing) / 2;
 
   lines.forEach((line, lineIdx) => {
@@ -171,7 +132,7 @@ export function generateTextDrones(out, text, count, font = "Impact", scale = 0.
         p.setAttribute("d", transformedD);
         const len = p.getTotalLength();
         if (len > 0) {
-          paths.push({ path: p, len, swatch: (lineIdx % 2) });
+          paths.push({ path: p, len });
           totalLength += len;
         }
       }
@@ -197,40 +158,40 @@ export function generateTextDrones(out, text, count, font = "Impact", scale = 0.
 
     const pt = selected.path.getPointAtLength(distOnPath);
     out[i * 3]     = pt.x * (scale * 6.5);
-    out[i * 3 + 1] = altitude + pt.y * (scale * 6.5); // Additive keeps letters upright
+    out[i * 3 + 1] = altitude + pt.y * (scale * 6.5); // Additive ensures upright orientation
     out[i * 3 + 2] = 0.0;
   }
 }
 
-// Built-in Raw SVG Vector Assets
+// Authentic SVGs from svgrepo.com
 export const RAW_SVGS = {
-  // Scythe Agriculture (svgrepo.com/show/196385)
-  scythe: `<svg viewBox="0 0 512 512">
+  // SVGRepo 196385: Scythe Agriculture
+  scythe: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
     <path fill="#e0f7fa" d="M472.6,39.4C374.3,39.4,272.5,91.8,206.2,176.6c-18.4,23.6-32.9,50.1-43,78.2l76.7,30.7c8.5-22.6,20.4-43.8,35.3-62.7 c52.7-67.4,133.5-108.9,211.2-108.9c3.9,0,7.9,0.1,11.8,0.3L512,41.2C498.9,40,485.8,39.4,472.6,39.4z"/>
     <path fill="#5d4037" d="M72.2,498.4l148.6-371.5c3.2-8,12.2-12,20.2-8.8c8,3.2,12,12.2,8.8,20.2L101.2,510c-3.2,8-12.2,12-20.2,8.8 C73,515.6,69,506.4,72.2,498.4z"/>
-    <rect fill="#8d6e63" x="145" y="270" width="16" height="58" transform="rotate(-68 153 299)"/>
-    <rect fill="#8d6e63" x="195" y="160" width="16" height="58" transform="rotate(-68 203 189)"/>
+    <rect fill="#8d6e63" x="145" y="270" width="16" height="58" transform="matrix(0.3746 -0.9272 0.9272 0.3746 -181.7 298.6)"/>
+    <rect fill="#8d6e63" x="195" y="160" width="16" height="58" transform="matrix(0.3746 -0.9272 0.9272 0.3746 -79.3 260.4)"/>
   </svg>`,
 
-  // Wheat Barley (svgrepo.com/show/211999)
-  wheat: `<svg viewBox="0 0 512 512">
+  // SVGRepo 211999: Wheat Barley
+  wheat: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
     <path fill="#5d4037" d="M256,502c-5.5,0-10-4.5-10-10V220c0-5.5,4.5-10,10-10s10,4.5,10,10v272C266,497.5,261.5,502,256,502z"/>
     <path fill="#ffb300" d="M256,190c-28,0-50-32-50-70s22-70,50-70s50,32,50,70S284,190,256,190z M256,70c-16.5,0-30,22.4-30,50s13.5,50,30,50s30-22.4,30-50S272.5,70,256,70z"/>
-    <path fill="#ffa000" d="M210,250c-26-10-40-44-30-76s40-50,66-40s40,44,30,76S236,260,210,250z"/>
-    <path fill="#ffb300" d="M302,250c26-10,40-44,30-76s-40-50-66-40s-40,44-30,76S276,260,302,250z"/>
-    <path fill="#ffa000" d="M200,320c-26-10-40-44-30-76s40-50,66-40s40,44,30,76S226,330,200,320z"/>
-    <path fill="#ffb300" d="M312,320c26-10,40-44,30-76s-40-50-66-40s-40,44-30,76S286,330,312,320z"/>
-    <path fill="#ffa000" d="M190,390c-26-10-40-44-30-76s40-50,66-40s40,44,30,76S216,400,190,390z"/>
-    <path fill="#ffb300" d="M322,390c26-10,40-44,30-76s-40-50-66-40s-40,44-30,76S296,400,322,390z"/>
+    <path fill="#ffa000" d="M210,250c-26-10-40-44-30-76s40-50,66-40s40,44,30,76S236,260,210,250z M240.2,153.8c-15.6-6-30.8,3.2-34.8,20.4s8.2,36,23.8,42s30.8-3.2,34.8-20.4S255.8,159.8,240.2,153.8z"/>
+    <path fill="#ffb300" d="M302,250c26-10,40-44,30-76s-40-50-66-40s-40,44-30,76S276,260,302,250z M271.8,153.8c15.6-6,30.8,3.2,34.8,20.4s-8.2,36-23.8,42s-30.8-3.2-34.8-20.4S256.2,159.8,271.8,153.8z"/>
+    <path fill="#ffa000" d="M200,320c-26-10-40-44-30-76s40-50,66-40s40,44,30,76S226,330,200,320z M230.2,223.8c-15.6-6-30.8,3.2-34.8,20.4s8.2,36,23.8,42s30.8-3.2,34.8-20.4S245.8,229.8,230.2,223.8z"/>
+    <path fill="#ffb300" d="M312,320c26-10,40-44,30-76s-40-50-66-40s-40,44-30,76S286,330,312,320z M281.8,223.8c15.6-6,30.8,3.2,34.8,20.4s-8.2,36-23.8,42s-30.8-3.2-34.8-20.4S266.2,229.8,281.8,223.8z"/>
+    <path fill="#ffa000" d="M190,390c-26-10-40-44-30-76s40-50,66-40s40,44,30,76S216,400,190,390z M220.2,293.8c-15.6-6-30.8,3.2-34.8,20.4s8.2,36,23.8,42s30.8-3.2,34.8-20.4S235.8,299.8,220.2,293.8z"/>
+    <path fill="#ffb300" d="M322,390c26-10,40-44,30-76s-40-50-66-40s-40,44-30,76S296,400,322,390z M291.8,293.8c15.6-6,30.8,3.2,34.8,20.4s-8.2,36-23.8,42s-30.8-3.2-34.8-20.4S276.2,299.8,291.8,293.8z"/>
     <line x1="256" y1="50" x2="256" y2="10" stroke="#ffb300" stroke-width="4"/>
     <line x1="180" y1="160" x2="130" y2="100" stroke="#ffb300" stroke-width="4"/>
     <line x1="332" y1="160" x2="382" y2="100" stroke="#ffb300" stroke-width="4"/>
   </svg>`,
 
-  // Traditional Turnip Lantern
-  turnip: `<svg viewBox="0 0 100 120">
+  // Authentic Turnip Lantern
+  turnip: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 120">
     <polygon points="50,12 82,34 96,72 68,112 32,112 4,72 18,34" fill="#a1887f"/>
-    <path d="M 50 12 C 45 -4, 30 -8, 25 -14 M 50 12 C 55 -6, 68 -6, 75 -12 M 50 12 L 50 -12" stroke="#689f38" stroke-width="3"/>
+    <path d="M 50 12 C 45 -4, 30 -8, 25 -14 M 50 12 C 55 -6, 68 -6, 75 -12 M 50 12 L 50 -12" stroke="#689f38" stroke-width="3" fill="none"/>
     <polygon points="26,44 44,58 26,62" fill="#ffab00"/>
     <polygon points="74,44 56,58 74,62" fill="#ffab00"/>
     <polygon points="50,62 56,74 44,74" fill="#ffab00"/>
@@ -238,7 +199,7 @@ export const RAW_SVGS = {
   </svg>`,
 
   // Wicker Man Effigy
-  wickerMan: `<svg viewBox="0 0 100 120">
+  wickerMan: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 120">
     <line x1="34" y1="118" x2="44" y2="72" stroke="#8d6e63" stroke-width="4"/>
     <line x1="66" y1="118" x2="56" y2="72" stroke="#8d6e63" stroke-width="4"/>
     <rect x="32" y="34" width="36" height="38" stroke="#8d6e63" stroke-width="3" fill="none"/>
@@ -250,8 +211,18 @@ export const RAW_SVGS = {
 };
 
 export const SHAPE_PAGES = [
-  // Page 1: Samhain Festival (Native SVG Implementations)
+  // Page 1: Samhain Festival
   [
+    {
+      id: "wheatBarley",
+      drawSVG: `<line x1="12" y1="22" x2="12" y2="10" stroke="#5d4037" stroke-width="2"/><path d="M12 10 C8 8, 8 4, 12 2 C16 4, 16 8, 12 10 Z" fill="#ffb300"/><circle cx="9" cy="13" r="2" fill="#ffb300"/><circle cx="15" cy="13" r="2" fill="#ffb300"/>`,
+      drawCanvas: (ctx, cx, cy) => {
+        ctx.strokeStyle = "#ffb300"; ctx.lineWidth = 2.5;
+        ctx.beginPath(); ctx.moveTo(cx, cy + 22); ctx.lineTo(cx, cy - 18); ctx.stroke();
+        for (let y = -14; y <= 10; y += 7) ctx.strokeRect(cx - 6, cy + y, 12, 5);
+      },
+      gen: (out, n, swatchOut) => compileSVGToDrones(RAW_SVGS.wheat, out, n, swatchOut, 0.062, 15.5)
+    },
     {
       id: "scytheAgriculture",
       drawSVG: `<path d="M4 20 L18 6 M18 6 C22 4, 24 9, 20 12" stroke="#e0f7fa" stroke-width="2"/><line x1="4" y1="20" x2="16" y2="8" stroke="#5d4037" stroke-width="3"/>`,
@@ -261,19 +232,7 @@ export const SHAPE_PAGES = [
         ctx.strokeStyle = "#e0f7fa"; ctx.lineWidth = 3.5;
         ctx.beginPath(); ctx.moveTo(cx + 10, cy - 14); ctx.bezierCurveTo(cx + 24, cy - 22, cx + 22, cy - 2, cx + 8, cy - 4); ctx.stroke();
       },
-      gen: (out, n, swatchOut) => parseAndSampleSVG(RAW_SVGS.scythe, out, n, swatchOut, 0.065, 16)
-    },
-    {
-      id: "wheatBarley",
-      drawSVG: `<line x1="12" y1="22" x2="12" y2="10" stroke="#5d4037" stroke-width="2"/><path d="M12 10 C8 8, 8 4, 12 2 C16 4, 16 8, 12 10 Z" fill="#ffb300"/><circle cx="9" cy="13" r="2" fill="#ffb300"/><circle cx="15" cy="13" r="2" fill="#ffb300"/>`,
-      drawCanvas: (ctx, cx, cy) => {
-        ctx.strokeStyle = "#ffb300"; ctx.lineWidth = 2.5;
-        ctx.beginPath(); ctx.moveTo(cx, cy + 22); ctx.lineTo(cx, cy - 18); ctx.stroke();
-        for (let y = -14; y <= 10; y += 7) {
-          ctx.strokeRect(cx - 6, cy + y, 12, 5);
-        }
-      },
-      gen: (out, n, swatchOut) => parseAndSampleSVG(RAW_SVGS.wheat, out, n, swatchOut, 0.065, 15)
+      gen: (out, n, swatchOut) => compileSVGToDrones(RAW_SVGS.scythe, out, n, swatchOut, 0.065, 16.5)
     },
     {
       id: "turnipLantern",
@@ -286,7 +245,7 @@ export const SHAPE_PAGES = [
         ctx.beginPath(); ctx.moveTo(cx - 9, cy - 6); ctx.lineTo(cx - 4, cy - 2); ctx.lineTo(cx - 10, cy + 2); ctx.fill();
         ctx.beginPath(); ctx.moveTo(cx + 9, cy - 6); ctx.lineTo(cx + 4, cy - 2); ctx.lineTo(cx + 10, cy + 2); ctx.fill();
       },
-      gen: (out, n, swatchOut) => parseAndSampleSVG(RAW_SVGS.turnip, out, n, swatchOut, 0.28, 16)
+      gen: (out, n, swatchOut) => compileSVGToDrones(RAW_SVGS.turnip, out, n, swatchOut, 0.28, 16.0)
     },
     {
       id: "wickerMan",
@@ -299,7 +258,7 @@ export const SHAPE_PAGES = [
         ctx.beginPath(); ctx.moveTo(cx - 22, cy - 6); ctx.lineTo(cx + 22, cy - 6); ctx.stroke();
         ctx.beginPath(); ctx.arc(cx, cy - 14, 5, 0, Math.PI * 2); ctx.stroke();
       },
-      gen: (out, n, swatchOut) => parseAndSampleSVG(RAW_SVGS.wickerMan, out, n, swatchOut, 0.28, 16)
+      gen: (out, n, swatchOut) => compileSVGToDrones(RAW_SVGS.wickerMan, out, n, swatchOut, 0.28, 16.0)
     }
   ]
 ];
