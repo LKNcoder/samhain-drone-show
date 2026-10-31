@@ -923,24 +923,23 @@ function evaluateTimeline(t) {
         if (b.isText) applyTextProceduralFX(b, showT - formStart, formationCount, localScratchPoints);
 
         // KINEMATIC: Waving Wheat into Scythe Cut (Scene 1)
-        if (b.shapeId === "wheatBarley") {
+   if (b.shapeId === "wheatBarley") {
           const tScene = showT - formStart;
           if (tScene < 9.0) {
-            // Phase 1: Waving in wind
+            // Coherent wind sway across the stalks without warping nodes
+            const sway = Math.sin(tScene * 2.2) * 1.2;
             for (let j = 0; j < formationCount; j++) {
-              const yNorm = Math.max(0, (localScratchPoints[j * 3 + 1] - 8) / 16);
-              localScratchPoints[j * 3] += Math.sin(tScene * 2.8 + localScratchPoints[j * 3] * 0.2) * (yNorm * yNorm) * 2.2;
+              const yNorm = Math.max(0, (localScratchPoints[j * 3 + 1] - 4) / 18);
+              localScratchPoints[j * 3] += sway * yNorm;
             }
           } else if (tScene < 13.5) {
-            // Phase 2: Scythe cuts through; stalks tumble and fall
+            // Cut stalks drop cleanly toward ground
             const cutProg = (tScene - 9.0) / 4.5;
             for (let j = 0; j < formationCount; j++) {
               const xPos = localScratchPoints[j * 3];
-              // Stalks fall sequentially as blade passes from right to left
-              if (xPos > (12 - cutProg * 26)) {
-                const tumble = Math.min(1.0, (cutProg - (12 - xPos) / 26) * 2.5);
-                localScratchPoints[j * 3]     += tumble * 3.5;
-                localScratchPoints[j * 3 + 1] -= tumble * 8.0; // Drop toward ground
+              if (xPos > (10 - cutProg * 22)) {
+                const drop = Math.min(1.0, (cutProg - (10 - xPos) / 22) * 2.0);
+                localScratchPoints[j * 3 + 1] -= drop * 7.5;
               }
             }
           }
@@ -1231,7 +1230,8 @@ function compileLoadedSVG() {
   const customSwatches = new Uint8Array(formationCount);
   const scale = parseFloat($("slider-import-scale").value);
 
-  parseAndSampleSVG(code, customPts, formationCount, customSwatches, scale, b.altitude || 16.0, true);
+  // Compile using Three.js SVGLoader
+  compileSVGToDrones(code, customPts, formationCount, customSwatches, scale, b.altitude || 16.0);
 
   b.customPoints = customPts;
   b.customSwatches = customSwatches;
