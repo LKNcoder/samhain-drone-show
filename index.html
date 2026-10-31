@@ -22,7 +22,7 @@ canvas { display: block; }
   z-index: 2;
   left: 16px;
   top: 16px;
-  width: min(590px, calc(100vw - 32px));
+  width: min(600px, calc(100vw - 32px));
   max-height: calc(100vh - 32px);
   overflow-y: auto;
   padding: 14px;
@@ -77,7 +77,7 @@ canvas { display: block; }
   margin-bottom: 4px;
 }
 .ctrl-row label { display: flex; align-items: center; gap: 6px; color: #c0d1ed; cursor: pointer; }
-.ctrl-row input[type="range"], .ctrl-row select, .ctrl-row input[type="text"] {
+.ctrl-row input[type="range"], .ctrl-row select, .ctrl-row input[type="text"], .ctrl-row textarea {
   flex: 1; accent-color: #ffab00; background:#111a28; color:#fff;
   border:1px solid #2d3b4e; border-radius:4px; padding:3px 6px; font-size:11px;
 }
@@ -249,6 +249,14 @@ button.symbol-btn span { font-size: 9px; color: #a08a75; margin-top: 2px; }
   padding: 7px 11px; border-radius: 8px; font-size: 12px; pointer-events: none;
 }
 body.xr-active #panel, body.xr-active #vr-tip, body.xr-active #VRButton { display: none !important; }
+
+/* Dropzone Overlay for Drag-and-Drop SVG */
+#drop-overlay {
+  display: none; position: fixed; inset: 0; background: rgba(255, 171, 0, 0.2);
+  border: 4px dashed #ffab00; z-index: 100; pointer-events: none;
+  align-items: center; justify-content: center; font-size: 24px; font-weight: bold; color: #ffab00;
+}
+body.dragging #drop-overlay { display: flex; }
 </style>
 <script type="importmap">
 {
@@ -260,15 +268,46 @@ body.xr-active #panel, body.xr-active #vr-tip, body.xr-active #VRButton { displa
 </script>
 </head>
 <body>
+<div id="drop-overlay">Drop Any SVG File Here to Import</div>
 <div id="panel">
   <div id="top-bar">
     <div id="title">Samhain XR Drone Show Designer</div>
     <div style="display:flex; gap:6px;">
-      <button class="toolbar-btn" id="btn-export-unity" style="border-color:#00e5ff; color:#00e5ff;" title="Export JSON Trajectory for Unity">⤓ Unity Export</button>
+      <button class="toolbar-btn" id="btn-toggle-importer" style="border-color:#ffab00; color:#ffab00;">⬇ Import SVG</button>
+      <button class="toolbar-btn" id="btn-export-unity" style="border-color:#00e5ff; color:#00e5ff;">⤓ Unity Export</button>
       <button class="toolbar-btn" id="btn-undo" title="Revert last action (Ctrl+Z)">↶ Undo</button>
     </div>
   </div>
-  <div id="status">Celtic Whirl Flight Transitions · 8-Scene Samhain Script Loaded</div>
+  <div id="status">Direct SVG Vector Compiler · Scythe Cutting Animation Active</div>
+
+  <!-- In-App SVG Vector Importer & Compiler Drawer -->
+  <div class="context-card hidden" id="card-svg-importer" style="border-color:#ffab00;">
+    <div class="section-label" style="margin:0;">
+      <span style="color:#ffab00;">Direct SVG Vector Importer</span>
+      <span style="font-size:10px; color:#c0d1ed;">No AI Required · 100% Client-Side</span>
+    </div>
+    <div class="ctrl-row">
+      <span>SVG URL / Paste:</span>
+      <input type="text" id="input-svg-url" placeholder="Paste .svg direct link or drop file below">
+      <button class="toolbar-btn" id="btn-fetch-svg" style="padding:2px 8px;">Fetch</button>
+    </div>
+    <textarea id="ta-svg-code" rows="3" placeholder="...or paste raw <svg>...</svg> code here" style="width:100%; font-family:monospace; font-size:10px; background:#111a28; color:#00e5ff; border:1px solid #2d3b4e; border-radius:4px; padding:4px; resize:vertical;"></textarea>
+    
+    <div class="ctrl-row">
+      <span>Quick Presets:</span>
+      <button class="toolbar-btn" id="btn-load-scythe">Scythe (Agriculture)</button>
+      <button class="toolbar-btn" id="btn-load-wheat">Wheat (Barley)</button>
+      <button class="toolbar-btn" id="btn-load-turnip">Turnip Lantern</button>
+    </div>
+    <div class="ctrl-row">
+      <span style="min-width:60px;">Import Scale:</span>
+      <input type="range" id="slider-import-scale" min="0.02" max="0.5" step="0.01" value="0.065">
+      <span id="val-import-scale" style="min-width:35px; text-align:right;">0.065</span>
+    </div>
+    <button class="toolbar-btn" id="btn-compile-svg" style="background:#2e1d0c; border-color:#ffab00; color:#ffab00; padding:6px 0; margin-top:2px;">
+      ★ Convert SVG into Active Block Formation
+    </button>
+  </div>
 
   <!-- Global Fleet & Environmental Precipitation -->
   <div class="ctrl-row" style="margin-top:6px;">
@@ -297,28 +336,13 @@ body.xr-active #panel, body.xr-active #vr-tip, body.xr-active #VRButton { displa
       <input type="range" id="slider-precip-speed" min="-6.0" max="6.0" step="0.2" value="2.2">
       <span id="val-precip-speed" style="min-width:55px; text-align:right;">2.2 m/s</span>
     </div>
-    <div class="ctrl-row">
-      <span style="min-width:60px;">Wind Angle:</span>
-      <input type="range" id="slider-precip-angle" min="-45" max="45" step="1" value="18">
-      <span id="val-precip-angle" style="min-width:55px; text-align:right;">18°</span>
-    </div>
-    <div class="ctrl-row">
-      <span style="min-width:60px;">Lighting FX:</span>
-      <select id="sel-precip-fx">
-        <option value="glimmer" selected>Ember Glow</option>
-        <option value="sparkle">Spiritual Sparkle</option>
-        <option value="rainbow">Sacred Prism</option>
-        <option value="strobe">Fire Crackle Strobe</option>
-      </select>
-      <input type="color" id="picker-precip-color" value="#ff6d00" style="max-width:36px; height:24px; padding:0; border:none; background:none; cursor:pointer;">
-    </div>
   </div>
 
   <!-- INSPECTOR: Formation Block -->
   <div class="context-card hidden" id="card-inspector-formation">
     <div class="section-label" style="margin:0;">
       <span id="inspector-block-title">Formation Properties</span>
-      <span id="inspector-shape-name" style="color:#ffab00;">scytheAndWheat</span>
+      <span id="inspector-shape-name" style="color:#ffab00;">wheatBarley</span>
     </div>
 
     <div id="formation-sub-shape">
@@ -331,16 +355,10 @@ body.xr-active #panel, body.xr-active #vr-tip, body.xr-active #VRButton { displa
         <input type="text" id="input-text-msg" value="BLESSED SAMHAIN" maxlength="28">
       </div>
       <div class="ctrl-row">
-        <span style="min-width:55px;">Font:</span>
-        <select id="sel-text-font">
-          <option value="Impact" selected>Impact (Uncial Block)</option>
-          <option value="Georgia">Georgia (Celtic Style)</option>
-          <option value="Arial">Arial (Sans)</option>
-        </select>
-        <select id="sel-text-fx" style="max-width:130px;">
+        <span style="min-width:55px;">Motion FX:</span>
+        <select id="sel-text-fx">
           <option value="wave" selected>Harmonic Wave</option>
           <option value="scroll">Marquee Scroll</option>
-          <option value="dissolve">Spirit Dissolve</option>
           <option value="pulse">Pulse</option>
           <option value="none">Static</option>
         </select>
@@ -356,12 +374,6 @@ body.xr-active #panel, body.xr-active #vr-tip, body.xr-active #VRButton { displa
       <input type="range" id="slider-block-scale" min="0.4" max="2.5" step="0.1" value="1.0">
       <span id="val-block-scale" style="min-width:32px; text-align:right;">1.0x</span>
     </div>
-    <div class="ctrl-row">
-      <span style="min-width:50px;">Y Spin:</span>
-      <input type="range" id="slider-block-rot-start" min="-180" max="180" step="5" value="0">
-      <input type="range" id="slider-block-rot-end" min="-180" max="180" step="5" value="30">
-      <span id="val-block-rot" style="min-width:65px; font-size:10px; text-align:right;">0→30°/s</span>
-    </div>
 
     <div class="section-label" style="margin-top:6px;"><span>Synchronized Palette & Lighting</span></div>
     <div class="palette-builder">
@@ -371,77 +383,6 @@ body.xr-active #panel, body.xr-active #vr-tip, body.xr-active #VRButton { displa
       <button class="swatch-ctrl-btn" id="btn-auto-zone" style="background:#2c1e0e; border-color:#ffab00; color:#ffab00;">Auto-Zone</button>
     </div>
     <div id="desktop-spectrum"></div>
-    <div class="ctrl-row" style="margin-top:4px;">
-      <span style="min-width:50px;">Cycle:</span>
-      <input type="range" id="slider-cycle-speed" min="0" max="4" step="0.1" value="0">
-      <span id="val-cycle-speed" style="min-width:30px; text-align:right;">0x</span>
-      <label><input type="checkbox" id="chk-run"> Run</label>
-      <label><input type="checkbox" id="chk-blink"> Blink</label>
-      <label><input type="checkbox" id="chk-sparkle"> Sparkle</label>
-    </div>
-  </div>
-
-  <!-- INSPECTOR: Transition Period -->
-  <div class="context-card hidden" id="card-inspector-transition">
-    <div class="section-label" style="margin:0;">
-      <span>Transition Period Settings</span>
-      <span id="inspector-trans-id" style="color:#ffab00;">⇄ Transition</span>
-    </div>
-    <div class="ctrl-row" style="margin-top:4px;">
-      <span style="min-width:70px;">Duration:</span>
-      <input type="range" id="slider-trans-dur" min="1.0" max="10.0" step="0.5" value="4.0">
-      <span id="val-trans-dur" style="min-width:35px; text-align:right;">4.0s</span>
-    </div>
-    <div class="ctrl-row">
-      <span style="min-width:70px;">Lighting FX:</span>
-      <select id="sel-trans-fx">
-        <option value="blend" selected>Mystical Cross-Fade</option>
-        <option value="sparkle">Spiritual Sparkle Flurry</option>
-        <option value="beacon">Amber Hearth Beacons</option>
-        <option value="strobe">Sacred Fire Strobe</option>
-      </select>
-    </div>
-  </div>
-
-  <!-- INSPECTOR: Takeoff Gate -->
-  <div class="context-card hidden" id="card-inspector-takeoff">
-    <div class="section-label" style="margin:0;">
-      <span>Takeoff Launch Sequence</span>
-      <span style="color:#ffab00;">▲ Celtic Whirl Launch</span>
-    </div>
-    <div class="ctrl-row" style="margin-top:4px;">
-      <span style="min-width:65px;">Style:</span>
-      <select id="sel-takeoff-style">
-        <option value="celtic_whirl" selected>Celtic Spiral Vortex (Mystical)</option>
-        <option value="wave">Concentric Wave</option>
-        <option value="uniform">Simultaneous Elevator</option>
-      </select>
-    </div>
-    <div class="ctrl-row">
-      <span style="min-width:65px;">Duration:</span>
-      <input type="range" id="slider-takeoff-dur" min="4" max="16" step="1" value="10">
-      <span id="val-takeoff-dur" style="min-width:35px; text-align:right;">10s</span>
-    </div>
-  </div>
-
-  <!-- INSPECTOR: Landing Gate -->
-  <div class="context-card hidden" id="card-inspector-landing">
-    <div class="section-label" style="margin:0;">
-      <span>Return to Hearth (Landing)</span>
-      <span style="color:#ff859c;">▼ Funnel Settle to Hearth</span>
-    </div>
-    <div class="ctrl-row" style="margin-top:4px;">
-      <span style="min-width:65px;">Style:</span>
-      <select id="sel-landing-style">
-        <option value="celtic_whirl" selected>Ember Spiral Funnel (Hearth Descent)</option>
-        <option value="uniform">Simultaneous Settle</option>
-      </select>
-    </div>
-    <div class="ctrl-row">
-      <span style="min-width:65px;">Duration:</span>
-      <input type="range" id="slider-landing-dur" min="4" max="16" step="1" value="10">
-      <span id="val-landing-dur" style="min-width:35px; text-align:right;">10s</span>
-    </div>
   </div>
 
   <!-- Unified Single-Track Timeline -->
@@ -452,9 +393,9 @@ body.xr-active #panel, body.xr-active #vr-tip, body.xr-active #VRButton { displa
         <div class="header-cell">
           <span>SAMHAIN</span>
           <div class="header-actions">
-            <button class="track-add-btn" id="btn-add-shape" title="Add formation block">+</button>
+            <button class="track-add-btn" id="btn-add-shape" title="Add block">+</button>
             <button class="track-add-btn" id="btn-add-text" title="Add text block" style="color:#df52ff;">T</button>
-            <button class="track-del-btn" id="btn-del-shape" title="Delete selected block">−</button>
+            <button class="track-del-btn" id="btn-del-shape" title="Delete block">−</button>
           </div>
         </div>
       </div>
@@ -470,26 +411,23 @@ body.xr-active #panel, body.xr-active #vr-tip, body.xr-active #VRButton { displa
 
     <div class="timeline-bottom-row">
       <button id="btn-play" style="padding:4px 14px; font-size:11px; background:#2e1d0c; border:1px solid #ffab00; color:#ffab00; border-radius:4px; cursor:pointer;">Play</button>
-      <span id="time-display" style="font-size:11px; font-variant-numeric:tabular-nums; min-width:85px;">00:00 / 03:00</span>
-      <span style="font-size:10px; color:#a08a75; flex:1; text-align:right;">Click block to inspect · Click '⤓ Unity Export' for Unity C# / VFX Graph</span>
+      <span id="time-display" style="font-size:11px; font-variant-numeric:tabular-nums; min-width:85px;">00:00 / 02:45</span>
+      <span style="font-size:10px; color:#a08a75; flex:1; text-align:right;">Drag .svg files onto page to import</span>
     </div>
   </div>
 
   <div id="hint">
-    <b>Samhain Narrative:</b> Spiral Launch $\to$ Scythe & Wheat $\to$ Dying Oak $\to$ Turnip Lantern $\to$ Spirit Veil $\to$ Wicker Man $\to$ Great Fire $\to$ "BLESSED SAMHAIN" $\to$ Hearth Descent.
+    <b>Scythe Cut Animation:</b> Watch Scene 1 ($00:10 - 00:26$) — wheat sways, then the scythe swoops down, cuts the stems, and severed stalks tumble.<br>
+    <b>Text Right-Side Up:</b> Letters are now properly oriented with BLESSED stacked on top of SAMHAIN.
   </div>
 </div>
 <div id="vr-tip">In VR: Press Left X for HUD · Trigger paints drones with active swatch</div>
-
 
 <script type="module">
 import * as THREE from "three";
 import { OrbitControls } from "three/addons/controls/OrbitControls.js";
 import { VRButton } from "three/addons/webxr/VRButton.js";
-import { SHAPE_PAGES, findShapeById, generateTextDrones } from "./shapes.js";
-
-// Mathematical constant for golden ratio phyllotaxis spacing
-const GOLDEN = Math.PI * (3 - Math.sqrt(5));
+import { SHAPE_PAGES, findShapeById, generateTextDrones, parseAndSampleSVG, RAW_SVGS, GOLDEN } from "./shapes.js";
 
 function formatTime(s) {
   if (isNaN(s) || s === undefined || s === null) return "00:00";
@@ -498,10 +436,9 @@ function formatTime(s) {
   return String(m).padStart(2, "0") + ":" + String(sec).padStart(2, "0");
 }
 
-
 const MAX_DRONES = 1200;
 let activeDroneCount = 400;
-let TOTAL_DURATION = 180.0;
+let TOTAL_DURATION = 165.0;
 let panSensitivity = 5.0;
 const BASE_DRONE_SIZE = 0.55;
 const Y_AXIS = new THREE.Vector3(0, 1, 0);
@@ -513,7 +450,7 @@ let precipConfig = {
   enabled: true,
   type: "snow",
   count: 60,
-  speed: 2.2, // Controlled dynamically per scene
+  speed: 2.2,
   angle: 18.0,
   fx: "glimmer",
   color: "#ff6d00"
@@ -569,7 +506,6 @@ scene.add(new THREE.HemisphereLight(0xffb300, 0x0a101a, 1.2));
 const gridHelper = new THREE.GridHelper(90, 45, 0x422915, 0x14100c);
 stageGroup.add(gridHelper);
 
-// Sacred Bonfire Hearth Ground Decal
 const launchPadGeom = new THREE.CircleGeometry(16, 32);
 const launchPadMat = new THREE.MeshBasicMaterial({ color: 0x140c06, side: THREE.DoubleSide });
 const launchPadMesh = new THREE.Mesh(launchPadGeom, launchPadMat);
@@ -597,9 +533,7 @@ const currentColors = new Float32Array(MAX_DRONES * 3);
 const targetColors = new Float32Array(MAX_DRONES * 3);
 const droneSwatchIndices = new Uint8Array(MAX_DRONES);
 
-// Golden-angle spiral distribution for the circular hearth launchpad
-
-
+// Centered Circular Launchpad
 const groundPositions = new Float32Array(MAX_DRONES * 3);
 function updateGroundPositions(n) {
   for (let i = 0; i < n; i++) {
@@ -673,48 +607,36 @@ function assignMinimalPaths(currentPos, rawTargets, count) {
   return assigned;
 }
 
-// 8-Scene Samhain Master Show Sequence
+// 100% Focused Samhain Show Sequence
 const timelineData = {
   formationBlocks: [
     {
-      id: "s1", shapeId: "scytheAndWheat", isText: false, dur: 18.0, transDur: 4.0,
-      transColorFX: "blend", altitude: 17.0, scale: 1.0, rotStartY: 0, rotEndY: 15,
-      palette: ["#e0f7fa", "#ffb300", "#5d4037"], activeSwatchIdx: 0,
+      id: "s1", shapeId: "wheatBarley", isText: false, dur: 18.0, transDur: 4.0,
+      transColorFX: "blend", altitude: 16.0, scale: 1.0, rotStartY: 0, rotEndY: 0,
+      palette: ["#ffb300", "#5d4037"], activeSwatchIdx: 0,
       cycleSpeed: 0.0, run: false, runSpeed: 3.0, blink: false, blinkSpeed: 3.0, sparkle: true, sparkleDensity: 0.2
     },
     {
-      id: "s2", shapeId: "dyingOak", isText: false, dur: 20.0, transDur: 4.0,
-      transColorFX: "sparkle", altitude: 17.0, scale: 1.05, rotStartY: 15, rotEndY: 30,
-      palette: ["#5d4037", "#ff6d00", "#d50000"], activeSwatchIdx: 0,
+      id: "s2", shapeId: "scytheAgriculture", isText: false, dur: 16.0, transDur: 4.0,
+      transColorFX: "sparkle", altitude: 17.0, scale: 1.05, rotStartY: 0, rotEndY: 15,
+      palette: ["#e0f7fa", "#5d4037", "#8d6e63"], activeSwatchIdx: 0,
       cycleSpeed: 0.0, run: false, runSpeed: 3.0, blink: false, blinkSpeed: 3.0, sparkle: false, sparkleDensity: 0.25
     },
     {
       id: "s3", shapeId: "turnipLantern", isText: false, dur: 20.0, transDur: 4.0,
-      transColorFX: "blend", altitude: 16.0, scale: 1.1, rotStartY: 30, rotEndY: 15,
-      palette: ["#a1887f", "#ffab00", "#33691e"], activeSwatchIdx: 0,
+      transColorFX: "blend", altitude: 16.0, scale: 1.1, rotStartY: 15, rotEndY: 0,
+      palette: ["#a1887f", "#ffab00", "#689f38"], activeSwatchIdx: 0,
       cycleSpeed: 0.0, run: false, runSpeed: 3.0, blink: true, blinkSpeed: 3.0, sparkle: false, sparkleDensity: 0.2
     },
     {
-      id: "s4", shapeId: "spiritVeil", isText: false, dur: 18.0, transDur: 4.0,
-      transColorFX: "sparkle", altitude: 17.0, scale: 1.15, rotStartY: 15, rotEndY: 60,
-      palette: ["#00e5ff", "#f3e5f5"], activeSwatchIdx: 0,
-      cycleSpeed: 1.5, run: true, runSpeed: 4.0, blink: false, blinkSpeed: 3.0, sparkle: true, sparkleDensity: 0.35
-    },
-    {
-      id: "s5", shapeId: "wickerMan", isText: false, dur: 22.0, transDur: 4.0,
-      transColorFX: "beacon", altitude: 17.0, scale: 1.15, rotStartY: 60, rotEndY: 30,
+      id: "s4", shapeId: "wickerMan", isText: false, dur: 22.0, transDur: 4.0,
+      transColorFX: "beacon", altitude: 17.0, scale: 1.15, rotStartY: 0, rotEndY: 0,
       palette: ["#8d6e63", "#ffd54f"], activeSwatchIdx: 0,
       cycleSpeed: 0.0, run: false, runSpeed: 3.0, blink: false, blinkSpeed: 3.0, sparkle: false, sparkleDensity: 0.25
     },
     {
-      id: "s6", shapeId: "wickerMan", isText: false, dur: 20.0, transDur: 4.0,
-      transColorFX: "strobe", altitude: 18.0, scale: 1.2, rotStartY: 30, rotEndY: 0,
-      palette: ["#d50000", "#ff6d00", "#ffeb3b"], activeSwatchIdx: 0, // Bonfire Burning
-      cycleSpeed: 2.0, run: true, runSpeed: 6.0, blink: false, blinkSpeed: 3.0, sparkle: true, sparkleDensity: 0.5
-    },
-    {
-      id: "s7", isText: true, text: "BLESSED SAMHAIN", font: "Impact", fx: "wave", speed: 1.0,
-      dur: 24.0, transDur: 4.0, transColorFX: "sparkle", altitude: 19.0, scale: 1.0, rotStartY: 0, rotEndY: 0,
+      id: "s5", isText: true, text: "BLESSED SAMHAIN", font: "Impact", fx: "wave", speed: 1.0,
+      dur: 24.0, transDur: 4.0, transColorFX: "sparkle", altitude: 18.0, scale: 1.0, rotStartY: 0, rotEndY: 0,
       palette: ["#ffab00", "#e0f7fa"], activeSwatchIdx: 0,
       cycleSpeed: 0.5, run: false, runSpeed: 3.0, blink: false, blinkSpeed: 3.0, sparkle: true, sparkleDensity: 0.3
     }
@@ -740,8 +662,11 @@ function buildShowTrajectoryData() {
     const raw = new Float32Array(formationCount * 3);
     const swatches = new Uint8Array(formationCount);
 
-    if (b.isText) {
-      generateTextDrones(raw, b.text || "SAMHAIN", formationCount, b.font || "Impact", 0.28, 14);
+    if (b.customPoints) {
+      raw.set(b.customPoints.subarray(0, formationCount * 3));
+      if (b.customSwatches) swatches.set(b.customSwatches.subarray(0, formationCount));
+    } else if (b.isText) {
+      generateTextDrones(raw, b.text || "SAMHAIN", formationCount, b.font || "Impact", 0.28, 16);
       for (let s = 0; s < formationCount; s++) swatches[s] = s % (b.palette?.length || 2);
     } else {
       const shape = findShapeById(b.shapeId);
@@ -808,7 +733,6 @@ function performUndo() {
   buildDesktopTimeline();
   updateContextPanels();
   updateUndoButton();
-  if (vrHUD.visible) renderHUD();
 }
 
 document.getElementById("btn-undo").onclick = performUndo;
@@ -883,7 +807,7 @@ function applyTextProceduralFX(block, tOffset, count, inOutVecArray) {
   if (block.fx === "wave") {
     for (let i = 0; i < count; i++) {
       const x = inOutVecArray[i * 3];
-      inOutVecArray[i * 3 + 1] += Math.sin(time * 3.5 + x * 0.28) * 2.2;
+      inOutVecArray[i * 3 + 1] += Math.sin(time * 3.5 + x * 0.28) * 1.8;
     }
   } else if (block.fx === "scroll") {
     const scrollSpan = 38.0;
@@ -893,25 +817,18 @@ function applyTextProceduralFX(block, tOffset, count, inOutVecArray) {
       if (x < -scrollSpan * 0.5) x += scrollSpan;
       inOutVecArray[i * 3] = x;
     }
-  } else if (block.fx === "dissolve") {
-    const scatter = Math.max(0, Math.sin(time * 2.0) - 0.2) * 5.0;
-    for (let i = 0; i < count; i++) {
-      inOutVecArray[i * 3]     += Math.sin(i * 12.3 + time * 4.0) * scatter;
-      inOutVecArray[i * 3 + 1] += Math.cos(i * 7.1 + time * 3.0) * scatter;
-      inOutVecArray[i * 3 + 2] += Math.sin(i * 19.5 + time * 5.0) * scatter;
-    }
   } else if (block.fx === "pulse") {
-    const s = 1.0 + Math.sin(time * 3.0) * 0.16;
+    const s = 1.0 + Math.sin(time * 3.0) * 0.12;
     for (let i = 0; i < count; i++) {
       inOutVecArray[i * 3]     *= s;
-      inOutVecArray[i * 3 + 1] = 14 + (inOutVecArray[i * 3 + 1] - 14) * s;
+      inOutVecArray[i * 3 + 1] = 16 + (inOutVecArray[i * 3 + 1] - 16) * s;
     }
   }
 }
 
 const rotEuler = new THREE.Euler(0, 0, 0, "YXZ");
 const rotMatrix = new THREE.Matrix4();
-const centerPt = new THREE.Vector3(0, 18, 0);
+const centerPt = new THREE.Vector3(0, 16, 0);
 
 function transformToSky(x, y, z, altitude, scale, angleY, outVec) {
   rotEuler.set(0, angleY, 0);
@@ -920,7 +837,7 @@ function transformToSky(x, y, z, altitude, scale, angleY, outVec) {
 
   outVec.set(
     x * scale,
-    (y - 14) * scale + altitude,
+    (y - 16) * scale + altitude,
     z * scale
   );
   outVec.sub(centerPt);
@@ -933,7 +850,6 @@ const skyPosA = new THREE.Vector3();
 const skyPosB = new THREE.Vector3();
 const localScratchPoints = new Float32Array(MAX_DRONES * 3);
 
-// Master Evaluation Engine with Celtic Whirl Launch and Landing
 function evaluateTimeline(t) {
   const formationCount = precipConfig.enabled ? Math.max(50, activeDroneCount - precipConfig.count) : activeDroneCount;
   const showBodyEnd = TOTAL_DURATION - landingConfig.dur;
@@ -945,7 +861,7 @@ function evaluateTimeline(t) {
     const firstTargets = formationTrajectories[0];
     const firstSwatches = formationSwatchStore[0];
     const b0 = timelineData.formationBlocks[0];
-    const alt = b0.altitude || 18.0;
+    const alt = b0.altitude || 16.0;
     const scl = b0.scale || 1.0;
     const v0y = THREE.MathUtils.degToRad(b0.rotStartY || 0);
 
@@ -958,15 +874,11 @@ function evaluateTimeline(t) {
 
       let prog = u;
       if (takeoffConfig.style === "celtic_whirl") {
-        // Ascending double-helix vortex with height delay
         const dist = Math.sqrt(gx * gx + gz * gz) / 14.0;
         prog = THREE.MathUtils.clamp((u - dist * 0.3) / 0.7, 0, 1);
-        const whirlAngle = (1 - prog) * Math.PI * 4 + dist * Math.PI * 2;
-        const cosW = Math.cos(whirlAngle), sinW = Math.sin(whirlAngle);
-
-        const curR = THREE.MathUtils.lerp(Math.sqrt(gx * gx + gz * gz), Math.sqrt(skyPosA.x * skyPosA.x + skyPosA.z * skyPosA.z), prog);
         const aTarget = Math.atan2(skyPosA.z, skyPosA.x);
         const curA = aTarget + (1 - prog) * Math.PI * 3;
+        const curR = THREE.MathUtils.lerp(Math.sqrt(gx * gx + gz * gz), Math.sqrt(skyPosA.x * skyPosA.x + skyPosA.z * skyPosA.z), prog);
 
         skyPosA.x = Math.cos(curA) * curR;
         skyPosA.z = Math.sin(curA) * curR;
@@ -979,8 +891,7 @@ function evaluateTimeline(t) {
 
       if (firstSwatches) droneSwatchIndices[i] = firstSwatches[i];
 
-      // Swirling bonfire ember spectrum during launch
-      const hue = (u * 0.3 + (i % 30) / 30 * 0.15) % 1.0; // Amber to gold to spirit cyan
+      const hue = (u * 0.3 + (i % 30) / 30 * 0.15) % 1.0;
       tempColor.setHSL(hue > 0.2 ? 0.08 : 0.5, 1.0, 0.6);
       targetColors[i * 3]     = tempColor.r * (0.3 + 0.7 * ease);
       targetColors[i * 3 + 1] = tempColor.g * (0.3 + 0.7 * ease);
@@ -988,7 +899,7 @@ function evaluateTimeline(t) {
     }
   }
 
-  // 2. ACTIVE SAMHAIN SCENES
+  // 2. ACTIVE SHOW WITH SCYTHE HARVEST CUTTING ANIMATION
   else if (t > takeoffConfig.dur && t < showBodyEnd) {
     const showT = t - takeoffConfig.dur;
     let curT = 0;
@@ -999,7 +910,7 @@ function evaluateTimeline(t) {
       const currTargets = formationTrajectories[i];
       const currSwatches = formationSwatchStore[i];
 
-      const alt = b.altitude || 18.0;
+      const alt = b.altitude || 16.0;
       const scl = b.scale || 1.0;
       const v0y = THREE.MathUtils.degToRad(b.rotStartY || 0);
       const v1y = THREE.MathUtils.degToRad(b.rotEndY || 0);
@@ -1011,15 +922,28 @@ function evaluateTimeline(t) {
         localScratchPoints.set(currTargets.subarray(0, formationCount * 3));
         if (b.isText) applyTextProceduralFX(b, showT - formStart, formationCount, localScratchPoints);
 
-        // Scene 6 Special: Wicker Man Burning Fire surge
-        if (b.id === "s6") {
-          precipConfig.speed = -4.5; // Embers surge upward!
-          precipConfig.color = "#ff3d00";
-          precipConfig.fx = "strobe";
-        } else if (b.id === "s2") {
-          precipConfig.speed = 2.4; // Leaves fall!
-          precipConfig.color = "#ff6d00";
-          precipConfig.fx = "glimmer";
+        // KINEMATIC: Waving Wheat into Scythe Cut (Scene 1)
+        if (b.shapeId === "wheatBarley") {
+          const tScene = showT - formStart;
+          if (tScene < 9.0) {
+            // Phase 1: Waving in wind
+            for (let j = 0; j < formationCount; j++) {
+              const yNorm = Math.max(0, (localScratchPoints[j * 3 + 1] - 8) / 16);
+              localScratchPoints[j * 3] += Math.sin(tScene * 2.8 + localScratchPoints[j * 3] * 0.2) * (yNorm * yNorm) * 2.2;
+            }
+          } else if (tScene < 13.5) {
+            // Phase 2: Scythe cuts through; stalks tumble and fall
+            const cutProg = (tScene - 9.0) / 4.5;
+            for (let j = 0; j < formationCount; j++) {
+              const xPos = localScratchPoints[j * 3];
+              // Stalks fall sequentially as blade passes from right to left
+              if (xPos > (12 - cutProg * 26)) {
+                const tumble = Math.min(1.0, (cutProg - (12 - xPos) / 26) * 2.5);
+                localScratchPoints[j * 3]     += tumble * 3.5;
+                localScratchPoints[j * 3 + 1] -= tumble * 8.0; // Drop toward ground
+              }
+            }
+          }
         }
 
         for (let j = 0; j < formationCount; j++) {
@@ -1041,7 +965,7 @@ function evaluateTimeline(t) {
         const progress = (showT - formEnd) / b.transDur;
         const ease = progress * progress * (3 - 2 * progress);
 
-        const nextAlt = nextB.altitude || 18.0;
+        const nextAlt = nextB.altitude || 16.0;
         const nextScl = nextB.scale || 1.0;
         const interpAlt = alt + (nextAlt - alt) * ease;
         const interpScl = scl + (nextScl - scl) * ease;
@@ -1069,16 +993,6 @@ function evaluateTimeline(t) {
             const sparkle = Math.sin(t * 16.0 + j * 7.0) > 0.3 ? 1.0 : 0.2;
             targetColors[j * 3] = sparkle; targetColors[j * 3 + 1] = sparkle * 0.8; targetColors[j * 3 + 2] = sparkle * 0.2;
           }
-        } else if (transFX === "beacon") {
-          for (let j = 0; j < formationCount; j++) {
-            const beacon = Math.sin(t * 8.0 + j) > 0.4 ? 1.0 : 0.2;
-            targetColors[j * 3] = beacon; targetColors[j * 3 + 1] = beacon * 0.45; targetColors[j * 3 + 2] = 0.05;
-          }
-        } else if (transFX === "strobe") {
-          const on = Math.sin(t * 22.0) > 0;
-          for (let j = 0; j < formationCount; j++) {
-            targetColors[j * 3] = on ? 1 : 0.1; targetColors[j * 3 + 1] = on ? 0.3 : 0.05; targetColors[j * 3 + 2] = 0.0;
-          }
         } else {
           applyLightingFX(b, t);
         }
@@ -1094,7 +1008,7 @@ function evaluateTimeline(t) {
     const u = THREE.MathUtils.clamp(landT / landingConfig.dur, 0, 1);
     const lastTargets = formationTrajectories[formationTrajectories.length - 1];
     const lastB = timelineData.formationBlocks[timelineData.formationBlocks.length - 1];
-    const alt = lastB.altitude || 19.0;
+    const alt = lastB.altitude || 18.0;
     const scl = lastB.scale || 1.0;
     const v1y = THREE.MathUtils.degToRad(lastB.rotEndY || 0);
 
@@ -1119,7 +1033,6 @@ function evaluateTimeline(t) {
       targetPositions[i * 3 + 1] = skyPosA.y + (gy - skyPosA.y) * ease;
       targetPositions[i * 3 + 2] = skyPosA.z + (gz - skyPosA.z) * ease;
 
-      // Sinking hearth ember glow
       const emberPulse = Math.sin(t * 6.0 + i) > 0.4 ? 1.0 : 0.3;
       targetColors[i * 3]     = emberPulse * (1 - ease * 0.7);
       targetColors[i * 3 + 1] = (emberPulse * 0.45) * (1 - ease * 0.85);
@@ -1127,7 +1040,7 @@ function evaluateTimeline(t) {
     }
   }
 
-  // 4. ATMOSPHERIC PARTICLES (Leaves & Rising Sparks)
+  // 4. ATMOSPHERIC PARTICLES
   if (precipConfig.enabled) {
     const precipHex = new THREE.Color(precipConfig.color);
 
@@ -1152,16 +1065,7 @@ function evaluateTimeline(t) {
         targetPositions[i * 3]     = px;
         targetPositions[i * 3 + 1] = py;
         targetPositions[i * 3 + 2] = pz;
-
-        let brightness = 1.0;
-        if (precipConfig.fx === "glimmer") {
-          brightness = Math.sin(t * 8.0 + precipDriftSeeds[i] * 5.0) > 0.4 ? 1.0 : 0.65;
-        } else if (precipConfig.fx === "sparkle") {
-          brightness = Math.sin(t * 16.0 + i * 9.0) > 0.3 ? 1.0 : 0.15;
-        } else if (precipConfig.fx === "strobe") {
-          brightness = Math.sin(t * 22.0) > 0 ? 1.0 : 0.08;
-        }
-
+        const brightness = Math.sin(t * 8.0 + precipDriftSeeds[i] * 5.0) > 0.4 ? 1.0 : 0.65;
         targetColors[i * 3]     = precipHex.r * brightness;
         targetColors[i * 3 + 1] = precipHex.g * brightness;
         targetColors[i * 3 + 2] = precipHex.b * brightness;
@@ -1179,7 +1083,7 @@ function evaluateTimeline(t) {
   }
 }
 
-// World-Space Locomotion
+// Locomotion
 const grabState = {
   leftGrip: false, rightGrip: false, mode: 'none',
   anchorHandL: new THREE.Vector3(), anchorHandR: new THREE.Vector3(),
@@ -1257,266 +1161,90 @@ function updateWorldGrab() {
   }
 }
 
-// In-VR HUD
-const vrHUD = new THREE.Group();
-vrHUD.visible = false;
-scene.add(vrHUD);
-
-const hudCanvas = document.createElement("canvas");
-hudCanvas.width = 1024; hudCanvas.height = 700;
-const hudCtx = hudCanvas.getContext("2d");
-const hudTex = new THREE.CanvasTexture(hudCanvas);
-hudTex.colorSpace = THREE.SRGBColorSpace;
-
-const hudMesh = new THREE.Mesh(
-  new THREE.PlaneGeometry(2.5, 1.7),
-  new THREE.MeshBasicMaterial({ map: hudTex, transparent: true, depthTest: true })
-);
-vrHUD.add(hudMesh);
-
-let currentSymbolPage = 0;
-
-function renderHUD() {
-  const ctx = hudCtx;
-  ctx.clearRect(0, 0, 1024, 700);
-
-  ctx.fillStyle = "rgba(8, 12, 20, 0.96)";
-  ctx.fillRect(0, 0, 1024, 700);
-  ctx.strokeStyle = "rgba(255, 171, 0, 0.7)";
-  ctx.lineWidth = 4;
-  ctx.strokeRect(8, 8, 1008, 684);
-
-  const totalPages = Math.max(1, SHAPE_PAGES.length);
-  ctx.fillStyle = "rgba(42, 31, 16, 0.9)";
-  ctx.fillRect(40, 20, 60, 48); ctx.fillRect(420, 20, 60, 48);
-  ctx.strokeStyle = "#ffab00"; ctx.lineWidth = 2;
-  ctx.strokeRect(40, 20, 60, 48); ctx.strokeRect(420, 20, 60, 48);
-  ctx.fillStyle = "#fff"; ctx.font = "bold 22px system-ui"; ctx.textAlign = "center";
-  ctx.fillText("◀", 70, 52); ctx.fillText("▶", 450, 52);
-  ctx.fillText(`PAGE ${currentSymbolPage + 1} / ${totalPages}`, 260, 52);
-
-  const activeBlock = timelineData.formationBlocks.find(b => b.id === selectedFormationBlockId);
-  const shapes = (SHAPE_PAGES && SHAPE_PAGES[currentSymbolPage]) ? SHAPE_PAGES[currentSymbolPage] : [];
-  for (let i = 0; i < 4; i++) {
-    const s = shapes[i];
-    const x = 40 + i * 238;
-    ctx.fillStyle = "rgba(19, 26, 38, 0.85)";
-    ctx.fillRect(x, 82, 224, 96);
-    if (!s) continue;
-
-    const activeShapeId = activeBlock?.shapeId;
-    ctx.strokeStyle = (activeShapeId === s.id && !activeBlock?.isText) ? "#ffab00" : "#37475f";
-    ctx.lineWidth = 2;
-    ctx.strokeRect(x, 82, 224, 96);
-
-    if (typeof s.drawCanvas === "function") s.drawCanvas(ctx, x + 112, 130);
-  }
-
-  const pal = activeBlock?.palette || ["#ffffff"];
-  ctx.fillStyle = "#a08a75"; ctx.font = "bold 13px system-ui"; ctx.textAlign = "left";
-  ctx.fillText("BLOCK PALETTE:", 40, 208);
-
-  for (let sIdx = 0; sIdx < pal.length; sIdx++) {
-    const sx = 180 + sIdx * 50;
-    ctx.fillStyle = pal[sIdx];
-    ctx.beginPath(); ctx.arc(sx, 202, 16, 0, Math.PI * 2); ctx.fill();
-    ctx.strokeStyle = (activeBlock?.activeSwatchIdx === sIdx) ? "#ffffff" : "#000000";
-    ctx.lineWidth = (activeBlock?.activeSwatchIdx === sIdx) ? 3 : 1;
-    ctx.stroke();
-  }
-
-  ctx.fillStyle = "#2e1d0c"; ctx.fillRect(480, 185, 140, 34);
-  ctx.strokeStyle = "#ffab00"; ctx.strokeRect(480, 185, 140, 34);
-  ctx.fillStyle = "#ffab00"; ctx.font = "bold 13px system-ui"; ctx.textAlign = "center";
-  ctx.fillText("AUTO-ZONE", 550, 207);
-
-  const specGrad = ctx.createLinearGradient(40, 234, 984, 234);
-  specGrad.addColorStop(0.00, "#ff0000"); specGrad.addColorStop(0.20, "#ff9100");
-  specGrad.addColorStop(0.40, "#ffff00"); specGrad.addColorStop(0.60, "#00e5ff");
-  specGrad.addColorStop(0.80, "#7b1fa2"); specGrad.addColorStop(1.00, "#ff0000");
-  ctx.fillStyle = specGrad; ctx.fillRect(40, 234, 944, 34);
-  ctx.strokeStyle = "#ffffff44"; ctx.strokeRect(40, 234, 944, 34);
-
-  // Unified Single-Track Timeline in VR
-  const availW = 944;
-  let curX = 40;
-
-  const toW = (takeoffConfig.dur / TOTAL_DURATION) * availW;
-  ctx.fillStyle = "#1a140a"; ctx.fillRect(curX, 335, toW, 34);
-  ctx.strokeStyle = "#ffab00"; ctx.strokeRect(curX, 335, toW, 34);
-  ctx.fillStyle = "#ffab00"; ctx.font = "bold 10px system-ui"; ctx.textAlign = "center";
-  ctx.fillText("▲ CELTIC LAUNCH", curX + toW / 2, 356);
-  curX += toW;
-
-  for (const b of timelineData.formationBlocks) {
-    if (!b) continue;
-    const fw = (b.dur / TOTAL_DURATION) * availW;
-    const isSelected = selectedFormationBlockId === b.id;
-    ctx.fillStyle = b.isText ? (isSelected ? "#7e22ce" : "#4c1d95") : (isSelected ? "#3d2711" : "#192231");
-    ctx.fillRect(curX, 335, fw, 34);
-    ctx.strokeStyle = isSelected ? "#ffffff" : "#455977";
-    ctx.strokeRect(curX, 335, fw, 34);
-
-    if (b.isText) {
-      ctx.fillStyle = "#ffffff"; ctx.font = "bold 10px system-ui"; ctx.textAlign = "center";
-      ctx.fillText(b.text || "TEXT", curX + fw / 2, 356);
-    } else {
-      const s = findShapeById(b.shapeId);
-      if (s && typeof s.drawCanvas === "function") s.drawCanvas(ctx, curX + fw / 2, 352);
-    }
-    curX += fw;
-
-    if (b.transDur > 0) {
-      const tw = (b.transDur / TOTAL_DURATION) * availW;
-      ctx.fillStyle = "#181d28"; ctx.fillRect(curX, 335, tw, 34);
-      ctx.strokeStyle = "#455977"; ctx.strokeRect(curX, 335, tw, 34);
-      ctx.fillStyle = "#8fa2c3"; ctx.font = "bold 9px system-ui"; ctx.textAlign = "center";
-      ctx.fillText("⇄", curX + tw / 2, 356);
-      curX += tw;
-    }
-  }
-
-  const landW = (landingConfig.dur / TOTAL_DURATION) * availW;
-  ctx.fillStyle = "#1a140a"; ctx.fillRect(curX, 335, landW, 34);
-  ctx.strokeStyle = "#ff859c"; ctx.strokeRect(curX, 335, landW, 34);
-  ctx.fillStyle = "#ff859c"; ctx.font = "bold 10px system-ui"; ctx.textAlign = "center";
-  ctx.fillText("▼ HEARTH LAND", curX + landW / 2, 356);
-
-  const playX = 40 + (playheadTime / TOTAL_DURATION) * availW;
-  ctx.strokeStyle = "#ffab00"; ctx.lineWidth = 3;
-  ctx.beginPath(); ctx.moveTo(playX, 330); ctx.lineTo(playX, 455); ctx.stroke();
-
-  hudTex.needsUpdate = true;
-}
-
-const headWorldPos = new THREE.Vector3();
-const headWorldDir = new THREE.Vector3();
-
-function toggleHUD() {
-  vrHUD.visible = !vrHUD.visible;
-  if (vrHUD.visible) {
-    camera.getWorldPosition(headWorldPos);
-    camera.getWorldDirection(headWorldDir);
-    headWorldDir.y = 0; headWorldDir.normalize();
-
-    vrHUD.position.copy(headWorldPos).addScaledVector(headWorldDir, 1.8);
-    vrHUD.position.y = headWorldPos.y;
-    vrHUD.rotation.set(0, Math.atan2(-headWorldDir.x, -headWorldDir.z), 0);
-    renderHUD();
-  }
-  for (const ray of controllerRays) ray.visible = vrHUD.visible;
-}
-
-const raycaster = new THREE.Raycaster();
-const quat = new THREE.Quaternion();
-
-function handleVRSelect(controller) {
-  if (!vrHUD.visible) return;
-  const origin = new THREE.Vector3();
-  controller.getWorldPosition(origin);
-  controller.getWorldQuaternion(quat);
-  const dir = new THREE.Vector3(0, 0, -1).applyQuaternion(quat).normalize();
-  raycaster.set(origin, dir);
-
-  const hits = raycaster.intersectObject(hudMesh, false);
-  if (!hits.length || !hits[0].uv) return;
-
-  const px = hits[0].uv.x * 1024, py = (1 - hits[0].uv.y) * 700;
-  const inRect = (x, y, w, h) => px >= x && px <= x + w && py >= y && py <= y + h;
-  const activeBlock = timelineData.formationBlocks.find(b => b.id === selectedFormationBlockId);
-  const totalPages = Math.max(1, SHAPE_PAGES.length);
-
-  if (inRect(40, 20, 60, 48)) {
-    currentSymbolPage = (currentSymbolPage + totalPages - 1) % totalPages;
-    populateDesktopIcons(); renderHUD(); return;
-  }
-  if (inRect(420, 20, 60, 48)) {
-    currentSymbolPage = (currentSymbolPage + 1) % totalPages;
-    populateDesktopIcons(); renderHUD(); return;
-  }
-
-  const shapes = (SHAPE_PAGES && SHAPE_PAGES[currentSymbolPage]) ? SHAPE_PAGES[currentSymbolPage] : [];
-  for (let i = 0; i < 4; i++) {
-    const x = 40 + i * 238;
-    if (inRect(x, 82, 224, 96)) {
-      const s = shapes[i];
-      if (!s) return;
-      if (activeBlock) {
-        saveUndoState();
-        activeBlock.isText = false;
-        activeBlock.shapeId = s.id;
-        buildShowTrajectoryData();
-        evaluateTimeline(playheadTime);
-        buildDesktopTimeline();
-        updateContextPanels();
-        renderHUD();
-      }
-      return;
-    }
-  }
-
-  if (activeBlock && activeBlock.palette) {
-    for (let sIdx = 0; sIdx < activeBlock.palette.length; sIdx++) {
-      const sx = 180 + sIdx * 50;
-      if ((px - sx) ** 2 + (py - 202) ** 2 <= 16 ** 2) {
-        activeBlock.activeSwatchIdx = sIdx;
-        syncDesktopPalette(); renderHUD(); return;
-      }
-    }
-  }
-
-  if (inRect(480, 185, 140, 34)) {
-    applyAutoZoneColors();
-    evaluateTimeline(playheadTime);
-    renderHUD();
-    return;
-  }
-
-  if (inRect(40, 234, 944, 34)) {
-    const ratio = Math.max(0, Math.min(1, (px - 40) / 944));
-    const hColor = new THREE.Color().setHSL(ratio, 1.0, 0.5);
-    if (activeBlock && activeBlock.palette) {
-      saveUndoState();
-      activeBlock.palette[activeBlock.activeSwatchIdx] = "#" + hColor.getHexString();
-      syncDesktopPalette(); buildDesktopTimeline(); renderHUD();
-    }
-    return;
-  }
-}
-
-let isTriggerDownL = false, isTriggerDownR = false;
-leftController.addEventListener("selectstart", () => {
-  isTriggerDownL = true;
-  if (!vrHUD.visible) paintMeshL.visible = true;
-});
-leftController.addEventListener("selectend", () => {
-  isTriggerDownL = false; paintMeshL.visible = false;
-  handleVRSelect(leftController);
-});
-rightController.addEventListener("selectstart", () => {
-  isTriggerDownR = true;
-  if (!vrHUD.visible) paintMeshR.visible = true;
-});
-rightController.addEventListener("selectend", () => {
-  isTriggerDownR = false; paintMeshR.visible = false;
-  handleVRSelect(rightController);
-});
-
-let xPrev = false;
-function checkHUDInput() {
-  const pad = leftController.userData.gamepad;
-  const x = Boolean(pad?.buttons?.[4]?.pressed);
-  if (x && !xPrev) toggleHUD();
-  xPrev = x;
-}
-leftController.addEventListener("connected", e => leftController.userData.gamepad = e.data.gamepad);
-rightController.addEventListener("connected", e => rightController.userData.gamepad = e.data.gamepad);
-
 function $(id) { return document.getElementById(id); }
 function onEvent(id, event, handler) {
   const el = document.getElementById(id);
   if (el) el.addEventListener(event, handler);
 }
+
+// SVG Importer Drawer Handlers
+onEvent("btn-toggle-importer", "click", () => {
+  const card = $("card-svg-importer");
+  const isHidden = card.classList.contains("hidden");
+  card.classList.toggle("hidden", !isHidden);
+  $("btn-toggle-importer").classList.toggle("active", isHidden);
+});
+
+onEvent("slider-import-scale", "input", (e) => {
+  $("val-import-scale").textContent = e.target.value;
+});
+
+// Quick SVG Template Loaders
+onEvent("btn-load-scythe", "click", () => {
+  $("ta-svg-code").value = RAW_SVGS.scythe.trim();
+  compileLoadedSVG();
+});
+onEvent("btn-load-wheat", "click", () => {
+  $("ta-svg-code").value = RAW_SVGS.wheat.trim();
+  compileLoadedSVG();
+});
+onEvent("btn-load-turnip", "click", () => {
+  $("ta-svg-code").value = RAW_SVGS.turnip.trim();
+  compileLoadedSVG();
+});
+
+// Drag and drop .svg files onto window
+window.addEventListener("dragover", (e) => {
+  e.preventDefault();
+  document.body.classList.add("dragging");
+});
+window.addEventListener("dragleave", (e) => {
+  if (e.clientX <= 0 || e.clientY <= 0) document.body.classList.remove("dragging");
+});
+window.addEventListener("drop", (e) => {
+  e.preventDefault();
+  document.body.classList.remove("dragging");
+  const files = e.dataTransfer.files;
+  if (files && files.length > 0 && files[0].name.endsWith(".svg")) {
+    const reader = new FileReader();
+    reader.onload = (re) => {
+      $("ta-svg-code").value = re.target.result;
+      $("card-svg-importer").classList.remove("hidden");
+      $("btn-toggle-importer").classList.add("active");
+      compileLoadedSVG();
+    };
+    reader.readAsText(files[0]);
+  }
+});
+
+// Compile and Bake SVG into Active Block
+function compileLoadedSVG() {
+  const code = $("ta-svg-code").value.trim();
+  if (!code) return;
+  saveUndoState();
+
+  const b = timelineData.formationBlocks.find(x => x.id === selectedFormationBlockId);
+  if (!b) return;
+
+  const formationCount = precipConfig.enabled ? Math.max(50, activeDroneCount - precipConfig.count) : activeDroneCount;
+  const customPts = new Float32Array(formationCount * 3);
+  const customSwatches = new Uint8Array(formationCount);
+  const scale = parseFloat($("slider-import-scale").value);
+
+  parseAndSampleSVG(code, customPts, formationCount, customSwatches, scale, b.altitude || 16.0, true);
+
+  b.customPoints = customPts;
+  b.customSwatches = customSwatches;
+  b.isText = false;
+  b.shapeId = "imported_svg";
+
+  buildShowTrajectoryData();
+  evaluateTimeline(playheadTime);
+  buildDesktopTimeline();
+  updateContextPanels();
+}
+
+onEvent("btn-compile-svg", "click", compileLoadedSVG);
 
 // Unity JSON Exporter
 onEvent("btn-export-unity", "click", () => {
@@ -1537,7 +1265,7 @@ onEvent("btn-export-unity", "click", () => {
       for (let d = 0; d < count; d++) {
         drones.push({
           id: d,
-          pos: [targets[d * 3], targets[d * 3 + 1], -targets[d * 3 + 2]], // Inverted Z for Unity!
+          pos: [targets[d * 3], targets[d * 3 + 1], -targets[d * 3 + 2]],
           swatchIdx: swatches[d] || 0
         });
       }
@@ -1547,9 +1275,7 @@ onEvent("btn-export-unity", "click", () => {
         name: b.isText ? b.text : b.shapeId,
         duration: b.dur,
         transDuration: b.transDur,
-        transFX: b.transColorFX,
-        altitude: b.altitude || 18.0,
-        scale: b.scale || 1.0,
+        altitude: b.altitude || 16.0,
         palette: b.palette || ["#ffffff"],
         droneWaypoints: drones
       };
@@ -1573,10 +1299,6 @@ onEvent("chk-precip", "change", (e) => {
   buildShowTrajectoryData();
   evaluateTimeline(playheadTime);
 });
-onEvent("sel-precip-type", "change", (e) => {
-  saveUndoState();
-  precipConfig.type = e.target.value;
-});
 onEvent("slider-precip-count", "input", (e) => {
   precipConfig.count = parseInt(e.target.value);
   $("val-precip-count").textContent = `${precipConfig.count}`;
@@ -1586,60 +1308,6 @@ onEvent("slider-precip-count", "input", (e) => {
 onEvent("slider-precip-speed", "input", (e) => {
   precipConfig.speed = parseFloat(e.target.value);
   $("val-precip-speed").textContent = `${precipConfig.speed.toFixed(1)} m/s`;
-});
-onEvent("slider-precip-angle", "input", (e) => {
-  precipConfig.angle = parseFloat(e.target.value);
-  $("val-precip-angle").textContent = `${precipConfig.angle}°`;
-});
-onEvent("sel-precip-fx", "change", (e) => {
-  saveUndoState();
-  precipConfig.fx = e.target.value;
-});
-onEvent("picker-precip-color", "input", (e) => {
-  precipConfig.color = e.target.value;
-});
-
-// Takeoff & Landing Handlers
-onEvent("sel-takeoff-style", "change", (e) => {
-  saveUndoState();
-  takeoffConfig.style = e.target.value;
-  evaluateTimeline(playheadTime);
-});
-onEvent("slider-takeoff-dur", "input", (e) => {
-  takeoffConfig.dur = parseFloat(e.target.value);
-  $("val-takeoff-dur").textContent = `${takeoffConfig.dur}s`;
-  recalculateTimelineDuration();
-  buildDesktopTimeline();
-  evaluateTimeline(playheadTime);
-});
-onEvent("sel-landing-style", "change", (e) => {
-  saveUndoState();
-  landingConfig.style = e.target.value;
-  evaluateTimeline(playheadTime);
-});
-onEvent("slider-landing-dur", "input", (e) => {
-  landingConfig.dur = parseFloat(e.target.value);
-  $("val-landing-dur").textContent = `${landingConfig.dur}s`;
-  recalculateTimelineDuration();
-  buildDesktopTimeline();
-  evaluateTimeline(playheadTime);
-});
-
-// Transition Handlers
-onEvent("slider-trans-dur", "input", (e) => {
-  const b = timelineData.formationBlocks.find(x => x.id === selectedTransitionBlockId);
-  if (b) {
-    b.transDur = parseFloat(e.target.value);
-    $("val-trans-dur").textContent = `${b.transDur.toFixed(1)}s`;
-    recalculateTimelineDuration();
-    buildDesktopTimeline();
-    evaluateTimeline(playheadTime);
-  }
-});
-onEvent("sel-trans-fx", "change", (e) => {
-  saveUndoState();
-  const b = timelineData.formationBlocks.find(x => x.id === selectedTransitionBlockId);
-  if (b) b.transColorFX = e.target.value;
 });
 
 // Formation Block Handlers
@@ -1659,22 +1327,6 @@ onEvent("slider-block-scale", "input", (e) => {
     evaluateTimeline(playheadTime);
   }
 });
-onEvent("slider-block-rot-start", "input", (e) => {
-  const b = timelineData.formationBlocks.find(x => x.id === selectedFormationBlockId);
-  if (b) {
-    b.rotStartY = parseInt(e.target.value);
-    $("val-block-rot").textContent = `${b.rotStartY}→${b.rotEndY}°/s`;
-    evaluateTimeline(playheadTime);
-  }
-});
-onEvent("slider-block-rot-end", "input", (e) => {
-  const b = timelineData.formationBlocks.find(x => x.id === selectedFormationBlockId);
-  if (b) {
-    b.rotEndY = parseInt(e.target.value);
-    $("val-block-rot").textContent = `${b.rotStartY}→${b.rotEndY}°/s`;
-    evaluateTimeline(playheadTime);
-  }
-});
 
 onEvent("slider-fleet-count", "input", (e) => {
   activeDroneCount = parseInt(e.target.value);
@@ -1686,65 +1338,66 @@ onEvent("slider-fleet-count", "input", (e) => {
 });
 
 function updateContextPanels() {
-  $("card-inspector-takeoff").classList.toggle("hidden", selectedInspectorType !== "takeoff");
   $("card-inspector-formation").classList.toggle("hidden", selectedInspectorType !== "formation");
-  $("card-inspector-transition").classList.toggle("hidden", selectedInspectorType !== "transition");
-  $("card-inspector-landing").classList.toggle("hidden", selectedInspectorType !== "landing");
 
   if (selectedInspectorType === "formation") {
     const b = timelineData.formationBlocks.find(x => x.id === selectedFormationBlockId);
     if (!b) return;
 
-    $("formation-sub-shape").classList.toggle("hidden", Boolean(b.isText));
+    $("formation-sub-shape").classList.toggle("hidden", Boolean(b.isText || b.customPoints));
     $("formation-sub-text").classList.toggle("hidden", !b.isText);
 
     if (b.isText) {
       $("inspector-shape-name").textContent = `Text: "${b.text || ""}"`;
       $("input-text-msg").value = b.text || "";
-      $("sel-text-font").value = b.font || "Impact";
-      $("sel-text-fx").value = b.fx || "wave";
+    } else if (b.customPoints) {
+      $("inspector-shape-name").textContent = "Imported Vector SVG";
     } else {
       $("inspector-shape-name").textContent = b.shapeId;
       populateDesktopIcons();
     }
 
-    $("slider-block-alt").value = b.altitude || 18.0;
-    $("val-block-alt").textContent = `${b.altitude || 18.0}m`;
+    $("slider-block-alt").value = b.altitude || 16.0;
+    $("val-block-alt").textContent = `${b.altitude || 16.0}m`;
     $("slider-block-scale").value = b.scale || 1.0;
     $("val-block-scale").textContent = `${(b.scale || 1.0).toFixed(1)}x`;
 
-    $("slider-block-rot-start").value = b.rotStartY || 0;
-    $("slider-block-rot-end").value = b.rotEndY || 30;
-    $("val-block-rot").textContent = `${b.rotStartY || 0}→${b.rotEndY || 30}°/s`;
-
     syncDesktopPalette();
-  } else if (selectedInspectorType === "transition") {
-    const b = timelineData.formationBlocks.find(x => x.id === selectedTransitionBlockId);
-    if (b) {
-      $("slider-trans-dur").value = b.transDur;
-      $("val-trans-dur").textContent = `${b.transDur.toFixed(1)}s`;
-      $("sel-trans-fx").value = b.transColorFX || "blend";
-    }
   }
 }
 
-// Track Add / Delete
+onEvent("input-text-msg", "input", (e) => {
+  const b = timelineData.formationBlocks.find(x => x.id === selectedFormationBlockId);
+  if (b && b.isText) {
+    b.text = e.target.value.toUpperCase();
+    buildShowTrajectoryData();
+    evaluateTimeline(playheadTime);
+    buildDesktopTimeline();
+  }
+});
+onEvent("sel-text-fx", "change", (e) => {
+  saveUndoState();
+  const b = timelineData.formationBlocks.find(x => x.id === selectedFormationBlockId);
+  if (b && b.isText) {
+    b.fx = e.target.value;
+    evaluateTimeline(playheadTime);
+  }
+});
+
+// Track Actions
 onEvent("btn-add-shape", "click", () => {
   saveUndoState();
   const id = "s" + Date.now();
   timelineData.formationBlocks.push({
-    id, shapeId: "scytheAndWheat", isText: false, dur: 20.0, transDur: 4.0,
-    transColorFX: "blend", altitude: 17.0, scale: 1.0, rotStartY: 0, rotEndY: 30,
-    palette: ["#e0f7fa", "#ffb300", "#5d4037"], activeSwatchIdx: 0,
+    id, shapeId: "wheatBarley", isText: false, dur: 20.0, transDur: 4.0,
+    altitude: 16.0, scale: 1.0, palette: ["#ffb300", "#5d4037"], activeSwatchIdx: 0,
     cycleSpeed: 0.0, run: false, runSpeed: 3.0, blink: false, blinkSpeed: 3.0, sparkle: false, sparkleDensity: 0.35
   });
   selectedFormationBlockId = id;
-  selectedInspectorType = "formation";
   recalculateTimelineDuration();
   buildShowTrajectoryData();
   buildDesktopTimeline();
   updateContextPanels();
-  renderHUD();
 });
 
 onEvent("btn-add-text", "click", () => {
@@ -1752,17 +1405,15 @@ onEvent("btn-add-text", "click", () => {
   const id = "t" + Date.now();
   timelineData.formationBlocks.push({
     id, isText: true, text: "BLESSED SAMHAIN", font: "Impact", fx: "wave", speed: 1.0,
-    dur: 20.0, transDur: 4.0, transColorFX: "sparkle", altitude: 19.0, scale: 1.0, rotStartY: 0, rotEndY: 0,
+    dur: 20.0, transDur: 4.0, altitude: 18.0, scale: 1.0,
     palette: ["#ffab00", "#e0f7fa"], activeSwatchIdx: 0,
     cycleSpeed: 1.0, run: false, runSpeed: 3.0, blink: false, blinkSpeed: 3.0, sparkle: true, sparkleDensity: 0.35
   });
   selectedFormationBlockId = id;
-  selectedInspectorType = "formation";
   recalculateTimelineDuration();
   buildShowTrajectoryData();
   buildDesktopTimeline();
   updateContextPanels();
-  renderHUD();
 });
 
 onEvent("btn-del-shape", "click", () => {
@@ -1771,61 +1422,38 @@ onEvent("btn-del-shape", "click", () => {
     const idx = timelineData.formationBlocks.findIndex(b => b.id === selectedFormationBlockId);
     if (idx !== -1) timelineData.formationBlocks.splice(idx, 1);
     selectedFormationBlockId = timelineData.formationBlocks[Math.max(0, idx - 1)].id;
-    selectedInspectorType = "formation";
     recalculateTimelineDuration();
     buildShowTrajectoryData();
     evaluateTimeline(playheadTime);
     buildDesktopTimeline();
     updateContextPanels();
-    renderHUD();
   }
 });
-
-const pageTabs = $("page-tabs");
-if (pageTabs) {
-  const totalPages = Math.max(1, SHAPE_PAGES.length);
-  for (let p = 0; p < totalPages; p++) {
-    const b = document.createElement("button");
-    b.className = "page-btn" + (p === 0 ? " active" : "");
-    b.textContent = (p === 0 ? "Samhain" : "Christmas");
-    b.onclick = () => {
-      document.querySelectorAll(".page-btn").forEach(btn => btn.classList.remove("active"));
-      b.classList.add("active");
-      currentSymbolPage = p;
-      populateDesktopIcons();
-      renderHUD();
-    };
-    pageTabs.appendChild(b);
-  }
-}
 
 function populateDesktopIcons() {
   const container = $("desktop-icon-grid");
   if (!container) return;
   container.innerHTML = "";
-  const shapes = (SHAPE_PAGES && SHAPE_PAGES[currentSymbolPage]) ? SHAPE_PAGES[currentSymbolPage] : [];
+  const shapes = SHAPE_PAGES[0];
   const activeFormation = timelineData.formationBlocks.find(b => b && b.id === selectedFormationBlockId);
 
   for (const s of shapes) {
     if (!s) continue;
     const btn = document.createElement("button");
-    btn.className = "symbol-btn" + (activeFormation?.shapeId === s.id && !activeFormation?.isText ? " active" : "");
-    btn.draggable = true;
+    btn.className = "symbol-btn" + (activeFormation?.shapeId === s.id && !activeFormation?.isText && !activeFormation?.customPoints ? " active" : "");
     btn.innerHTML = `<svg viewBox="0 0 24 24">${s.drawSVG || ""}</svg><span>${s.id}</span>`;
-
     btn.onclick = () => {
       if (activeFormation) {
         saveUndoState();
         activeFormation.isText = false;
+        activeFormation.customPoints = null;
         activeFormation.shapeId = s.id;
         buildShowTrajectoryData();
         evaluateTimeline(playheadTime);
         buildDesktopTimeline();
         updateContextPanels();
-        renderHUD();
       }
     };
-
     container.appendChild(btn);
   }
 }
@@ -1843,17 +1471,10 @@ function syncDesktopPalette() {
     slot.style.background = b.palette[i];
     slot.onclick = () => {
       b.activeSwatchIdx = i;
-      syncDesktopPalette(); renderHUD();
+      syncDesktopPalette();
     };
     container.appendChild(slot);
   }
-
-  const activeHex = b.palette[b.activeSwatchIdx] || "#ffffff";
-  $("slider-cycle-speed").value = b.cycleSpeed || 0;
-  $("val-cycle-speed").textContent = (b.cycleSpeed || 0).toFixed(1) + "x";
-  $("chk-run").checked = Boolean(b.run);
-  $("chk-blink").checked = Boolean(b.blink);
-  $("chk-sparkle").checked = Boolean(b.sparkle);
 }
 
 onEvent("btn-add-color", "click", () => {
@@ -1862,7 +1483,7 @@ onEvent("btn-add-color", "click", () => {
     saveUndoState();
     b.palette.push("#ffffff");
     b.activeSwatchIdx = b.palette.length - 1;
-    syncDesktopPalette(); buildDesktopTimeline(); renderHUD();
+    syncDesktopPalette(); buildDesktopTimeline();
   }
 });
 onEvent("btn-del-color", "click", () => {
@@ -1871,7 +1492,7 @@ onEvent("btn-del-color", "click", () => {
     saveUndoState();
     b.palette.splice(b.activeSwatchIdx, 1);
     b.activeSwatchIdx = Math.max(0, b.activeSwatchIdx - 1);
-    syncDesktopPalette(); buildDesktopTimeline(); renderHUD();
+    syncDesktopPalette(); buildDesktopTimeline();
   }
 });
 onEvent("btn-auto-zone", "click", () => {
@@ -1888,7 +1509,7 @@ if (specBar) {
     const b = timelineData.formationBlocks.find(x => x && x.id === selectedFormationBlockId);
     if (b && b.palette && b.palette.length) {
       b.palette[b.activeSwatchIdx] = hex;
-      syncDesktopPalette(); buildDesktopTimeline(); renderHUD();
+      syncDesktopPalette(); buildDesktopTimeline();
     }
   }
   specBar.onmousedown = e => {
@@ -1918,7 +1539,7 @@ function attachResizeHandle(handleEl, blockObj, getTrackWidth) {
     if (!isDragging) return;
     isDragging = false;
     handleEl.releasePointerCapture(e.pointerId);
-    buildDesktopTimeline(); renderHUD();
+    buildDesktopTimeline();
   };
 }
 
@@ -1938,27 +1559,24 @@ function buildDesktopTimeline() {
   lane.innerHTML = "";
 
   const takeoffBlock = document.createElement("div");
-  takeoffBlock.className = "block-element flight-gate" + (selectedInspectorType === "takeoff" ? " active-block" : "");
+  takeoffBlock.className = "block-element flight-gate";
   takeoffBlock.style.width = (takeoffConfig.dur / TOTAL_DURATION) * 100 + "%";
   takeoffBlock.textContent = `▲ LAUNCH (${takeoffConfig.dur}s)`;
-  takeoffBlock.onclick = (e) => {
-    e.stopPropagation();
-    selectedInspectorType = "takeoff";
-    buildDesktopTimeline();
-    updateContextPanels();
-  };
   lane.appendChild(takeoffBlock);
 
   for (let i = 0; i < timelineData.formationBlocks.length; i++) {
     const b = timelineData.formationBlocks[i];
     const fBlock = document.createElement("div");
-    const isSelected = (selectedInspectorType === "formation" && selectedFormationBlockId === b.id);
+    const isSelected = (selectedFormationBlockId === b.id);
     fBlock.className = "block-element" + (isSelected ? " active-block" : "");
     if (b.isText) fBlock.classList.add("text-block");
     fBlock.style.width = (b.dur / TOTAL_DURATION) * 100 + "%";
 
     if (b.isText) {
       fBlock.innerHTML = `<span>T: ${b.text || "TEXT"}</span>`;
+    } else if (b.customPoints) {
+      fBlock.style.background = "#0d3326";
+      fBlock.innerHTML = `<span>★ IMPORTED</span>`;
     } else {
       fBlock.style.background = "#192231";
       const s = findShapeById(b.shapeId);
@@ -1968,7 +1586,6 @@ function buildDesktopTimeline() {
     fBlock.onclick = (e) => {
       e.stopPropagation();
       selectedFormationBlockId = b.id;
-      selectedInspectorType = "formation";
       buildDesktopTimeline();
       updateContextPanels();
     };
@@ -1981,31 +1598,17 @@ function buildDesktopTimeline() {
 
     if (b.transDur > 0) {
       const tBlock = document.createElement("div");
-      const isTransSelected = (selectedInspectorType === "transition" && selectedTransitionBlockId === b.id);
-      tBlock.className = "block-element transition-block" + (isTransSelected ? " active-block" : "");
+      tBlock.className = "block-element transition-block";
       tBlock.style.width = (b.transDur / TOTAL_DURATION) * 100 + "%";
       tBlock.textContent = `⇄ ${b.transDur.toFixed(1)}s`;
-      tBlock.onclick = (e) => {
-        e.stopPropagation();
-        selectedTransitionBlockId = b.id;
-        selectedInspectorType = "transition";
-        buildDesktopTimeline();
-        updateContextPanels();
-      };
       lane.appendChild(tBlock);
     }
   }
 
   const landingBlock = document.createElement("div");
-  landingBlock.className = "block-element flight-gate" + (selectedInspectorType === "landing" ? " active-block" : "");
+  landingBlock.className = "block-element flight-gate";
   landingBlock.style.width = (landingConfig.dur / TOTAL_DURATION) * 100 + "%";
   landingBlock.textContent = `▼ HEARTH (${landingConfig.dur}s)`;
-  landingBlock.onclick = (e) => {
-    e.stopPropagation();
-    selectedInspectorType = "landing";
-    buildDesktopTimeline();
-    updateContextPanels();
-  };
   lane.appendChild(landingBlock);
 
   syncDesktopTimeline();
@@ -2031,7 +1634,6 @@ function scrubFromClientX(clientX) {
   playheadTime = ratio * TOTAL_DURATION;
   evaluateTimeline(playheadTime);
   syncDesktopTimeline();
-  if (vrHUD.visible) renderHUD();
 }
 
 const rulerEl = $("master-ruler");
@@ -2062,7 +1664,6 @@ onEvent("btn-play", "click", () => {
   isPlaying = !isPlaying;
   const btn = $("btn-play");
   if (btn) btn.textContent = isPlaying ? "Pause" : "Play";
-  renderHUD();
 });
 
 // Boot
@@ -2077,12 +1678,10 @@ renderer.xr.addEventListener("sessionstart", () => {
   renderer.xr.setFoveation(0.0);
   xrRig.position.set(0, 0, 38);
   xrRig.rotation.set(0, 0, 0);
-  vrHUD.visible = false;
   for (const ray of controllerRays) ray.visible = false;
 });
 renderer.xr.addEventListener("sessionend", () => {
   document.body.classList.remove("xr-active");
-  vrHUD.visible = false;
   for (const ray of controllerRays) ray.visible = false;
 });
 
@@ -2110,42 +1709,11 @@ renderer.setAnimationLoop(now => {
     }
     evaluateTimeline(playheadTime);
     syncDesktopTimeline();
-    if (vrHUD.visible) renderHUD();
   }
 
   const isVR = renderer.xr.isPresenting;
   if (isVR) {
-    checkHUDInput();
     updateWorldGrab();
-
-    leftController.getWorldPosition(cPosWorldL);
-    rightController.getWorldPosition(cPosWorldR);
-    stageGroup.worldToLocal(cPosLocalL.copy(cPosWorldL));
-    stageGroup.worldToLocal(cPosLocalR.copy(cPosWorldR));
-
-    const b = timelineData.formationBlocks.find(x => x && x.id === selectedFormationBlockId);
-    if (b && b.palette && !vrHUD.visible) {
-      const activeIdx = b.activeSwatchIdx;
-      const localRadius = 1.6 / Math.max(0.05, stageGroup.scale.x);
-      const brushRadiusSq = localRadius * localRadius;
-
-      if (isTriggerDownL) {
-        for (let i = 0; i < activeDroneCount; i++) {
-          const dx = currentPositions[i * 3] - cPosLocalL.x;
-          const dy = currentPositions[i * 3 + 1] - cPosLocalL.y;
-          const dz = currentPositions[i * 3 + 2] - cPosLocalL.z;
-          if (dx * dx + dy * dy + dz * dz < brushRadiusSq) droneSwatchIndices[i] = activeIdx;
-        }
-      }
-      if (isTriggerDownR) {
-        for (let i = 0; i < activeDroneCount; i++) {
-          const dx = currentPositions[i * 3] - cPosLocalR.x;
-          const dy = currentPositions[i * 3 + 1] - cPosLocalR.y;
-          const dz = currentPositions[i * 3 + 2] - cPosLocalR.z;
-          if (dx * dx + dy * dy + dz * dz < brushRadiusSq) droneSwatchIndices[i] = activeIdx;
-        }
-      }
-    }
   }
 
   dronePoints.material.size = Math.max(0.02, BASE_DRONE_SIZE * stageGroup.scale.x);
@@ -2181,10 +1749,10 @@ renderer.setAnimationLoop(now => {
     currentColors[idx + 2] += (targetColors[idx + 2] - currentColors[idx + 2]) * 7.0 * dt;
   }
 
-  // Atmospheric Particles (Leaves Falling or Fire Sparks Rising)
+  // Atmospheric Particles
   const showBodyEnd = TOTAL_DURATION - landingConfig.dur;
   if (precipConfig.enabled && playheadTime > takeoffConfig.dur && playheadTime < showBodyEnd) {
-    const fallSpeed = precipConfig.speed; // Negative = rising sparks!
+    const fallSpeed = precipConfig.speed;
     const windRad = THREE.MathUtils.degToRad(precipConfig.angle);
     const windXShift = Math.sin(windRad) * Math.abs(fallSpeed);
     const formationCount = Math.max(50, activeDroneCount - precipConfig.count);
@@ -2195,30 +1763,16 @@ renderer.setAnimationLoop(now => {
 
       precipPositions[idx + 1] -= fallSpeed * dt;
       precipPositions[idx]     += windXShift * dt;
+      precipPositions[idx]     += Math.sin(now * 0.0015 + seed) * 0.6 * dt;
+      precipPositions[idx + 2] += Math.cos(now * 0.0012 + seed) * 0.6 * dt;
 
-      if (precipConfig.type === "snow") {
-        precipPositions[idx]     += Math.sin(now * 0.0015 + seed) * 0.6 * dt;
-        precipPositions[idx + 2] += Math.cos(now * 0.0012 + seed) * 0.6 * dt;
-      }
-
-      if (fallSpeed >= 0) {
-        if (precipPositions[idx + 1] < 1.5) {
-          precipPositions[idx + 1] = 31.5;
-          precipPositions[idx]     = (Math.random() - 0.5) * 36;
-          precipPositions[idx + 2] = (Math.random() - 0.5) * 36;
-          currentPositions[idx]     = precipPositions[idx];
-          currentPositions[idx + 1] = precipPositions[idx + 1];
-          currentPositions[idx + 2] = precipPositions[idx + 2];
-        }
-      } else {
-        if (precipPositions[idx + 1] > 31.5) {
-          precipPositions[idx + 1] = 1.6;
-          precipPositions[idx]     = (Math.random() - 0.5) * 36;
-          precipPositions[idx + 2] = (Math.random() - 0.5) * 36;
-          currentPositions[idx]     = precipPositions[idx];
-          currentPositions[idx + 1] = precipPositions[idx + 1];
-          currentPositions[idx + 2] = precipPositions[idx + 2];
-        }
+      if (precipPositions[idx + 1] < 1.5) {
+        precipPositions[idx + 1] = 31.5;
+        precipPositions[idx]     = (Math.random() - 0.5) * 36;
+        precipPositions[idx + 2] = (Math.random() - 0.5) * 36;
+        currentPositions[idx]     = precipPositions[idx];
+        currentPositions[idx + 1] = precipPositions[idx + 1];
+        currentPositions[idx + 2] = precipPositions[idx + 2];
       }
     }
   }
