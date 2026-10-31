@@ -79,7 +79,7 @@ export function sampleVectorGraphic(svgElements, out, count, swatchOut, scale = 
   for (let i = 0; i < count; i++) {
     const pt = samplePts[i];
     out[i * 3]     = (pt.x - cx) * scale;
-    out[i * 3 + 1] = altitude - (pt.y - cy) * scale;
+    out[i * 3 + 1] = altitude + (pt.y - cy) * scale;
     out[i * 3 + 2] = 0.0;
     if (swatchOut) swatchOut[i] = pt.swatch;
   }
