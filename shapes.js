@@ -3,10 +3,9 @@ import { SVGLoader } from "three/addons/loaders/SVGLoader.js";
 
 export const GOLDEN = Math.PI * (3 - Math.sqrt(5));
 
-// Base URL for hosted assets on GitHub Pages
 const ASSET_BASE_URL = "https://lkncoder.github.io/tacocat/";
 
-// High-Fidelity Stratified Density Sampler (Preserves fine stars, crescents, and silhouettes)
+// Hierarchical Boundary-First + Particle Relaxation Sampler
 export function sampleImageToDrones(imgElement, out, count, swatchOut, scale = 0.046, altitude = 16) {
   const canvas = document.createElement("canvas");
   canvas.width = 512;
@@ -18,139 +17,196 @@ export function sampleImageToDrones(imgElement, out, count, swatchOut, scale = 0
   ctx.drawImage(imgElement, 0, 0, 512, 512);
 
   const imgData = ctx.getImageData(0, 0, 512, 512).data;
-  const whitePixels = [];
-  const edgePixels = [];
+  const whiteMask = new Uint8Array(512 * 512);
+  const edgeMask = new Uint8Array(512 * 512);
+  const edgePoints = [];
+  const interiorPoints = [];
 
   let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
 
-  // 1. Threshold scan: White = Lit Drone, Black = Negative Space Void
+  // 1. Binary thresholding & edge classification
   for (let y = 1; y < 511; y++) {
     for (let x = 1; x < 511; x++) {
       const idx = (y * 512 + x) * 4;
       const lum = imgData[idx] * 0.299 + imgData[idx + 1] * 0.587 + imgData[idx + 2] * 0.114;
 
-      if (lum > 110) {
-        whitePixels.push({ x, y });
+      if (lum > 115) {
+        whiteMask[y * 512 + x] = 1;
         if (x < minX) minX = x; if (x > maxX) maxX = x;
         if (y < minY) minY = y; if (y > maxY) maxY = y;
+      }
+    }
+  }
 
-        // Check 4-neighbor boundary to isolate perimeter edges
-        const aTop   = imgData[((y - 1) * 512 + x) * 4];
-        const aBot   = imgData[((y + 1) * 512 + x) * 4];
-        const aLeft  = imgData[(y * 512 + (x - 1)) * 4];
-        const aRight = imgData[(y * 512 + (x + 1)) * 4];
+  // Detect edge pixels by checking 4-connected neighbors
+  for (let y = 1; y < 511; y++) {
+    for (let x = 1; x < 511; x++) {
+      if (whiteMask[y * 512 + x] === 1) {
+        const top = whiteMask[(y - 1) * 512 + x];
+        const bot = whiteMask[(y + 1) * 512 + x];
+        const left = whiteMask[y * 512 + (x - 1)];
+        const right = whiteMask[y * 512 + (x + 1)];
 
-        if (aTop < 80 || aBot < 80 || aLeft < 80 || aRight < 80) {
-          edgePixels.push({ x, y });
+        if (!top || !bot || !left || !right) {
+          edgeMask[y * 512 + x] = 1;
+          edgePoints.push({ x, y });
+        } else {
+          interiorPoints.push({ x, y });
         }
       }
     }
   }
 
-  if (whitePixels.length === 0) return;
+  if (edgePoints.length === 0 && interiorPoints.length === 0) return;
 
   const cx = (minX + maxX) / 2;
   const cy = (minY + maxY) / 2;
 
-  // 2. Spatial Bucket Partitioning (Blue Noise Centroid Snapping)
-  const totalWhite = whitePixels.length;
-  const areaPerDrone = Math.max(1, totalWhite / count);
-  const cellDim = Math.max(2.4, Math.sqrt(areaPerDrone * 0.90));
+  // 2. Chained Contour Extraction (Moore-Neighbor Path Tracing)
+  // Orders boundary pixels sequentially so drones form continuous vector strokes
+  const visited = new Uint8Array(512 * 512);
+  const chainedPerimeter = [];
 
-  const grid = new Map();
-  for (let i = 0; i < totalWhite; i++) {
-    const p = whitePixels[i];
-    const gx = Math.floor(p.x / cellDim);
-    const gy = Math.floor(p.y / cellDim);
-    const key = `${gx},${gy}`;
-    let bucket = grid.get(key);
-    if (!bucket) {
-      bucket = { all: [], edge: [] };
-      grid.set(key, bucket);
-    }
-    bucket.all.push(p);
-  }
+  for (let i = 0; i < edgePoints.length; i++) {
+    const startPt = edgePoints[i];
+    const sIdx = startPt.y * 512 + startPt.x;
+    if (visited[sIdx]) continue;
 
-  for (let i = 0; i < edgePixels.length; i++) {
-    const p = edgePixels[i];
-    const gx = Math.floor(p.x / cellDim);
-    const gy = Math.floor(p.y / cellDim);
-    const key = `${gx},${gy}`;
-    const bucket = grid.get(key);
-    if (bucket) bucket.edge.push(p);
-  }
+    let curr = startPt;
+    visited[sIdx] = 1;
+    chainedPerimeter.push(curr);
 
-  // 3. Extract Centroids prioritizing boundary edges
-  const candidatePts = [];
-  grid.forEach((bucket) => {
-    const src = bucket.edge.length > 0 ? bucket.edge : bucket.all;
-    let sumX = 0, sumY = 0;
-    for (let j = 0; j < src.length; j++) {
-      sumX += src[j].x;
-      sumY += src[j].y;
-    }
-    const avgX = sumX / src.length;
-    const avgY = sumY / src.length;
+    // Walk neighboring edge pixels
+    let found = true;
+    while (found) {
+      found = false;
+      const neighbors = [
+        { x: curr.x + 1, y: curr.y }, { x: curr.x + 1, y: curr.y + 1 },
+        { x: curr.x, y: curr.y + 1 }, { x: curr.x - 1, y: curr.y + 1 },
+        { x: curr.x - 1, y: curr.y }, { x: curr.x - 1, y: curr.y - 1 },
+        { x: curr.x, y: curr.y - 1 }, { x: curr.x + 1, y: curr.y - 1 }
+      ];
 
-    let bestPt = src[0];
-    let minD = Infinity;
-    for (let j = 0; j < src.length; j++) {
-      const d = (src[j].x - avgX) ** 2 + (src[j].y - avgY) ** 2;
-      if (d < minD) { minD = d; bestPt = src[j]; }
-    }
-    candidatePts.push(bestPt);
-  });
-
-  // 4. Quantize to Fleet Count
-  const finalPts = [];
-  if (candidatePts.length >= count) {
-    const step = candidatePts.length / count;
-    for (let i = 0; i < count; i++) {
-      finalPts.push(candidatePts[Math.floor(i * step)]);
-    }
-  } else {
-    for (let i = 0; i < candidatePts.length; i++) finalPts.push(candidatePts[i]);
-    const rem = count - candidatePts.length;
-    const stepW = whitePixels.length / rem;
-    for (let i = 0; i < rem; i++) {
-      finalPts.push(whitePixels[Math.floor(i * stepW)]);
-    }
-  }
-
-  // 5. Output Single-Layer Coordinates ($Z=0$) with Height-Zoned Palette
-  for (let i = 0; i < count; i++) {
-    const p = finalPts[i];
-    out[i * 3]     = (p.x - cx) * scale;
-    out[i * 3 + 1] = altitude - (p.y - cy) * scale;
-    out[i * 3 + 2] = 0.0;
-
-    if (swatchOut) {
-      if (p.y < 165 && (Math.abs(p.x - 256) > 85 || p.y < 95)) {
-        swatchOut[i] = 0; // Moon, Stars, Upper Sky (Silver White)
-      } else if (Math.abs(p.x - 256) < 135 && p.y >= 70 && p.y < 380) {
-        swatchOut[i] = (p.y < 210) ? 1 : 2; // Flame Vortex (Gold to Amber)
-      } else {
-        swatchOut[i] = (p.y >= 380) ? 3 : 2; // Hearth Wood and Robed Figures (Crimson to Amber)
+      for (const n of neighbors) {
+        if (n.x >= 0 && n.x < 512 && n.y >= 0 && n.y < 512) {
+          const nIdx = n.y * 512 + n.x;
+          if (edgeMask[nIdx] && !visited[nIdx]) {
+            visited[nIdx] = 1;
+            chainedPerimeter.push(n);
+            curr = n;
+            found = true;
+            break;
+          }
+        }
       }
     }
   }
+
+  // 3. Dedicated Boundary Allotment (65% of fleet to outlines)
+  const targetEdgeCount = Math.min(count, Math.round(count * 0.65));
+  const targetFillCount = count - targetEdgeCount;
+  let ptr = 0;
+
+  if (chainedPerimeter.length > 0) {
+    const stepE = chainedPerimeter.length / targetEdgeCount;
+    for (let i = 0; i < targetEdgeCount && ptr < count; i++) {
+      const p = chainedPerimeter[Math.floor(i * stepE) % chainedPerimeter.length];
+      out[ptr * 3]     = (p.x - cx) * scale;
+      out[ptr * 3 + 1] = altitude - (p.y - cy) * scale;
+      out[ptr * 3 + 2] = 0.0;
+      if (swatchOut) swatchOut[ptr] = 0; // Pure contour swatch
+      ptr++;
+    }
+  }
+
+  // 4. Interior Poisson/Lloyd Relaxation
+  // Distributes remaining drones into the interior body with mutual repulsion
+  if (targetFillCount > 0 && interiorPoints.length > 0) {
+    const fillDrones = [];
+    const stepI = interiorPoints.length / targetFillCount;
+    for (let i = 0; i < targetFillCount; i++) {
+      const p = interiorPoints[Math.floor(i * stepI) % interiorPoints.length];
+      fillDrones.push({ x: p.x, y: p.y });
+    }
+
+    // 8 Iterations of Spring/Voronoi Repulsion (Relaxes grid into triangular lattice)
+    for (let iter = 0; iter < 8; iter++) {
+      for (let a = 0; a < fillDrones.length; a++) {
+        let fx = 0, fy = 0;
+        const da = fillDrones[a];
+
+        for (let b = 0; b < fillDrones.length; b++) {
+          if (a === b) continue;
+          const db = fillDrones[b];
+          const dx = da.x - db.x;
+          const dy = da.y - db.y;
+          const distSq = dx * dx + dy * dy;
+
+          if (distSq < 144 && distSq > 0.01) { // 12px repulsion radius
+            const dist = Math.sqrt(distSq);
+            const force = (12 - dist) / dist;
+            fx += dx * force * 0.25;
+            fy += dy * force * 0.25;
+          }
+        }
+
+        const nx = Math.round(da.x + fx);
+        const ny = Math.round(da.y + fy);
+        // Ensure drone stays inside white mask
+        if (nx >= 0 && nx < 512 && ny >= 0 && ny < 512 && whiteMask[ny * 512 + nx]) {
+          da.x = nx;
+          da.y = ny;
+        }
+      }
+    }
+
+    for (let i = 0; i < fillDrones.length && ptr < count; i++) {
+      const p = fillDrones[i];
+      out[ptr * 3]     = (p.x - cx) * scale;
+      out[ptr * 3 + 1] = altitude - (p.y - cy) * scale;
+      out[ptr * 3 + 2] = 0.0;
+      if (swatchOut) swatchOut[ptr] = 1; // Infill swatch
+      ptr++;
+    }
+  }
+
+  // Pad any remainder
+  while (ptr < count) {
+    out[ptr * 3]     = out[(ptr - 1) * 3] + 0.1;
+    out[ptr * 3 + 1] = out[(ptr - 1) * 3 + 1];
+    out[ptr * 3 + 2] = 0.0;
+    if (swatchOut) swatchOut[ptr] = 0;
+    ptr++;
+  }
 }
 
-// Loads a local or hosted PNG tile with cross-origin support
+// Tile Loader with dual filename checking (tile15.png and samhain-tile15.png)
 export function loadTileImage(filename) {
   return new Promise((resolve) => {
-    const img = new Image();
-    img.crossOrigin = "anonymous";
+    const candidates = [
+      "./" + filename,
+      ASSET_BASE_URL + filename,
+      "./samhain-" + filename,
+      ASSET_BASE_URL + "samhain-" + filename
+    ];
 
-    img.onload = () => resolve(img);
-    img.onerror = () => {
-      const fallbackImg = new Image();
-      fallbackImg.crossOrigin = "anonymous";
-      fallbackImg.onload = () => resolve(fallbackImg);
-      fallbackImg.onerror = () => resolve(null);
-      fallbackImg.src = ASSET_BASE_URL + filename;
-    };
-    img.src = "./" + filename;
+    let idx = 0;
+    function tryNext() {
+      if (idx >= candidates.length) {
+        resolve(null);
+        return;
+      }
+      const img = new Image();
+      img.crossOrigin = "anonymous";
+      img.onload = () => resolve(img);
+      img.onerror = () => {
+        idx++;
+        tryNext();
+      };
+      img.src = candidates[idx];
+    }
+
+    tryNext();
   });
 }
 
@@ -273,74 +329,46 @@ export function generateTextDrones(out, text, count, font = "Impact", scale = 0.
   }
 }
 
-// Built-in Vector Asset Library
-export const RAW_SVGS = {
-  // SVGRepo 196385: Scythe Agriculture
-  scythe: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
-    <path fill="#e0f7fa" d="M472.6,39.4C374.3,39.4,272.5,91.8,206.2,176.6c-18.4,23.6-32.9,50.1-43,78.2l76.7,30.7c8.5-22.6,20.4-43.8,35.3-62.7 c52.7-67.4,133.5-108.9,211.2-108.9c3.9,0,7.9,0.1,11.8,0.3L512,41.2C498.9,40,485.8,39.4,472.6,39.4z"/>
-    <path fill="#5d4037" d="M72.2,498.4l148.6-371.5c3.2-8,12.2-12,20.2-8.8c8,3.2,12,12.2,8.8,20.2L101.2,510c-3.2,8-12.2,12-20.2,8.8 C73,515.6,69,506.4,72.2,498.4z"/>
-    <rect fill="#8d6e63" x="145" y="270" width="16" height="58" transform="matrix(0.3746 -0.9272 0.9272 0.3746 -181.7 298.6)"/>
-    <rect fill="#8d6e63" x="195" y="160" width="16" height="58" transform="matrix(0.3746 -0.9272 0.9272 0.3746 -79.3 260.4)"/>
-  </svg>`,
-
-  // SVGRepo 211999: Wheat Barley
-  wheat: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
-    <path fill="#5d4037" d="M256,502c-5.5,0-10-4.5-10-10V220c0-5.5,4.5-10,10-10s10,4.5,10,10v272C266,497.5,261.5,502,256,502z"/>
-    <path fill="#ffb300" d="M256,190c-28,0-50-32-50-70s22-70,50-70s50,32,50,70S284,190,256,190z M256,70c-16.5,0-30,22.4-30,50s13.5,50,30,50s30-22.4,30-50S272.5,70,256,70z"/>
-    <path fill="#ffa000" d="M210,250c-26-10-40-44-30-76s40-50,66-40s40,44,30,76S236,260,210,250z"/>
-    <path fill="#ffb300" d="M302,250c26-10,40-44,30-76s-40-50-66-40s-40,44-30,76S276,260,302,250z"/>
-    <line x1="256" y1="50" x2="256" y2="10" stroke="#ffb300" stroke-width="4"/>
-  </svg>`,
-
-  // Turnip Lantern
-  turnip: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 120">
-    <polygon points="50,12 82,34 96,72 68,112 32,112 4,72 18,34" fill="#a1887f"/>
-    <path d="M 50 12 C 45 -4, 30 -8, 25 -14 M 50 12 C 55 -6, 68 -6, 75 -12 M 50 12 L 50 -12" stroke="#689f38" stroke-width="3" fill="none"/>
-    <polygon points="26,44 44,58 26,62" fill="#ffab00"/>
-    <polygon points="74,44 56,58 74,62" fill="#ffab00"/>
-    <polygon points="50,62 56,74 44,74" fill="#ffab00"/>
-    <path d="M 20 84 L 30 96 L 40 84 L 50 98 L 60 84 L 70 96 L 80 84 L 72 104 L 60 92 L 50 106 L 40 92 L 28 104 Z" fill="#ffab00"/>
-  </svg>`,
-
-  // Wicker Man Effigy
-  wickerMan: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 120">
-    <line x1="34" y1="118" x2="44" y2="72" stroke="#8d6e63" stroke-width="4"/>
-    <line x1="66" y1="118" x2="56" y2="72" stroke="#8d6e63" stroke-width="4"/>
-    <rect x="32" y="34" width="36" height="38" stroke="#8d6e63" stroke-width="3" fill="none"/>
-    <line x1="32" y1="34" x2="68" y2="72" stroke="#ffd54f" stroke-width="2"/>
-    <line x1="68" y1="34" x2="32" y2="72" stroke="#ffd54f" stroke-width="2"/>
-    <line x1="8" y1="42" x2="92" y2="42" stroke="#8d6e63" stroke-width="4"/>
-    <circle cx="50" cy="18" r="12" stroke="#8d6e63" stroke-width="3" fill="none"/>
-  </svg>`
-};
-
-// Registered Samhain Woodcut Tiles (Tiles 1-13)
+// Built-in Tiles 1 to 15 (Tile 15 set as testing priority)
 export const SHAPE_PAGES = [
-  Array.from({ length: 13 }, (_, idx) => {
-    const tileNum = idx + 1;
-    const filename = `samhain-tile${tileNum}.png`;
-    return {
-      id: `samhainTile${tileNum}`,
-      filename,
-      drawSVG: `<rect x="3" y="3" width="18" height="18" rx="2" stroke="#ffab00" stroke-width="1.5"/><text x="12" y="15" fill="#ffab00" font-size="8" text-anchor="middle">T${tileNum}</text>`,
+  [
+    {
+      id: "tile15",
+      filename: "tile15.png",
+      drawSVG: `<rect x="3" y="3" width="18" height="18" rx="2" stroke="#ffab00" stroke-width="1.5"/><text x="12" y="15" fill="#ffab00" font-size="8" text-anchor="middle">T15</text>`,
       drawCanvas: (ctx, cx, cy) => {
-        ctx.strokeStyle = "#ffab00";
-        ctx.lineWidth = 2;
+        ctx.strokeStyle = "#ffab00"; ctx.lineWidth = 2;
         ctx.strokeRect(cx - 14, cy - 14, 28, 28);
-        ctx.fillStyle = "#ffab00";
-        ctx.font = "bold 10px sans-serif";
-        ctx.textAlign = "center";
-        ctx.textBaseline = "middle";
-        ctx.fillText(`T${tileNum}`, cx, cy);
+        ctx.fillStyle = "#ffab00"; ctx.font = "bold 10px sans-serif";
+        ctx.textAlign = "center"; ctx.textBaseline = "middle";
+        ctx.fillText("T15", cx, cy);
       },
       gen: async (out, n, swatchOut) => {
-        const img = await loadTileImage(filename);
-        if (img) {
-          sampleImageToDrones(img, out, n, swatchOut, 0.046, 16);
-        }
+        const img = await loadTileImage("tile15.png");
+        if (img) sampleImageToDrones(img, out, n, swatchOut, 0.046, 16);
       }
-    };
-  })
+    },
+    ...Array.from({ length: 13 }, (_, idx) => {
+      const tileNum = idx + 1;
+      const filename = `samhain-tile${tileNum}.png`;
+      return {
+        id: `tile${tileNum}`,
+        filename,
+        drawSVG: `<rect x="3" y="3" width="18" height="18" rx="2" stroke="#ffab00" stroke-width="1.5"/><text x="12" y="15" fill="#ffab00" font-size="8" text-anchor="middle">T${tileNum}</text>`,
+        drawCanvas: (ctx, cx, cy) => {
+          ctx.strokeStyle = "#ffab00"; ctx.lineWidth = 2;
+          ctx.strokeRect(cx - 14, cy - 14, 28, 28);
+          ctx.fillStyle = "#ffab00"; ctx.font = "bold 10px sans-serif";
+          ctx.textAlign = "center"; ctx.textBaseline = "middle";
+          ctx.fillText(`T${tileNum}`, cx, cy);
+        },
+        gen: async (out, n, swatchOut) => {
+          const img = await loadTileImage(filename);
+          if (img) sampleImageToDrones(img, out, n, swatchOut, 0.046, 16);
+        }
+      };
+    })
+  ]
 ];
 
 export function findShapeById(id) {
