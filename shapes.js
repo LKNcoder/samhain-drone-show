@@ -3,7 +3,7 @@ import { SVGLoader } from "three/addons/loaders/SVGLoader.js";
 
 export const GOLDEN = Math.PI * (3 - Math.sqrt(5));
 
-// Base URL for hosted Samhain tile assets
+// Base URL for hosted assets on GitHub Pages
 const ASSET_BASE_URL = "https://lkncoder.github.io/tacocat/";
 
 // High-Fidelity Stratified Density Sampler (Preserves fine stars, crescents, and silhouettes)
@@ -23,18 +23,18 @@ export function sampleImageToDrones(imgElement, out, count, swatchOut, scale = 0
 
   let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
 
-  // 1. High-contrast threshold scan: White = Lit Drone, Black = Negative Sky Void
+  // 1. Threshold scan: White = Lit Drone, Black = Negative Space Void
   for (let y = 1; y < 511; y++) {
     for (let x = 1; x < 511; x++) {
       const idx = (y * 512 + x) * 4;
       const lum = imgData[idx] * 0.299 + imgData[idx + 1] * 0.587 + imgData[idx + 2] * 0.114;
 
-      if (lum > 115) {
+      if (lum > 110) {
         whitePixels.push({ x, y });
         if (x < minX) minX = x; if (x > maxX) maxX = x;
         if (y < minY) minY = y; if (y > maxY) maxY = y;
 
-        // Check 4-neighbor boundary to isolate crisp silhouette lines
+        // Check 4-neighbor boundary to isolate perimeter edges
         const aTop   = imgData[((y - 1) * 512 + x) * 4];
         const aBot   = imgData[((y + 1) * 512 + x) * 4];
         const aLeft  = imgData[(y * 512 + (x - 1)) * 4];
@@ -52,7 +52,7 @@ export function sampleImageToDrones(imgElement, out, count, swatchOut, scale = 0
   const cx = (minX + maxX) / 2;
   const cy = (minY + maxY) / 2;
 
-  // 2. Stratified Spatial Grid (Blue Noise Centroid Snapping)
+  // 2. Spatial Bucket Partitioning (Blue Noise Centroid Snapping)
   const totalWhite = whitePixels.length;
   const areaPerDrone = Math.max(1, totalWhite / count);
   const cellDim = Math.max(2.4, Math.sqrt(areaPerDrone * 0.90));
@@ -80,7 +80,7 @@ export function sampleImageToDrones(imgElement, out, count, swatchOut, scale = 0
     if (bucket) bucket.edge.push(p);
   }
 
-  // 3. Extract Cell Centroids (Prioritizing Boundary Edges)
+  // 3. Extract Centroids prioritizing boundary edges
   const candidatePts = [];
   grid.forEach((bucket) => {
     const src = bucket.edge.length > 0 ? bucket.edge : bucket.all;
@@ -117,7 +117,7 @@ export function sampleImageToDrones(imgElement, out, count, swatchOut, scale = 0
     }
   }
 
-  // 5. Output Single-Layer Coordinates ($Z=0$) with Height-Zoned Coloring
+  // 5. Output Single-Layer Coordinates ($Z=0$) with Height-Zoned Palette
   for (let i = 0; i < count; i++) {
     const p = finalPts[i];
     out[i * 3]     = (p.x - cx) * scale;
@@ -136,7 +136,7 @@ export function sampleImageToDrones(imgElement, out, count, swatchOut, scale = 0
   }
 }
 
-// Loads a local or hosted PNG tile with cross-origin fallback
+// Loads a local or hosted PNG tile with cross-origin support
 export function loadTileImage(filename) {
   return new Promise((resolve) => {
     const img = new Image();
@@ -273,9 +273,49 @@ export function generateTextDrones(out, text, count, font = "Impact", scale = 0.
   }
 }
 
-// Build registered Samhain shapes (Tiles 1 through 13)
+// Built-in Vector Asset Library
+export const RAW_SVGS = {
+  // SVGRepo 196385: Scythe Agriculture
+  scythe: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+    <path fill="#e0f7fa" d="M472.6,39.4C374.3,39.4,272.5,91.8,206.2,176.6c-18.4,23.6-32.9,50.1-43,78.2l76.7,30.7c8.5-22.6,20.4-43.8,35.3-62.7 c52.7-67.4,133.5-108.9,211.2-108.9c3.9,0,7.9,0.1,11.8,0.3L512,41.2C498.9,40,485.8,39.4,472.6,39.4z"/>
+    <path fill="#5d4037" d="M72.2,498.4l148.6-371.5c3.2-8,12.2-12,20.2-8.8c8,3.2,12,12.2,8.8,20.2L101.2,510c-3.2,8-12.2,12-20.2,8.8 C73,515.6,69,506.4,72.2,498.4z"/>
+    <rect fill="#8d6e63" x="145" y="270" width="16" height="58" transform="matrix(0.3746 -0.9272 0.9272 0.3746 -181.7 298.6)"/>
+    <rect fill="#8d6e63" x="195" y="160" width="16" height="58" transform="matrix(0.3746 -0.9272 0.9272 0.3746 -79.3 260.4)"/>
+  </svg>`,
+
+  // SVGRepo 211999: Wheat Barley
+  wheat: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+    <path fill="#5d4037" d="M256,502c-5.5,0-10-4.5-10-10V220c0-5.5,4.5-10,10-10s10,4.5,10,10v272C266,497.5,261.5,502,256,502z"/>
+    <path fill="#ffb300" d="M256,190c-28,0-50-32-50-70s22-70,50-70s50,32,50,70S284,190,256,190z M256,70c-16.5,0-30,22.4-30,50s13.5,50,30,50s30-22.4,30-50S272.5,70,256,70z"/>
+    <path fill="#ffa000" d="M210,250c-26-10-40-44-30-76s40-50,66-40s40,44,30,76S236,260,210,250z"/>
+    <path fill="#ffb300" d="M302,250c26-10,40-44,30-76s-40-50-66-40s-40,44-30,76S276,260,302,250z"/>
+    <line x1="256" y1="50" x2="256" y2="10" stroke="#ffb300" stroke-width="4"/>
+  </svg>`,
+
+  // Turnip Lantern
+  turnip: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 120">
+    <polygon points="50,12 82,34 96,72 68,112 32,112 4,72 18,34" fill="#a1887f"/>
+    <path d="M 50 12 C 45 -4, 30 -8, 25 -14 M 50 12 C 55 -6, 68 -6, 75 -12 M 50 12 L 50 -12" stroke="#689f38" stroke-width="3" fill="none"/>
+    <polygon points="26,44 44,58 26,62" fill="#ffab00"/>
+    <polygon points="74,44 56,58 74,62" fill="#ffab00"/>
+    <polygon points="50,62 56,74 44,74" fill="#ffab00"/>
+    <path d="M 20 84 L 30 96 L 40 84 L 50 98 L 60 84 L 70 96 L 80 84 L 72 104 L 60 92 L 50 106 L 40 92 L 28 104 Z" fill="#ffab00"/>
+  </svg>`,
+
+  // Wicker Man Effigy
+  wickerMan: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 120">
+    <line x1="34" y1="118" x2="44" y2="72" stroke="#8d6e63" stroke-width="4"/>
+    <line x1="66" y1="118" x2="56" y2="72" stroke="#8d6e63" stroke-width="4"/>
+    <rect x="32" y="34" width="36" height="38" stroke="#8d6e63" stroke-width="3" fill="none"/>
+    <line x1="32" y1="34" x2="68" y2="72" stroke="#ffd54f" stroke-width="2"/>
+    <line x1="68" y1="34" x2="32" y2="72" stroke="#ffd54f" stroke-width="2"/>
+    <line x1="8" y1="42" x2="92" y2="42" stroke="#8d6e63" stroke-width="4"/>
+    <circle cx="50" cy="18" r="12" stroke="#8d6e63" stroke-width="3" fill="none"/>
+  </svg>`
+};
+
+// Registered Samhain Woodcut Tiles (Tiles 1-13)
 export const SHAPE_PAGES = [
-  // Page 1: Samhain Woodcut Tiles (Tiles 1-13)
   Array.from({ length: 13 }, (_, idx) => {
     const tileNum = idx + 1;
     const filename = `samhain-tile${tileNum}.png`;
