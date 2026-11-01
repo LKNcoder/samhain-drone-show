@@ -176,7 +176,6 @@ export function sampleImageToDrones(imgElement, out, count, swatchOut, scale = 0
           }
         }
 
-        // Keep islands with 12+ pixels
         if (islandPixels.length >= 12) {
           const edge = [];
           for (const p of islandPixels) {
@@ -276,10 +275,10 @@ export function loadTileImage(filename) {
   });
 }
 
-// Master Shape Directory prioritizing Tiles 16–34
+// Master Shape Directory prioritizing Tiles 16–34 (with 17 as finale)
 const TILE_ORDER = [
   16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34,
-  15, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14
+  1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14
 ];
 
 export const SHAPE_PAGES = [
