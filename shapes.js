@@ -53,7 +53,7 @@ export function compileSVGToDrones(svgString, out, count, swatchOut, scale = 0.0
   const cx = (minX + maxX) / 2;
   const cy = (minY + maxY) / 2;
 
-  // Single plane (Z = 0) with inverted Y so SVGs render right-side up in Three.js sky
+  // Single plane (Z = 0) with inverted Y so SVGs render upright in Three.js sky
   for (let i = 0; i < count; i++) {
     const p = sampled[i];
     out[i * 3]     = (p.x - cx) * scale;
@@ -62,6 +62,9 @@ export function compileSVGToDrones(svgString, out, count, swatchOut, scale = 0.0
     if (swatchOut) swatchOut[i] = p.swatch;
   }
 }
+
+// Backward-compatible alias for index.html imports
+export const parseAndSampleSVG = compileSVGToDrones;
 
 // Glyph Vector Definitions
 const GLYPH_PATHS = {
