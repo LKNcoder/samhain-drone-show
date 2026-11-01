@@ -5,7 +5,7 @@ export const GOLDEN = Math.PI * (3 - Math.sqrt(5));
 
 const ASSET_BASE_URL = "https://lkncoder.github.io/tacocat/";
 
-// Hierarchical Boundary-First + Particle Relaxation Sampler
+// High-Fidelity Stratified Density Sampler (Preserves contours, fine details, and negative space)
 export function sampleImageToDrones(imgElement, out, count, swatchOut, scale = 0.046, altitude = 16) {
   const canvas = document.createElement("canvas");
   canvas.width = 512;
@@ -24,13 +24,13 @@ export function sampleImageToDrones(imgElement, out, count, swatchOut, scale = 0
 
   let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
 
-  // 1. Binary thresholding & edge classification
+  // 1. Threshold scan: White (> 110) = Drones, Black = Empty Negative Space
   for (let y = 1; y < 511; y++) {
     for (let x = 1; x < 511; x++) {
       const idx = (y * 512 + x) * 4;
       const lum = imgData[idx] * 0.299 + imgData[idx + 1] * 0.587 + imgData[idx + 2] * 0.114;
 
-      if (lum > 115) {
+      if (lum > 110) {
         whiteMask[y * 512 + x] = 1;
         if (x < minX) minX = x; if (x > maxX) maxX = x;
         if (y < minY) minY = y; if (y > maxY) maxY = y;
@@ -38,7 +38,7 @@ export function sampleImageToDrones(imgElement, out, count, swatchOut, scale = 0
     }
   }
 
-  // Detect edge pixels by checking 4-connected neighbors
+  // Detect boundary pixels using 4-connectivity
   for (let y = 1; y < 511; y++) {
     for (let x = 1; x < 511; x++) {
       if (whiteMask[y * 512 + x] === 1) {
@@ -62,8 +62,7 @@ export function sampleImageToDrones(imgElement, out, count, swatchOut, scale = 0
   const cx = (minX + maxX) / 2;
   const cy = (minY + maxY) / 2;
 
-  // 2. Chained Contour Extraction (Moore-Neighbor Path Tracing)
-  // Orders boundary pixels sequentially so drones form continuous vector strokes
+  // 2. Chained Contour Extraction (Sequential perimeter walk)
   const visited = new Uint8Array(512 * 512);
   const chainedPerimeter = [];
 
@@ -76,7 +75,6 @@ export function sampleImageToDrones(imgElement, out, count, swatchOut, scale = 0
     visited[sIdx] = 1;
     chainedPerimeter.push(curr);
 
-    // Walk neighboring edge pixels
     let found = true;
     while (found) {
       found = false;
@@ -102,7 +100,7 @@ export function sampleImageToDrones(imgElement, out, count, swatchOut, scale = 0
     }
   }
 
-  // 3. Dedicated Boundary Allotment (65% of fleet to outlines)
+  // 3. Allocate 65% of drones to perimeter edges, 35% to relaxed interior
   const targetEdgeCount = Math.min(count, Math.round(count * 0.65));
   const targetFillCount = count - targetEdgeCount;
   let ptr = 0;
@@ -114,13 +112,12 @@ export function sampleImageToDrones(imgElement, out, count, swatchOut, scale = 0
       out[ptr * 3]     = (p.x - cx) * scale;
       out[ptr * 3 + 1] = altitude - (p.y - cy) * scale;
       out[ptr * 3 + 2] = 0.0;
-      if (swatchOut) swatchOut[ptr] = 0; // Pure contour swatch
+      if (swatchOut) swatchOut[ptr] = 0;
       ptr++;
     }
   }
 
-  // 4. Interior Poisson/Lloyd Relaxation
-  // Distributes remaining drones into the interior body with mutual repulsion
+  // 4. Interior Blue Noise / Spring Repulsion
   if (targetFillCount > 0 && interiorPoints.length > 0) {
     const fillDrones = [];
     const stepI = interiorPoints.length / targetFillCount;
@@ -129,7 +126,6 @@ export function sampleImageToDrones(imgElement, out, count, swatchOut, scale = 0
       fillDrones.push({ x: p.x, y: p.y });
     }
 
-    // 8 Iterations of Spring/Voronoi Repulsion (Relaxes grid into triangular lattice)
     for (let iter = 0; iter < 8; iter++) {
       for (let a = 0; a < fillDrones.length; a++) {
         let fx = 0, fy = 0;
@@ -142,7 +138,7 @@ export function sampleImageToDrones(imgElement, out, count, swatchOut, scale = 0
           const dy = da.y - db.y;
           const distSq = dx * dx + dy * dy;
 
-          if (distSq < 144 && distSq > 0.01) { // 12px repulsion radius
+          if (distSq < 144 && distSq > 0.01) {
             const dist = Math.sqrt(distSq);
             const force = (12 - dist) / dist;
             fx += dx * force * 0.25;
@@ -152,7 +148,6 @@ export function sampleImageToDrones(imgElement, out, count, swatchOut, scale = 0
 
         const nx = Math.round(da.x + fx);
         const ny = Math.round(da.y + fy);
-        // Ensure drone stays inside white mask
         if (nx >= 0 && nx < 512 && ny >= 0 && ny < 512 && whiteMask[ny * 512 + nx]) {
           da.x = nx;
           da.y = ny;
@@ -165,12 +160,11 @@ export function sampleImageToDrones(imgElement, out, count, swatchOut, scale = 0
       out[ptr * 3]     = (p.x - cx) * scale;
       out[ptr * 3 + 1] = altitude - (p.y - cy) * scale;
       out[ptr * 3 + 2] = 0.0;
-      if (swatchOut) swatchOut[ptr] = 1; // Infill swatch
+      if (swatchOut) swatchOut[ptr] = 1;
       ptr++;
     }
   }
 
-  // Pad any remainder
   while (ptr < count) {
     out[ptr * 3]     = out[(ptr - 1) * 3] + 0.1;
     out[ptr * 3 + 1] = out[(ptr - 1) * 3 + 1];
@@ -180,19 +174,21 @@ export function sampleImageToDrones(imgElement, out, count, swatchOut, scale = 0
   }
 }
 
-// Tile Loader with dual filename checking (tile15.png and samhain-tile15.png)
+// Robust Image Loader supporting exact GitHub asset naming
 export function loadTileImage(filename) {
   return new Promise((resolve) => {
+    const raw = filename.replace(/^samhain-/, "");
     const candidates = [
-      "./" + filename,
-      ASSET_BASE_URL + filename,
-      "./samhain-" + filename,
-      ASSET_BASE_URL + "samhain-" + filename
+      `./samhain-${raw}`,
+      `${ASSET_BASE_URL}samhain-${raw}`,
+      `./${raw}`,
+      `${ASSET_BASE_URL}${raw}`
     ];
 
     let idx = 0;
     function tryNext() {
       if (idx >= candidates.length) {
+        console.warn(`Could not load image: ${filename}`);
         resolve(null);
         return;
       }
@@ -329,46 +325,29 @@ export function generateTextDrones(out, text, count, font = "Impact", scale = 0.
   }
 }
 
-// Built-in Tiles 1 to 15 (Tile 15 set as testing priority)
+// Registered Samhain Woodcut Tiles (Tiles 1-15, with Tile 15 mapped accurately)
+const TILE_NUMBERS = [15, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13];
+
 export const SHAPE_PAGES = [
-  [
-    {
-      id: "tile15",
-      filename: "tile15.png",
-      drawSVG: `<rect x="3" y="3" width="18" height="18" rx="2" stroke="#ffab00" stroke-width="1.5"/><text x="12" y="15" fill="#ffab00" font-size="8" text-anchor="middle">T15</text>`,
+  TILE_NUMBERS.map((tileNum) => {
+    const filename = `samhain-tile${tileNum}.png`;
+    return {
+      id: `samhainTile${tileNum}`,
+      filename,
+      drawSVG: `<rect x="3" y="3" width="18" height="18" rx="2" stroke="#ffab00" stroke-width="1.5"/><text x="12" y="15" fill="#ffab00" font-size="8" text-anchor="middle">T${tileNum}</text>`,
       drawCanvas: (ctx, cx, cy) => {
         ctx.strokeStyle = "#ffab00"; ctx.lineWidth = 2;
         ctx.strokeRect(cx - 14, cy - 14, 28, 28);
         ctx.fillStyle = "#ffab00"; ctx.font = "bold 10px sans-serif";
         ctx.textAlign = "center"; ctx.textBaseline = "middle";
-        ctx.fillText("T15", cx, cy);
+        ctx.fillText(`T${tileNum}`, cx, cy);
       },
       gen: async (out, n, swatchOut) => {
-        const img = await loadTileImage("tile15.png");
+        const img = await loadTileImage(filename);
         if (img) sampleImageToDrones(img, out, n, swatchOut, 0.046, 16);
       }
-    },
-    ...Array.from({ length: 13 }, (_, idx) => {
-      const tileNum = idx + 1;
-      const filename = `samhain-tile${tileNum}.png`;
-      return {
-        id: `tile${tileNum}`,
-        filename,
-        drawSVG: `<rect x="3" y="3" width="18" height="18" rx="2" stroke="#ffab00" stroke-width="1.5"/><text x="12" y="15" fill="#ffab00" font-size="8" text-anchor="middle">T${tileNum}</text>`,
-        drawCanvas: (ctx, cx, cy) => {
-          ctx.strokeStyle = "#ffab00"; ctx.lineWidth = 2;
-          ctx.strokeRect(cx - 14, cy - 14, 28, 28);
-          ctx.fillStyle = "#ffab00"; ctx.font = "bold 10px sans-serif";
-          ctx.textAlign = "center"; ctx.textBaseline = "middle";
-          ctx.fillText(`T${tileNum}`, cx, cy);
-        },
-        gen: async (out, n, swatchOut) => {
-          const img = await loadTileImage(filename);
-          if (img) sampleImageToDrones(img, out, n, swatchOut, 0.046, 16);
-        }
-      };
-    })
-  ]
+    };
+  })
 ];
 
 export function findShapeById(id) {
