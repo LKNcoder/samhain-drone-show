@@ -5,6 +5,117 @@ export const GOLDEN = Math.PI * (3 - Math.sqrt(5));
 
 const ASSET_BASE_URL = "https://lkncoder.github.io/tacocat/";
 
+// Traces continuous closed boundary paths using circular Moore neighborhood search
+function traceOrderedPerimeter(edgePixels, binaryMask) {
+  if (edgePixels.length === 0) return [];
+  const edgeSet = new Set(edgePixels.map(p => (p.y << 10) | p.x));
+  const visited = new Set();
+  const ordered = [];
+
+  // Start at the topmost-leftmost pixel
+  let curr = edgePixels[0];
+  for (const p of edgePixels) {
+    if (p.y < curr.y || (p.y === curr.y && p.x < curr.x)) curr = p;
+  }
+
+  const startKey = (curr.y << 10) | curr.x;
+  visited.add(startKey);
+  ordered.push(curr);
+
+  const dirs = [
+    { dx: 1, dy: 0 }, { dx: 1, dy: 1 }, { dx: 0, dy: 1 }, { dx: -1, dy: 1 },
+    { dx: -1, dy: 0 }, { dx: -1, dy: -1 }, { dx: 0, dy: -1 }, { dx: 1, dy: -1 }
+  ];
+
+  let lastDir = 0;
+  const maxSteps = edgePixels.length * 2;
+
+  for (let step = 0; step < maxSteps; step++) {
+    let found = false;
+    for (let i = 0; i < 8; i++) {
+      const dIdx = (lastDir + i) % 8;
+      const nx = curr.x + dirs[dIdx].dx;
+      const ny = curr.y + dirs[dIdx].dy;
+      const nKey = (ny << 10) | nx;
+
+      if (edgeSet.has(nKey)) {
+        if (nKey === startKey && ordered.length > 10) {
+          return ordered; // Closed loop complete
+        }
+        if (!visited.has(nKey)) {
+          visited.add(nKey);
+          curr = { x: nx, y: ny };
+          ordered.push(curr);
+          lastDir = (dIdx + 5) % 8; // Backtrack tangent + 1
+          found = true;
+          break;
+        }
+      }
+    }
+
+    if (!found) {
+      // Connect across small anti-aliasing gaps to nearest unvisited boundary pixel
+      let nearest = null;
+      let minD = Infinity;
+      for (const p of edgePixels) {
+        const pk = (p.y << 10) | p.x;
+        if (!visited.has(pk)) {
+          const d = (p.x - curr.x) ** 2 + (p.y - curr.y) ** 2;
+          if (d < minD) { minD = d; nearest = p; }
+        }
+      }
+      if (nearest && minD < 49) { // Jump up to 7 pixels gap
+        curr = nearest;
+        visited.add((curr.y << 10) | curr.x);
+        ordered.push(curr);
+        lastDir = 0;
+      } else {
+        break;
+      }
+    }
+  }
+
+  return ordered.length > 0 ? ordered : edgePixels;
+}
+
+// Resamples an ordered contour polygon at exact equidistant arc-length intervals
+function resampleEquidistant(orderedPts, targetCount) {
+  if (orderedPts.length === 0 || targetCount <= 0) return [];
+  if (targetCount === 1) return [orderedPts[0]];
+
+  const dists = [0];
+  for (let i = 1; i < orderedPts.length; i++) {
+    const dx = orderedPts[i].x - orderedPts[i - 1].x;
+    const dy = orderedPts[i].y - orderedPts[i - 1].y;
+    dists.push(dists[i - 1] + Math.sqrt(dx * dx + dy * dy));
+  }
+
+  const totalLen = dists[dists.length - 1];
+  if (totalLen <= 0.001) return Array(targetCount).fill(orderedPts[0]);
+
+  const stepDist = totalLen / targetCount;
+  const resampled = [];
+
+  let segIdx = 0;
+  for (let i = 0; i < targetCount; i++) {
+    const targetD = i * stepDist;
+    while (segIdx < dists.length - 2 && dists[segIdx + 1] < targetD) {
+      segIdx++;
+    }
+    const segLen = dists[segIdx + 1] - dists[segIdx];
+    const t = segLen > 0.0001 ? (targetD - dists[segIdx]) / segLen : 0;
+    const p0 = orderedPts[segIdx];
+    const p1 = orderedPts[segIdx + 1];
+
+    resampled.push({
+      x: p0.x + (p1.x - p0.x) * t,
+      y: p0.y + (p1.y - p0.y) * t
+    });
+  }
+
+  return resampled;
+}
+
 // Island-Aware Boundary & Blue Noise Particle Relaxation Sampler
 export function sampleImageToDrones(imgElement, out, count, swatchOut, scale = 0.048, altitude = 16) {
   const canvas = document.createElement("canvas");
@@ -21,7 +132,7 @@ export function sampleImageToDrones(imgElement, out, count, swatchOut, scale = 0
 
   let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
 
-  // 1. Threshold scan: White (> 110) = Drones, Black = Sky Void
+  // 1. High-contrast threshold
   for (let y = 1; y < 511; y++) {
     for (let x = 1; x < 511; x++) {
       const idx = (y * 512 + x) * 4;
@@ -35,7 +146,7 @@ export function sampleImageToDrones(imgElement, out, count, swatchOut, scale = 0
     }
   }
 
-  // 2. Connected Component Analysis (Isolates shapes & discards stray pixels)
+  // 2. Connected Component Segmentation
   const visited = new Uint8Array(512 * 512);
   const islands = [];
 
@@ -67,8 +178,8 @@ export function sampleImageToDrones(imgElement, out, count, swatchOut, scale = 0
           }
         }
 
-        // Keep islands with 15+ pixels to drop random compression noise
-        if (islandPixels.length >= 15) {
+        // Filter out tiny isolated noise specks (< 12px)
+        if (islandPixels.length >= 12) {
           const edge = [];
           for (const p of islandPixels) {
             const top   = binary[(p.y - 1) * 512 + p.x];
@@ -77,7 +188,11 @@ export function sampleImageToDrones(imgElement, out, count, swatchOut, scale = 0
             const right = binary[p.y * 512 + (p.x + 1)];
             if (!top || !bot || !left || !right) edge.push(p);
           }
-          islands.push({ pixels: islandPixels, edge, weight: islandPixels.length });
+
+          const orderedContour = traceOrderedPerimeter(edge, binary);
+          // Perimeter-dominant weight prevents stems/stumps from being starved by huge bodies
+          const weight = orderedContour.length * 1.5 + Math.sqrt(islandPixels.length) * 4.0;
+          islands.push({ pixels: islandPixels, contour: orderedContour, weight });
         }
       }
     }
@@ -89,35 +204,33 @@ export function sampleImageToDrones(imgElement, out, count, swatchOut, scale = 0
   const cy = (minY + maxY) / 2;
   const totalWeight = islands.reduce((acc, isl) => acc + isl.weight, 0);
 
-  // 3. Proportional Fleet Budget Allocation (70% Contour, 30% Infill)
+  // 3. Proportional Fleet Budget Allocation (75% Perimeter Outlines, 25% Infill)
   let ptr = 0;
   for (const isl of islands) {
-    const islDroneCount = Math.max(4, Math.round((isl.weight / totalWeight) * count));
-    const edgeRatio = Math.min(isl.edge.length, Math.round(islDroneCount * 0.70));
-    const fillRatio = islDroneCount - edgeRatio;
+    const islDroneCount = Math.max(6, Math.round((isl.weight / totalWeight) * count));
+    const edgeCount = Math.min(isl.contour.length, Math.round(islDroneCount * 0.75));
+    const fillCount = islDroneCount - edgeCount;
 
-    // Edge Contour Sampling
-    if (isl.edge.length > 0 && edgeRatio > 0) {
-      const stepE = isl.edge.length / edgeRatio;
-      for (let i = 0; i < edgeRatio && ptr < count; i++) {
-        const p = isl.edge[Math.floor(i * stepE) % isl.edge.length];
-        out[ptr * 3]     = (p.x - cx) * scale;
-        out[ptr * 3 + 1] = altitude - (p.y - cy) * scale;
-        out[ptr * 3 + 2] = 0.0;
-        if (swatchOut) swatchOut[ptr] = 0;
-        ptr++;
-      }
+    // A. Equidistant Metric Outline Sampling (Equal drone distance across stems, ribs, and loops)
+    const edgeDrones = resampleEquidistant(isl.contour, edgeCount);
+    for (let i = 0; i < edgeDrones.length && ptr < count; i++) {
+      const p = edgeDrones[i];
+      out[ptr * 3]     = (p.x - cx) * scale;
+      out[ptr * 3 + 1] = altitude - (p.y - cy) * scale;
+      out[ptr * 3 + 2] = 0.0;
+      if (swatchOut) swatchOut[ptr] = 0; // Boundary contour swatch
+      ptr++;
     }
 
-    // Infill Relaxation Sampling
-    if (isl.pixels.length > 0 && fillRatio > 0) {
-      const stepF = isl.pixels.length / fillRatio;
-      for (let i = 0; i < fillRatio && ptr < count; i++) {
+    // B. Relaxed Interior Infill
+    if (isl.pixels.length > 0 && fillCount > 0) {
+      const stepF = isl.pixels.length / fillCount;
+      for (let i = 0; i < fillCount && ptr < count; i++) {
         const p = isl.pixels[Math.floor(i * stepF) % isl.pixels.length];
         out[ptr * 3]     = (p.x - cx) * scale;
         out[ptr * 3 + 1] = altitude - (p.y - cy) * scale;
         out[ptr * 3 + 2] = 0.0;
-        if (swatchOut) swatchOut[ptr] = 1;
+        if (swatchOut) swatchOut[ptr] = 1; // Infill swatch
         ptr++;
       }
     }
@@ -287,8 +400,8 @@ export function generateTextDrones(out, text, count, font = "Impact", scale = 0.
   }
 }
 
-// Master Shape Directory with priority ordered for Tiles 16-19 and 15
-const TILE_ORDER = [16, 17, 18, 19, 15, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14];
+// Master Shape Directory prioritizing Tiles 20–23, followed by 15–19 and earlier sets
+const TILE_ORDER = [20, 21, 22, 23, 15, 16, 17, 18, 19, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14];
 
 export const SHAPE_PAGES = [
   TILE_ORDER.map((tileNum) => {
