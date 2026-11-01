@@ -250,7 +250,6 @@ button.symbol-btn span { font-size: 9px; color: #a08a75; margin-top: 2px; }
 }
 body.xr-active #panel, body.xr-active #vr-tip, body.xr-active #VRButton { display: none !important; }
 
-/* Dropzone Overlay for Drag-and-Drop SVG */
 #drop-overlay {
   display: none; position: fixed; inset: 0; background: rgba(255, 171, 0, 0.2);
   border: 4px dashed #ffab00; z-index: 100; pointer-events: none;
@@ -286,12 +285,7 @@ body.dragging #drop-overlay { display: flex; }
       <span style="color:#ffab00;">Direct SVG Vector Importer</span>
       <span style="font-size:10px; color:#c0d1ed;">No AI Required · 100% Client-Side</span>
     </div>
-    <div class="ctrl-row">
-      <span>SVG URL / Paste:</span>
-      <input type="text" id="input-svg-url" placeholder="Paste .svg direct link or drop file below">
-      <button class="toolbar-btn" id="btn-fetch-svg" style="padding:2px 8px;">Fetch</button>
-    </div>
-    <textarea id="ta-svg-code" rows="3" placeholder="...or paste raw <svg>...</svg> code here" style="width:100%; font-family:monospace; font-size:10px; background:#111a28; color:#00e5ff; border:1px solid #2d3b4e; border-radius:4px; padding:4px; resize:vertical;"></textarea>
+    <textarea id="ta-svg-code" rows="3" placeholder="Paste raw <svg>...</svg> code here, or drop a file" style="width:100%; font-family:monospace; font-size:10px; background:#111a28; color:#00e5ff; border:1px solid #2d3b4e; border-radius:4px; padding:4px; resize:vertical;"></textarea>
     
     <div class="ctrl-row">
       <span>Quick Presets:</span>
@@ -418,7 +412,7 @@ body.dragging #drop-overlay { display: flex; }
 
   <div id="hint">
     <b>Scythe Cut Animation:</b> Watch Scene 1 ($00:10 - 00:26$) — wheat sways, then the scythe swoops down, cuts the stems, and severed stalks tumble.<br>
-    <b>Text Right-Side Up:</b> Letters are now properly oriented with BLESSED stacked on top of SAMHAIN.
+    <b>Text Orientation:</b> Letters are properly oriented with BLESSED stacked on top of SAMHAIN.
   </div>
 </div>
 <div id="vr-tip">In VR: Press Left X for HUD · Trigger paints drones with active swatch</div>
@@ -427,7 +421,15 @@ body.dragging #drop-overlay { display: flex; }
 import * as THREE from "three";
 import { OrbitControls } from "three/addons/controls/OrbitControls.js";
 import { VRButton } from "three/addons/webxr/VRButton.js";
-import { SHAPE_PAGES, findShapeById, generateTextDrones, parseAndSampleSVG, RAW_SVGS, GOLDEN } from "./shapes.js";
+import {
+  SHAPE_PAGES,
+  findShapeById,
+  generateTextDrones,
+  compileSVGToDrones,
+  parseAndSampleSVG,
+  RAW_SVGS,
+  GOLDEN
+} from "./shapes.js?v=samhain_final";
 
 function formatTime(s) {
   if (isNaN(s) || s === undefined || s === null) return "00:00";
@@ -533,7 +535,7 @@ const currentColors = new Float32Array(MAX_DRONES * 3);
 const targetColors = new Float32Array(MAX_DRONES * 3);
 const droneSwatchIndices = new Uint8Array(MAX_DRONES);
 
-// Centered Circular Launchpad
+// Centered Circular Launchpad (using imported GOLDEN constant)
 const groundPositions = new Float32Array(MAX_DRONES * 3);
 function updateGroundPositions(n) {
   for (let i = 0; i < n; i++) {
@@ -922,18 +924,16 @@ function evaluateTimeline(t) {
         localScratchPoints.set(currTargets.subarray(0, formationCount * 3));
         if (b.isText) applyTextProceduralFX(b, showT - formStart, formationCount, localScratchPoints);
 
-        // KINEMATIC: Waving Wheat into Scythe Cut (Scene 1)
-   if (b.shapeId === "wheatBarley") {
+        // Kinematic wheat harvest
+        if (b.shapeId === "wheatBarley") {
           const tScene = showT - formStart;
           if (tScene < 9.0) {
-            // Coherent wind sway across the stalks without warping nodes
             const sway = Math.sin(tScene * 2.2) * 1.2;
             for (let j = 0; j < formationCount; j++) {
               const yNorm = Math.max(0, (localScratchPoints[j * 3 + 1] - 4) / 18);
               localScratchPoints[j * 3] += sway * yNorm;
             }
           } else if (tScene < 13.5) {
-            // Cut stalks drop cleanly toward ground
             const cutProg = (tScene - 9.0) / 4.5;
             for (let j = 0; j < formationCount; j++) {
               const xPos = localScratchPoints[j * 3];
@@ -1029,7 +1029,7 @@ function evaluateTimeline(t) {
       const ease = prog * prog * (3 - 2 * prog);
 
       targetPositions[i * 3]     = skyPosA.x + (gx - skyPosA.x) * ease;
-      targetPositions[i * 3 + 1] = skyPosA.y + (gy - skyPosA.y) * ease;
+      targetPositions[i * 3 + 1] = gy + (gy - skyPosA.y) * ease;
       targetPositions[i * 3 + 2] = skyPosA.z + (gz - skyPosA.z) * ease;
 
       const emberPulse = Math.sin(t * 6.0 + i) > 0.4 ? 1.0 : 0.3;
@@ -1079,84 +1079,6 @@ function evaluateTimeline(t) {
         targetColors[i * 3 + 2] = 0.05;
       }
     }
-  }
-}
-
-// Locomotion
-const grabState = {
-  leftGrip: false, rightGrip: false, mode: 'none',
-  anchorHandL: new THREE.Vector3(), anchorHandR: new THREE.Vector3(),
-  anchorMid: new THREE.Vector3(), anchorDist: 1.0, anchorAngle: 0.0,
-  anchorStagePos: new THREE.Vector3(), anchorStageScale: 1.0, anchorStageRotY: 0.0
-};
-const posL = new THREE.Vector3(), posR = new THREE.Vector3(), midCurr = new THREE.Vector3(), diffVec = new THREE.Vector3();
-
-function onGripChange() {
-  const l = grabState.leftGrip, r = grabState.rightGrip;
-  leftController.getWorldPosition(posL);
-  rightController.getWorldPosition(posR);
-
-  if (l && r) {
-    grabState.mode = 'dual';
-    grabState.anchorHandL.copy(posL); grabState.anchorHandR.copy(posR);
-    grabState.anchorMid.addVectors(posL, posR).multiplyScalar(0.5);
-    diffVec.subVectors(posR, posL);
-    grabState.anchorDist = Math.max(0.08, diffVec.length());
-    grabState.anchorAngle = Math.atan2(diffVec.x, diffVec.z);
-    grabState.anchorStagePos.copy(stageGroup.position);
-    grabState.anchorStageScale = stageGroup.scale.x;
-    grabState.anchorStageRotY = stageGroup.rotation.y;
-  } else if (l) {
-    grabState.mode = 'single-left'; grabState.anchorHandL.copy(posL);
-    grabState.anchorStagePos.copy(stageGroup.position);
-  } else if (r) {
-    grabState.mode = 'single-right'; grabState.anchorHandR.copy(posR);
-    grabState.anchorStagePos.copy(stageGroup.position);
-  } else {
-    grabState.mode = 'none';
-  }
-}
-
-leftController.addEventListener("squeezestart", () => { grabState.leftGrip = true; onGripChange(); });
-leftController.addEventListener("squeezeend", () => { grabState.leftGrip = false; onGripChange(); });
-rightController.addEventListener("squeezestart", () => { grabState.rightGrip = true; onGripChange(); });
-rightController.addEventListener("squeezeend", () => { grabState.rightGrip = false; onGripChange(); });
-
-function updateWorldGrab() {
-  if (!renderer.xr.isPresenting || grabState.mode === 'none') return;
-  leftController.getWorldPosition(posL);
-  rightController.getWorldPosition(posR);
-
-  if (grabState.mode === 'dual') {
-    midCurr.addVectors(posL, posR).multiplyScalar(0.5);
-    diffVec.subVectors(posR, posL);
-    const currDist = Math.max(0.08, diffVec.length());
-    const currAngle = Math.atan2(diffVec.x, diffVec.z);
-
-    const scaleRatio = currDist / grabState.anchorDist;
-    const targetScale = THREE.MathUtils.clamp(grabState.anchorStageScale * scaleRatio, 0.05, 30.0);
-    const effectiveRatio = targetScale / grabState.anchorStageScale;
-    stageGroup.scale.setScalar(targetScale);
-
-    dronePoints.material.size = Math.max(0.02, BASE_DRONE_SIZE * targetScale);
-
-    const deltaAngle = currAngle - grabState.anchorAngle;
-    stageGroup.rotation.y = grabState.anchorStageRotY + deltaAngle;
-
-    const vOffset = new THREE.Vector3().subVectors(grabState.anchorStagePos, grabState.anchorMid);
-    vOffset.multiplyScalar(effectiveRatio);
-    vOffset.applyAxisAngle(Y_AXIS, deltaAngle);
-
-    const midDelta = new THREE.Vector3().subVectors(midCurr, grabState.anchorMid);
-    stageGroup.position.copy(grabState.anchorMid).add(midDelta).add(vOffset);
-  } else if (grabState.mode === 'single-left') {
-    const scaleFactor = Math.max(0.1, stageGroup.scale.x);
-    const delta = new THREE.Vector3().subVectors(posL, grabState.anchorHandL).multiplyScalar(panSensitivity * scaleFactor);
-    stageGroup.position.addVectors(grabState.anchorStagePos, delta);
-  } else if (grabState.mode === 'single-right') {
-    const scaleFactor = Math.max(0.1, stageGroup.scale.x);
-    const delta = new THREE.Vector3().subVectors(posR, grabState.anchorHandR).multiplyScalar(panSensitivity * scaleFactor);
-    stageGroup.position.addVectors(grabState.anchorStagePos, delta);
   }
 }
 
@@ -1230,7 +1152,6 @@ function compileLoadedSVG() {
   const customSwatches = new Uint8Array(formationCount);
   const scale = parseFloat($("slider-import-scale").value);
 
-  // Compile using Three.js SVGLoader
   compileSVGToDrones(code, customPts, formationCount, customSwatches, scale, b.altitude || 16.0);
 
   b.customPoints = customPts;
@@ -1689,11 +1610,6 @@ const SPRING = 7.5;
 const DAMPING = 4.0;
 const MAX_DRONE_SPEED = 8.5;
 
-const cPosWorldL = new THREE.Vector3();
-const cPosWorldR = new THREE.Vector3();
-const cPosLocalL = new THREE.Vector3();
-const cPosLocalR = new THREE.Vector3();
-
 let prevTime = performance.now();
 renderer.setAnimationLoop(now => {
   const dt = Math.min(0.05, (now - prevTime) / 1000);
@@ -1709,11 +1625,6 @@ renderer.setAnimationLoop(now => {
     }
     evaluateTimeline(playheadTime);
     syncDesktopTimeline();
-  }
-
-  const isVR = renderer.xr.isPresenting;
-  if (isVR) {
-    updateWorldGrab();
   }
 
   dronePoints.material.size = Math.max(0.02, BASE_DRONE_SIZE * stageGroup.scale.x);
@@ -1780,7 +1691,7 @@ renderer.setAnimationLoop(now => {
   droneGeometry.attributes.position.needsUpdate = true;
   droneGeometry.attributes.color.needsUpdate = true;
 
-  if (!isVR) orbit.update();
+  if (!renderer.xr.isPresenting) orbit.update();
   renderer.render(scene, camera);
 });
 
