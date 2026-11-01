@@ -247,7 +247,7 @@ body.dragging #drop-overlay { display: flex; }
 </script>
 </head>
 <body>
-<div id="drop-overlay">Drop Any PNG/JPG Image Here to Test</div>
+<div id="drop-overlay">Drop Any samhain-tile PNG/JPG to Load</div>
 <div id="panel">
   <div id="top-bar">
     <div id="title">Samhain XR Drone Show Designer</div>
@@ -256,9 +256,9 @@ body.dragging #drop-overlay { display: flex; }
       <button class="toolbar-btn" id="btn-undo" title="Revert last action (Ctrl+Z)">↶ Undo</button>
     </div>
   </div>
-  <div id="status">Testing tile15.png · Chained Boundary & Lloyd’s Relaxation Active</div>
+  <div id="status">Active: samhain-tile15.png · 800 Drone Stratified Density Centroid Engine</div>
 
-  <!-- Samhain Tiles Bar with Tile 15 First -->
+  <!-- Samhain Tiles Selector Strip (Tile 15 First) -->
   <div class="section-label" style="margin-top:6px;">
     <span>Samhain Tiles (Tile 15 Selected as Primary Test Graphic)</span>
   </div>
@@ -297,7 +297,7 @@ body.dragging #drop-overlay { display: flex; }
   <div class="context-card hidden" id="card-inspector-formation">
     <div class="section-label" style="margin:0;">
       <span id="inspector-block-title">Formation Properties</span>
-      <span id="inspector-shape-name" style="color:#ffab00;">tile15</span>
+      <span id="inspector-shape-name" style="color:#ffab00;">samhainTile15</span>
     </div>
 
     <div class="hidden" id="formation-sub-text">
@@ -354,13 +354,13 @@ body.dragging #drop-overlay { display: flex; }
     <div class="timeline-bottom-row">
       <button id="btn-play" style="padding:4px 14px; font-size:11px; background:#2e1d0c; border:1px solid #ffab00; color:#ffab00; border-radius:4px; cursor:pointer;">Play</button>
       <span id="time-display" style="font-size:11px; font-variant-numeric:tabular-nums; min-width:85px;">00:00 / 02:45</span>
-      <span style="font-size:10px; color:#a08a75; flex:1; text-align:right;">Click any Tile button to test</span>
+      <span style="font-size:10px; color:#a08a75; flex:1; text-align:right;">Click any Tile above to test</span>
     </div>
   </div>
 
   <div id="hint">
-    <b>Testing tile15.png:</b> Loads directly from your GitHub directory.<br>
-    <b>Chained Perimeter + Relaxation:</b> 65% of drones trace the continuous silhouette boundary; 35% fill interior with blue-noise repulsion.
+    <b>samhain-tile15.png Active:</b> Verified path loading directly from GitHub directory.<br>
+    <b>Chained Perimeter + Relaxation:</b> Drones trace continuous boundary outlines and fill internal shapes evenly.
   </div>
 </div>
 <div id="vr-tip">In VR: Press Left X for HUD · Trigger paints drones with active swatch</div>
@@ -374,8 +374,9 @@ import {
   findShapeById,
   generateTextDrones,
   sampleImageToDrones,
+  loadTileImage,
   GOLDEN
-} from "./shapes.js?v=samhain_density_v8";
+} from "./shapes.js?v=samhain_tile15_fix";
 
 function formatTime(s) {
   if (isNaN(s) || s === undefined || s === null) return "00:00";
@@ -555,12 +556,12 @@ function assignMinimalPaths(currentPos, rawTargets, count) {
   return assigned;
 }
 
-// Initial Show Sequence with Tile 15 as Opening Test Block
+// Initial Show Sequence with Tile 15 Set Directly to samhainTile15
 const timelineData = {
   formationBlocks: [
     {
       id: "s0",
-      shapeId: "tile15",
+      shapeId: "samhainTile15",
       isText: false,
       dur: 24.0,
       transDur: 4.0,
@@ -580,7 +581,7 @@ const timelineData = {
     },
     {
       id: "s1",
-      shapeId: "tile1",
+      shapeId: "samhainTile1",
       isText: false,
       dur: 20.0,
       transDur: 4.0,
@@ -821,7 +822,7 @@ function evaluateTimeline(t) {
 
       let prog = u;
       if (takeoffConfig.style === "celtic_whirl") {
-        const dist = Math.sqrt(gx * gx + gz * gz) / 16.0;
+        const dist = Math.sqrt(gx * gx + gz * gz) / 14.0;
         prog = THREE.MathUtils.clamp((u - dist * 0.3) / 0.7, 0, 1);
         const aTarget = Math.atan2(skyPosA.z, skyPosA.x);
         const curA = aTarget + (1 - prog) * Math.PI * 3;
@@ -1012,7 +1013,7 @@ function onEvent(id, event, handler) {
   if (el) el.addEventListener(event, handler);
 }
 
-// Build Tile Selection Strip (Tile 15 listed first as active test)
+// Build Tile Selector Strip (Tile 15 listed first as active test)
 function populateTilesStrip() {
   const strip = $("tiles-strip");
   if (!strip) return;
@@ -1021,7 +1022,7 @@ function populateTilesStrip() {
   const tileOrder = [15, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13];
   tileOrder.forEach((tileNum) => {
     const btn = document.createElement("button");
-    const shapeId = `tile${tileNum}`;
+    const shapeId = `samhainTile${tileNum}`;
     const isActive = selectedFormationBlockId && timelineData.formationBlocks.find(b => b.id === selectedFormationBlockId)?.shapeId === shapeId;
     btn.className = "tile-btn" + (isActive ? " active" : "");
     btn.innerHTML = `<span>Tile ${tileNum}</span>`;
@@ -1032,7 +1033,7 @@ function populateTilesStrip() {
         b.isText = false;
         b.customPoints = null;
         b.shapeId = shapeId;
-        $("status").textContent = `Active: tile${tileNum}.png · 800 Drone Stratified Density Centroid Engine`;
+        $("status").textContent = `Active: samhain-tile${tileNum}.png · 800 Drone Stratified Density Centroid Engine`;
         await buildShowTrajectoryData();
         evaluateTimeline(playheadTime);
         buildDesktopTimeline();
@@ -1183,7 +1184,7 @@ onEvent("btn-add-shape", async () => {
   saveUndoState();
   const id = "s" + Date.now();
   timelineData.formationBlocks.push({
-    id, shapeId: "tile15", isText: false, dur: 20.0, transDur: 4.0,
+    id, shapeId: "samhainTile15", isText: false, dur: 20.0, transDur: 4.0,
     altitude: 16.0, scale: 1.0, palette: ["#ffffff", "#ffd54f", "#ff9100", "#d50000"], activeSwatchIdx: 0,
     cycleSpeed: 0.0, run: false, runSpeed: 3.0, blink: false, blinkSpeed: 3.0, sparkle: false, sparkleDensity: 0.35
   });
