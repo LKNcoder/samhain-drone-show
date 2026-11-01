@@ -375,9 +375,8 @@ import {
   findShapeById,
   generateTextDrones,
   sampleImageToDrones,
-  loadTileImage,
   GOLDEN
-} from "./shapes.js?v=samhain_density_v6";
+} from "./shapes.js?v=samhain_density_v7";
 
 function formatTime(s) {
   if (isNaN(s) || s === undefined || s === null) return "00:00";
@@ -437,6 +436,20 @@ const leftController = renderer.xr.getController(0);
 const rightController = renderer.xr.getController(1);
 xrRig.add(leftController);
 xrRig.add(rightController);
+
+const controllerRays = [];
+function createRay(controller) {
+  const geom = new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(0, 0, 0), new THREE.Vector3(0, 0, -1)]);
+  const mat = new THREE.LineBasicMaterial({ color: 0xffab00, transparent: true, opacity: 0.65 });
+  const line = new THREE.Line(geom, mat);
+  line.scale.z = 4;
+  line.visible = false;
+  controller.add(line);
+  controllerRays.push(line);
+  return line;
+}
+createRay(leftController);
+createRay(rightController);
 
 scene.add(new THREE.HemisphereLight(0xffb300, 0x0a101a, 1.2));
 const gridHelper = new THREE.GridHelper(90, 45, 0x422915, 0x14100c);
@@ -543,7 +556,7 @@ function assignMinimalPaths(currentPos, rawTargets, count) {
   return assigned;
 }
 
-// Initial Show Sequence starting with Tile 1 (The Bonfire Gathering)
+// Initial Show Sequence starting with Tile 1
 const timelineData = {
   formationBlocks: [
     {
@@ -829,7 +842,7 @@ function evaluateTimeline(t) {
 
       let prog = u;
       if (takeoffConfig.style === "celtic_whirl") {
-        const dist = Math.sqrt(gx * gx + gz * gz) / 14.0;
+        const dist = Math.sqrt(gx * gx + gz * gz) / 16.0;
         prog = THREE.MathUtils.clamp((u - dist * 0.3) / 0.7, 0, 1);
         const aTarget = Math.atan2(skyPosA.z, skyPosA.x);
         const curA = aTarget + (1 - prog) * Math.PI * 3;
@@ -1086,7 +1099,7 @@ onEvent("btn-export-unity", () => {
   URL.revokeObjectURL(url);
 });
 
-// Precipitation Handlers
+// Atmospheric Precipitation Handlers
 onEvent("chk-precip", "change", (e) => {
   saveUndoState();
   precipConfig.enabled = e.target.checked;
