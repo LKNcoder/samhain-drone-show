@@ -256,11 +256,11 @@ body.dragging #drop-overlay { display: flex; }
       <button class="toolbar-btn" id="btn-undo" title="Revert last action (Ctrl+Z)">↶ Undo</button>
     </div>
   </div>
-  <div id="status">Tiles 1-4 & 15 Sequence Loaded · Chaotic Swirls & Explosive Bursts Active</div>
+  <div id="status">Tiles 16–19 Sequence Loaded · Kinetic Vortexes & Supernova Bursts Active</div>
 
   <!-- Samhain Tiles Selector Bar -->
   <div class="section-label" style="margin-top:6px;">
-    <span>Samhain Tiles (Click to Assign to Selected Formation Block)</span>
+    <span>Samhain Tiles (Tiles 16, 17, 18, 19 Front & Center)</span>
   </div>
   <div class="tiles-scroll-bar" id="tiles-strip"></div>
 
@@ -297,7 +297,7 @@ body.dragging #drop-overlay { display: flex; }
   <div class="context-card hidden" id="card-inspector-formation">
     <div class="section-label" style="margin:0;">
       <span id="inspector-block-title">Formation Properties</span>
-      <span id="inspector-shape-name" style="color:#ffab00;">samhainTile1</span>
+      <span id="inspector-shape-name" style="color:#ffab00;">samhainTile16</span>
     </div>
 
     <div class="hidden" id="formation-sub-text">
@@ -385,12 +385,13 @@ body.dragging #drop-overlay { display: flex; }
     <div class="timeline-bottom-row">
       <button id="btn-play" style="padding:4px 14px; font-size:11px; background:#2e1d0c; border:1px solid #ffab00; color:#ffab00; border-radius:4px; cursor:pointer;">Play</button>
       <span id="time-display" style="font-size:11px; font-variant-numeric:tabular-nums; min-width:85px;">00:00 / 02:45</span>
-      <span style="font-size:10px; color:#a08a75; flex:1; text-align:right;">Click transitions to change swirl & burst style</span>
+      <span style="font-size:10px; color:#a08a75; flex:1; text-align:right;">Click transitions to modify swirl styles</span>
     </div>
   </div>
 
   <div id="hint">
-    <b>Magical Chaotic Swirls Active:</b> Vortex spirals, explosive shockwaves, and counter-rotating Celtic wind ribbons connect Tiles 1, 2, 3, 4, 15, and the finale.
+    <b>Tiles 16–19 Sequence Active:</b> Simpler, high-contrast graphics mapped accurately with Blue Noise density and boundary tracing.<br>
+    <b>Magical Transitions:</b> Vortex spirals, supernova explosions, and Celtic wind ribbons connecting scenes.
   </div>
 </div>
 <div id="vr-tip">In VR: Press Left X for HUD · Trigger paints drones with active swatch</div>
@@ -404,9 +405,8 @@ import {
   findShapeById,
   generateTextDrones,
   sampleImageToDrones,
-  loadTileImage,
   GOLDEN
-} from "./shapes.js?v=samhain_swirl_v9";
+} from "./shapes.js?v=samhain_tiles16_19_v1";
 
 function formatTime(s) {
   if (isNaN(s) || s === undefined || s === null) return "00:00";
@@ -586,12 +586,12 @@ function assignMinimalPaths(currentPos, rawTargets, count) {
   return assigned;
 }
 
-// Master Narrative Timeline: Tiles 1, 2, 3, 4, 15 with Distinct Chaotic Swirls
+// Master Sequence featuring Tiles 16, 17, 18, 19 with Kinetic Transitions
 const timelineData = {
   formationBlocks: [
     {
       id: "s0",
-      shapeId: "samhainTile1",
+      shapeId: "samhainTile16",
       isText: false,
       dur: 18.0,
       transDur: 4.5,
@@ -613,7 +613,7 @@ const timelineData = {
     },
     {
       id: "s1",
-      shapeId: "samhainTile2",
+      shapeId: "samhainTile17",
       isText: false,
       dur: 18.0,
       transDur: 4.5,
@@ -635,7 +635,7 @@ const timelineData = {
     },
     {
       id: "s2",
-      shapeId: "samhainTile3",
+      shapeId: "samhainTile18",
       isText: false,
       dur: 18.0,
       transDur: 4.5,
@@ -657,7 +657,7 @@ const timelineData = {
     },
     {
       id: "s3",
-      shapeId: "samhainTile4",
+      shapeId: "samhainTile19",
       isText: false,
       dur: 18.0,
       transDur: 4.5,
@@ -679,28 +679,6 @@ const timelineData = {
     },
     {
       id: "s4",
-      shapeId: "samhainTile15",
-      isText: false,
-      dur: 20.0,
-      transDur: 4.5,
-      transMotion: "vortex",
-      transColorFX: "fire_burst",
-      altitude: 16.0,
-      scale: 1.0,
-      rotStartY: 0,
-      rotEndY: 0,
-      palette: ["#ffffff", "#ffd54f", "#ff9100", "#d50000"],
-      activeSwatchIdx: 0,
-      cycleSpeed: 0.5,
-      run: true,
-      runSpeed: 4.0,
-      blink: false,
-      blinkSpeed: 3.0,
-      sparkle: true,
-      sparkleDensity: 0.35
-    },
-    {
-      id: "s5",
       isText: true,
       text: "BLESSED SAMHAIN",
       font: "Impact",
@@ -998,7 +976,7 @@ function evaluateTimeline(t) {
 
         const progress = (showT - formEnd) / b.transDur;
         const ease = progress * progress * (3 - 2 * progress);
-        const arc = Math.sin(Math.PI * progress); // Peaks at midpoint 0.5, returns to 0 at ends
+        const arc = Math.sin(Math.PI * progress);
 
         const nextAlt = nextB.altitude || 16.0;
         const nextScl = nextB.scale || 1.0;
@@ -1015,14 +993,11 @@ function evaluateTimeline(t) {
           transformToSky(localScratchPoints[j * 3], localScratchPoints[j * 3 + 1], localScratchPoints[j * 3 + 2], interpAlt, interpScl, curRotY, skyPosA);
           transformToSky(nextTargets[j * 3], nextTargets[j * 3 + 1], nextTargets[j * 3 + 2], interpAlt, interpScl, curRotY, skyPosB);
 
-          // Base interpolated coordinate
           let midX = skyPosA.x + (skyPosB.x - skyPosA.x) * ease;
           let midY = skyPosA.y + (skyPosB.y - skyPosA.y) * ease;
           let midZ = skyPosA.z + (skyPosB.z - skyPosA.z) * ease;
 
-          // Apply Kinematic Swirl Equations
           if (motionStyle === "vortex") {
-            // Massive swirling celestial vortex
             const distFromCenter = Math.sqrt(midX * midX + (midY - interpAlt) * (midY - interpAlt));
             const angle = Math.atan2(midY - interpAlt, midX) + arc * Math.PI * 3.5 * ((j % 2 === 0) ? 1 : -0.7);
             const radius = distFromCenter * (1.0 + arc * 0.7);
@@ -1031,7 +1006,6 @@ function evaluateTimeline(t) {
             midY = interpAlt + Math.sin(angle) * radius;
             midZ += Math.sin(j * 17.3 + t * 6.0) * (arc * 7.5);
           } else if (motionStyle === "explosion") {
-            // Supernova shockwave expansion then implosion into target shape
             const dirX = midX;
             const dirY = midY - interpAlt;
             const len = Math.max(0.2, Math.sqrt(dirX * dirX + dirY * dirY));
@@ -1041,7 +1015,6 @@ function evaluateTimeline(t) {
             midY += (dirY / len) * blastForce;
             midZ += Math.cos(j * 13.5) * (arc * 9.0);
           } else if (motionStyle === "celtic_swirl") {
-            // Twin counter-rotating twisting wind tendrils
             const ribbonSide = (j % 2 === 0) ? 1 : -1;
             const swirlTheta = t * 4.0 + (j / formationCount) * Math.PI * 6.0;
 
@@ -1049,7 +1022,6 @@ function evaluateTimeline(t) {
             midY += Math.sin(progress * Math.PI * 2.0 + (midX * 0.2)) * (arc * 5.0);
             midZ += Math.sin(swirlTheta) * (arc * 10.0);
           } else if (motionStyle === "helix") {
-            // Double-helix ascending cyclone
             const helixAngle = progress * Math.PI * 5.0 + (j % 30) * 0.2;
             const helixRadius = 12.0 * arc;
 
@@ -1066,7 +1038,6 @@ function evaluateTimeline(t) {
           else if (currSwatches) droneSwatchIndices[j] = currSwatches[j];
         }
 
-        // Lighting FX during transition
         const transColorStyle = b.transColorFX || "sparkle";
         if (transColorStyle === "sparkle") {
           for (let j = 0; j < formationCount; j++) {
@@ -1185,13 +1156,13 @@ function onEvent(id, event, handler) {
   if (el) el.addEventListener(event, handler);
 }
 
-// Build Tile Selector Strip (Tiles 1-15)
+// Build Tile Selector Strip (Tiles 16-19 listed first)
 function populateTilesStrip() {
   const strip = $("tiles-strip");
   if (!strip) return;
   strip.innerHTML = "";
 
-  const tileOrder = [1, 2, 3, 4, 15, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14];
+  const tileOrder = [16, 17, 18, 19, 15, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14];
   tileOrder.forEach((tileNum) => {
     const btn = document.createElement("button");
     const shapeId = `samhainTile${tileNum}`;
@@ -1292,7 +1263,7 @@ onEvent("btn-export-unity", () => {
   URL.revokeObjectURL(url);
 });
 
-// Atmospheric Precipitation Handlers
+// Precipitation Handlers
 onEvent("chk-precip", "change", (e) => {
   saveUndoState();
   precipConfig.enabled = e.target.checked;
@@ -1395,7 +1366,7 @@ onEvent("btn-add-shape", async () => {
   saveUndoState();
   const id = "s" + Date.now();
   timelineData.formationBlocks.push({
-    id, shapeId: "samhainTile1", isText: false, dur: 18.0, transDur: 4.5,
+    id, shapeId: "samhainTile16", isText: false, dur: 18.0, transDur: 4.5,
     transMotion: "vortex", transColorFX: "sparkle",
     altitude: 16.0, scale: 1.0, palette: ["#ffffff", "#ffd54f", "#ff9100", "#d50000"], activeSwatchIdx: 0,
     cycleSpeed: 0.0, run: false, runSpeed: 3.0, blink: false, blinkSpeed: 3.0, sparkle: false, sparkleDensity: 0.35
