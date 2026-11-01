@@ -5,7 +5,7 @@ export const GOLDEN = Math.PI * (3 - Math.sqrt(5));
 
 const ASSET_BASE_URL = "https://lkncoder.github.io/tacocat/";
 
-// High-Fidelity Stratified Density Sampler (Preserves contours, fine details, and negative space)
+// Hierarchical Boundary-First + Particle Relaxation Sampler
 export function sampleImageToDrones(imgElement, out, count, swatchOut, scale = 0.046, altitude = 16) {
   const canvas = document.createElement("canvas");
   canvas.width = 512;
@@ -325,8 +325,8 @@ export function generateTextDrones(out, text, count, font = "Impact", scale = 0.
   }
 }
 
-// Registered Samhain Woodcut Tiles (Tiles 1-15, with Tile 15 mapped accurately)
-const TILE_NUMBERS = [15, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13];
+// Registered Samhain Woodcut Tiles (Tiles 1-15)
+const TILE_NUMBERS = [1, 2, 3, 4, 15, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14];
 
 export const SHAPE_PAGES = [
   TILE_NUMBERS.map((tileNum) => {
