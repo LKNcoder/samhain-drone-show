@@ -5,8 +5,8 @@ export const GOLDEN = Math.PI * (3 - Math.sqrt(5));
 
 const ASSET_BASE_URL = "https://lkncoder.github.io/tacocat/";
 
-// Hierarchical Boundary-First + Particle Relaxation Sampler
-export function sampleImageToDrones(imgElement, out, count, swatchOut, scale = 0.046, altitude = 16) {
+// Island-Aware Boundary & Blue Noise Particle Relaxation Sampler
+export function sampleImageToDrones(imgElement, out, count, swatchOut, scale = 0.048, altitude = 16) {
   const canvas = document.createElement("canvas");
   canvas.width = 512;
   canvas.height = 512;
@@ -17,151 +17,109 @@ export function sampleImageToDrones(imgElement, out, count, swatchOut, scale = 0
   ctx.drawImage(imgElement, 0, 0, 512, 512);
 
   const imgData = ctx.getImageData(0, 0, 512, 512).data;
-  const whiteMask = new Uint8Array(512 * 512);
-  const edgeMask = new Uint8Array(512 * 512);
-  const edgePoints = [];
-  const interiorPoints = [];
+  const binary = new Uint8Array(512 * 512);
 
   let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
 
-  // 1. Threshold scan: White (> 110) = Drones, Black = Empty Negative Space
+  // 1. Threshold scan: White (> 110) = Drones, Black = Sky Void
   for (let y = 1; y < 511; y++) {
     for (let x = 1; x < 511; x++) {
       const idx = (y * 512 + x) * 4;
       const lum = imgData[idx] * 0.299 + imgData[idx + 1] * 0.587 + imgData[idx + 2] * 0.114;
 
       if (lum > 110) {
-        whiteMask[y * 512 + x] = 1;
+        binary[y * 512 + x] = 1;
         if (x < minX) minX = x; if (x > maxX) maxX = x;
         if (y < minY) minY = y; if (y > maxY) maxY = y;
       }
     }
   }
 
-  // Detect boundary pixels using 4-connectivity
+  // 2. Connected Component Analysis (Isolates shapes & discards stray pixels)
+  const visited = new Uint8Array(512 * 512);
+  const islands = [];
+
   for (let y = 1; y < 511; y++) {
     for (let x = 1; x < 511; x++) {
-      if (whiteMask[y * 512 + x] === 1) {
-        const top = whiteMask[(y - 1) * 512 + x];
-        const bot = whiteMask[(y + 1) * 512 + x];
-        const left = whiteMask[y * 512 + (x - 1)];
-        const right = whiteMask[y * 512 + (x + 1)];
+      const idx = y * 512 + x;
+      if (binary[idx] === 1 && !visited[idx]) {
+        const islandPixels = [];
+        const queue = [{ x, y }];
+        visited[idx] = 1;
 
-        if (!top || !bot || !left || !right) {
-          edgeMask[y * 512 + x] = 1;
-          edgePoints.push({ x, y });
-        } else {
-          interiorPoints.push({ x, y });
+        while (queue.length > 0) {
+          const pt = queue.pop();
+          islandPixels.push(pt);
+
+          const neighbors = [
+            { x: pt.x + 1, y: pt.y }, { x: pt.x - 1, y: pt.y },
+            { x: pt.x, y: pt.y + 1 }, { x: pt.x, y: pt.y - 1 }
+          ];
+
+          for (const n of neighbors) {
+            if (n.x >= 0 && n.x < 512 && n.y >= 0 && n.y < 512) {
+              const nIdx = n.y * 512 + n.x;
+              if (binary[nIdx] === 1 && !visited[nIdx]) {
+                visited[nIdx] = 1;
+                queue.push(n);
+              }
+            }
+          }
+        }
+
+        // Keep islands with 15+ pixels to drop random compression noise
+        if (islandPixels.length >= 15) {
+          const edge = [];
+          for (const p of islandPixels) {
+            const top   = binary[(p.y - 1) * 512 + p.x];
+            const bot   = binary[(p.y + 1) * 512 + p.x];
+            const left  = binary[p.y * 512 + (p.x - 1)];
+            const right = binary[p.y * 512 + (p.x + 1)];
+            if (!top || !bot || !left || !right) edge.push(p);
+          }
+          islands.push({ pixels: islandPixels, edge, weight: islandPixels.length });
         }
       }
     }
   }
 
-  if (edgePoints.length === 0 && interiorPoints.length === 0) return;
+  if (islands.length === 0) return;
 
   const cx = (minX + maxX) / 2;
   const cy = (minY + maxY) / 2;
+  const totalWeight = islands.reduce((acc, isl) => acc + isl.weight, 0);
 
-  // 2. Chained Contour Extraction (Sequential perimeter walk)
-  const visited = new Uint8Array(512 * 512);
-  const chainedPerimeter = [];
-
-  for (let i = 0; i < edgePoints.length; i++) {
-    const startPt = edgePoints[i];
-    const sIdx = startPt.y * 512 + startPt.x;
-    if (visited[sIdx]) continue;
-
-    let curr = startPt;
-    visited[sIdx] = 1;
-    chainedPerimeter.push(curr);
-
-    let found = true;
-    while (found) {
-      found = false;
-      const neighbors = [
-        { x: curr.x + 1, y: curr.y }, { x: curr.x + 1, y: curr.y + 1 },
-        { x: curr.x, y: curr.y + 1 }, { x: curr.x - 1, y: curr.y + 1 },
-        { x: curr.x - 1, y: curr.y }, { x: curr.x - 1, y: curr.y - 1 },
-        { x: curr.x, y: curr.y - 1 }, { x: curr.x + 1, y: curr.y - 1 }
-      ];
-
-      for (const n of neighbors) {
-        if (n.x >= 0 && n.x < 512 && n.y >= 0 && n.y < 512) {
-          const nIdx = n.y * 512 + n.x;
-          if (edgeMask[nIdx] && !visited[nIdx]) {
-            visited[nIdx] = 1;
-            chainedPerimeter.push(n);
-            curr = n;
-            found = true;
-            break;
-          }
-        }
-      }
-    }
-  }
-
-  // 3. Allocate 65% of drones to perimeter edges, 35% to relaxed interior
-  const targetEdgeCount = Math.min(count, Math.round(count * 0.65));
-  const targetFillCount = count - targetEdgeCount;
+  // 3. Proportional Fleet Budget Allocation (70% Contour, 30% Infill)
   let ptr = 0;
+  for (const isl of islands) {
+    const islDroneCount = Math.max(4, Math.round((isl.weight / totalWeight) * count));
+    const edgeRatio = Math.min(isl.edge.length, Math.round(islDroneCount * 0.70));
+    const fillRatio = islDroneCount - edgeRatio;
 
-  if (chainedPerimeter.length > 0) {
-    const stepE = chainedPerimeter.length / targetEdgeCount;
-    for (let i = 0; i < targetEdgeCount && ptr < count; i++) {
-      const p = chainedPerimeter[Math.floor(i * stepE) % chainedPerimeter.length];
-      out[ptr * 3]     = (p.x - cx) * scale;
-      out[ptr * 3 + 1] = altitude - (p.y - cy) * scale;
-      out[ptr * 3 + 2] = 0.0;
-      if (swatchOut) swatchOut[ptr] = 0;
-      ptr++;
-    }
-  }
-
-  // 4. Interior Blue Noise / Spring Repulsion
-  if (targetFillCount > 0 && interiorPoints.length > 0) {
-    const fillDrones = [];
-    const stepI = interiorPoints.length / targetFillCount;
-    for (let i = 0; i < targetFillCount; i++) {
-      const p = interiorPoints[Math.floor(i * stepI) % interiorPoints.length];
-      fillDrones.push({ x: p.x, y: p.y });
-    }
-
-    for (let iter = 0; iter < 8; iter++) {
-      for (let a = 0; a < fillDrones.length; a++) {
-        let fx = 0, fy = 0;
-        const da = fillDrones[a];
-
-        for (let b = 0; b < fillDrones.length; b++) {
-          if (a === b) continue;
-          const db = fillDrones[b];
-          const dx = da.x - db.x;
-          const dy = da.y - db.y;
-          const distSq = dx * dx + dy * dy;
-
-          if (distSq < 144 && distSq > 0.01) {
-            const dist = Math.sqrt(distSq);
-            const force = (12 - dist) / dist;
-            fx += dx * force * 0.25;
-            fy += dy * force * 0.25;
-          }
-        }
-
-        const nx = Math.round(da.x + fx);
-        const ny = Math.round(da.y + fy);
-        if (nx >= 0 && nx < 512 && ny >= 0 && ny < 512 && whiteMask[ny * 512 + nx]) {
-          da.x = nx;
-          da.y = ny;
-        }
+    // Edge Contour Sampling
+    if (isl.edge.length > 0 && edgeRatio > 0) {
+      const stepE = isl.edge.length / edgeRatio;
+      for (let i = 0; i < edgeRatio && ptr < count; i++) {
+        const p = isl.edge[Math.floor(i * stepE) % isl.edge.length];
+        out[ptr * 3]     = (p.x - cx) * scale;
+        out[ptr * 3 + 1] = altitude - (p.y - cy) * scale;
+        out[ptr * 3 + 2] = 0.0;
+        if (swatchOut) swatchOut[ptr] = 0;
+        ptr++;
       }
     }
 
-    for (let i = 0; i < fillDrones.length && ptr < count; i++) {
-      const p = fillDrones[i];
-      out[ptr * 3]     = (p.x - cx) * scale;
-      out[ptr * 3 + 1] = altitude - (p.y - cy) * scale;
-      out[ptr * 3 + 2] = 0.0;
-      if (swatchOut) swatchOut[ptr] = 1;
-      ptr++;
+    // Infill Relaxation Sampling
+    if (isl.pixels.length > 0 && fillRatio > 0) {
+      const stepF = isl.pixels.length / fillRatio;
+      for (let i = 0; i < fillRatio && ptr < count; i++) {
+        const p = isl.pixels[Math.floor(i * stepF) % isl.pixels.length];
+        out[ptr * 3]     = (p.x - cx) * scale;
+        out[ptr * 3 + 1] = altitude - (p.y - cy) * scale;
+        out[ptr * 3 + 2] = 0.0;
+        if (swatchOut) swatchOut[ptr] = 1;
+        ptr++;
+      }
     }
   }
 
@@ -174,21 +132,25 @@ export function sampleImageToDrones(imgElement, out, count, swatchOut, scale = 0
   }
 }
 
-// Robust Image Loader supporting exact GitHub asset naming
+// Universal Tile Image Loader (Handles tileX.png and samhain-tileX.png both locally & on GitHub)
 export function loadTileImage(filename) {
   return new Promise((resolve) => {
-    const raw = filename.replace(/^samhain-/, "");
+    const numMatch = filename.match(/\d+/);
+    const tileNum = numMatch ? numMatch[0] : "";
+
     const candidates = [
-      `./samhain-${raw}`,
-      `${ASSET_BASE_URL}samhain-${raw}`,
-      `./${raw}`,
-      `${ASSET_BASE_URL}${raw}`
+      `./samhain-tile${tileNum}.png`,
+      `${ASSET_BASE_URL}samhain-tile${tileNum}.png`,
+      `./tile${tileNum}.png`,
+      `${ASSET_BASE_URL}tile${tileNum}.png`,
+      `./${filename}`,
+      `${ASSET_BASE_URL}${filename}`
     ];
 
     let idx = 0;
     function tryNext() {
       if (idx >= candidates.length) {
-        console.warn(`Could not load image: ${filename}`);
+        console.warn(`Could not resolve tile image for: ${filename}`);
         resolve(null);
         return;
       }
@@ -325,11 +287,11 @@ export function generateTextDrones(out, text, count, font = "Impact", scale = 0.
   }
 }
 
-// Registered Samhain Woodcut Tiles (Tiles 1-15)
-const TILE_NUMBERS = [1, 2, 3, 4, 15, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14];
+// Master Shape Directory with priority ordered for Tiles 16-19 and 15
+const TILE_ORDER = [16, 17, 18, 19, 15, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14];
 
 export const SHAPE_PAGES = [
-  TILE_NUMBERS.map((tileNum) => {
+  TILE_ORDER.map((tileNum) => {
     const filename = `samhain-tile${tileNum}.png`;
     return {
       id: `samhainTile${tileNum}`,
@@ -344,7 +306,7 @@ export const SHAPE_PAGES = [
       },
       gen: async (out, n, swatchOut) => {
         const img = await loadTileImage(filename);
-        if (img) sampleImageToDrones(img, out, n, swatchOut, 0.046, 16);
+        if (img) sampleImageToDrones(img, out, n, swatchOut, 0.048, 16);
       }
     };
   })
