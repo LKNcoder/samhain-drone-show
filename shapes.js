@@ -63,7 +63,7 @@ export function compileSVGToDrones(svgString, out, count, swatchOut, scale = 0.0
   }
 }
 
-// Backward-compatible alias for index.html imports
+// Backward-compatible alias
 export const parseAndSampleSVG = compileSVGToDrones;
 
 // Glyph Vector Definitions
@@ -98,7 +98,7 @@ const GLYPH_PATHS = {
   '?': "M 0.1 1.05 C 0.1 1.45 0.8 1.45 0.8 1.05 C 0.8 0.7 0.45 0.7 0.45 0.35 M 0.45 0 L 0.45 0.1"
 };
 
-// Vector Text Generator with BLESSED on top and SAMHAIN below
+// Vector Text Generator with BLESSED stacked above SAMHAIN
 export function generateTextDrones(out, text, count, font = "Impact", scale = 0.28, altitude = 16) {
   const words = text.trim().toUpperCase().split(/\s+/);
   let lines = [text.trim().toUpperCase()];
@@ -165,7 +165,7 @@ export function generateTextDrones(out, text, count, font = "Impact", scale = 0.
   }
 }
 
-// Authentic SVGs from svgrepo.com
+// Authentic SVGs
 export const RAW_SVGS = {
   // SVGRepo 196385: Scythe Agriculture
   scythe: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
@@ -190,7 +190,7 @@ export const RAW_SVGS = {
     <line x1="332" y1="160" x2="382" y2="100" stroke="#ffb300" stroke-width="4"/>
   </svg>`,
 
-  // Authentic Turnip Lantern
+  // Turnip Lantern
   turnip: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 120">
     <polygon points="50,12 82,34 96,72 68,112 32,112 4,72 18,34" fill="#a1887f"/>
     <path d="M 50 12 C 45 -4, 30 -8, 25 -14 M 50 12 C 55 -6, 68 -6, 75 -12 M 50 12 L 50 -12" stroke="#689f38" stroke-width="3" fill="none"/>
@@ -213,7 +213,6 @@ export const RAW_SVGS = {
 };
 
 export const SHAPE_PAGES = [
-  // Page 1: Samhain Festival
   [
     {
       id: "wheatBarley",
