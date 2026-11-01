@@ -296,6 +296,52 @@ export const SHAPE_PAGES = [
       },
       gen: (out, n, swatchOut) => compileSVGToDrones(RAW_SVGS.turnip, out, n, swatchOut, 0.28, 16)
     },
+    // In shapes.js -> SHAPE_PAGES[0]
+{
+  id: "fireSilhouette",
+  drawSVG: `<path d="M12 2 C8 6, 4 9, 4 14 C4 18, 8 22, 12 22 C16 22, 20 18, 20 14 C20 9, 16 6, 12 2 Z" fill="#ffab00"/><circle cx="12" cy="11" r="2.5" fill="#000"/><rect x="10" y="14" width="4" height="6" fill="#000"/>`,
+  drawCanvas: (ctx, cx, cy) => {
+    ctx.fillStyle = "#ff6d00";
+    ctx.beginPath();
+    ctx.arc(cx, cy, 18, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = "#000000";
+    ctx.beginPath();
+    ctx.arc(cx, cy - 3, 5, 0, Math.PI * 2);
+    ctx.fillRect(cx - 5, cy + 3, 10, 12);
+  },
+  gen: (out, n, swatchOut) => {
+    const svgCode = `
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+        <path fill="#ffffff" fill-rule="evenodd" d="
+          M 256 20 
+          C 290 80, 390 70, 420 160 
+          C 445 235, 415 320, 440 370 
+          C 460 410, 410 460, 360 480 
+          C 340 430, 330 360, 320 360 
+          C 320 420, 290 492, 256 492 
+          C 222 492, 192 420, 192 360 
+          C 182 360, 172 430, 152 480 
+          C 102 460, 52 410, 72 370 
+          C 97 320, 67 235, 92 160 
+          C 122 70, 222 80, 256 20 Z 
+          M 256 180 
+          A 40 45 0 1 0 256 270 
+          A 40 45 0 1 0 256 180 Z 
+          M 210 280 
+          C 225 270, 287 270, 302 280 
+          C 320 295, 330 370, 330 380 
+          L 182 380 
+          C 182 370, 192 295, 210 280 Z 
+          M 220 380 
+          L 292 380 
+          L 282 485 
+          L 230 485 Z
+        "/>
+      </svg>`;
+    return compileSVGToDrones(svgCode, out, n, swatchOut, 0.055, 16);
+  }
+},
     {
       id: "wickerMan",
       drawSVG: `<line x1="8" y1="22" x2="10" y2="14" stroke="#8d6e63" stroke-width="2"/><line x1="16" y1="22" x2="14" y2="14" stroke="#8d6e63" stroke-width="2"/><rect x="8" y="7" width="8" height="7" stroke="#8d6e63" stroke-width="2"/><circle cx="12" cy="4" r="2.5" stroke="#8d6e63" stroke-width="1.5"/>`,
