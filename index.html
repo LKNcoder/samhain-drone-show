@@ -77,7 +77,7 @@ canvas { display: block; }
   margin-bottom: 4px;
 }
 .ctrl-row label { display: flex; align-items: center; gap: 6px; color: #c0d1ed; cursor: pointer; }
-.ctrl-row input[type="range"], .ctrl-row select, .ctrl-row input[type="text"], .ctrl-row textarea {
+.ctrl-row input[type="range"], .ctrl-row select, .ctrl-row input[type="text"] {
   flex: 1; accent-color: #ffab00; background:#111a28; color:#fff;
   border:1px solid #2d3b4e; border-radius:4px; padding:3px 6px; font-size:11px;
 }
@@ -135,28 +135,6 @@ button.symbol-btn:hover { background: #222f44; border-color: #ffab00; }
 button.symbol-btn.active { border-color: #ffab00; background: #2c1e0e; }
 button.symbol-btn svg { width: 24px; height: 24px; stroke: #ffab00; fill: none; }
 button.symbol-btn span { font-size: 9px; color: #a08a75; margin-top: 2px; }
-
-.palette-builder {
-  display: flex; align-items: center; gap: 8px;
-  background: #0e1420; padding: 6px 8px; border-radius: 8px; border: 1px solid #2d3b4e;
-}
-.swatches-list { display: flex; gap: 6px; flex: 1; }
-.swatch-slot {
-  width: 22px; height: 22px; border-radius: 50%;
-  border: 2px solid #ffffff44; cursor: pointer;
-}
-.swatch-slot.active { border-color: #ffffff; transform: scale(1.15); box-shadow: 0 0 8px #ffab00; }
-.swatch-ctrl-btn {
-  padding: 3px 8px; font-size: 11px; font-weight: bold;
-  background: #131a26; border: 1px solid #2d3b4e; color: #ecf3ff;
-  border-radius: 6px; cursor: pointer;
-}
-
-#desktop-spectrum {
-  width: 100%; height: 16px; border-radius: 6px; border: 1px solid #ffffff44;
-  cursor: crosshair;
-  background: linear-gradient(to right, #ff0000, #ff9100, #ffff00, #00e5ff, #7b1fa2, #ff0000);
-}
 
 .timeline-module {
   background: #090e17;
@@ -297,7 +275,7 @@ body.dragging #drop-overlay { display: flex; }
       <button class="toolbar-btn" id="btn-undo" title="Revert last action (Ctrl+Z)">↶ Undo</button>
     </div>
   </div>
-  <div id="status">Fire Silhouette Active · Faithful 2D Silhouette Infill Engine</div>
+  <div id="status">800 Drones Active · Density Centroid Sampler Initialized</div>
 
   <!-- In-Headset SVG Search & Browser Drawer (No PC Required) -->
   <div class="context-card hidden" id="card-svg-browser" style="border-color:#ffab00;">
@@ -314,7 +292,7 @@ body.dragging #drop-overlay { display: flex; }
     <!-- Quick Samhain Presets -->
     <div class="ctrl-row">
       <span style="font-size:10px; color:#a08a75;">Presets:</span>
-      <button class="toolbar-btn" id="btn-preset-fire">Fire Silhouette</button>
+      <button class="toolbar-btn" id="btn-preset-fire">Bonfire Gathering</button>
       <button class="toolbar-btn" id="btn-preset-wheat">Wheat (Barley)</button>
       <button class="toolbar-btn" id="btn-preset-scythe">Scythe</button>
       <button class="toolbar-btn" id="btn-preset-turnip">Turnip</button>
@@ -339,16 +317,16 @@ body.dragging #drop-overlay { display: flex; }
     </div>
     <div class="ctrl-row">
       <span style="min-width:60px;">Import Scale:</span>
-      <input type="range" id="slider-browser-scale" min="0.02" max="0.2" step="0.005" value="0.055">
-      <span id="val-browser-scale" style="min-width:35px; text-align:right;">0.055</span>
+      <input type="range" id="slider-browser-scale" min="0.02" max="0.2" step="0.005" value="0.046">
+      <span id="val-browser-scale" style="min-width:35px; text-align:right;">0.046</span>
     </div>
   </div>
 
   <!-- Global Fleet & Environmental Precipitation -->
   <div class="ctrl-row" style="margin-top:6px;">
     <span style="min-width:65px;">Active Fleet:</span>
-    <input type="range" id="slider-fleet-count" min="100" max="1200" step="10" value="400">
-    <span id="val-fleet-count" style="color:#ffab00; font-weight:bold; min-width:35px; text-align:right;">400</span>
+    <input type="range" id="slider-fleet-count" min="200" max="1500" step="25" value="800">
+    <span id="val-fleet-count" style="color:#ffab00; font-weight:bold; min-width:35px; text-align:right;">800</span>
   </div>
 
   <div class="section-label" style="cursor:pointer;" id="label-precip-toggle">
@@ -377,7 +355,7 @@ body.dragging #drop-overlay { display: flex; }
   <div class="context-card hidden" id="card-inspector-formation">
     <div class="section-label" style="margin:0;">
       <span id="inspector-block-title">Formation Properties</span>
-      <span id="inspector-shape-name" style="color:#ffab00;">fireSilhouette</span>
+      <span id="inspector-shape-name" style="color:#ffab00;">bonfireGathering</span>
     </div>
 
     <div id="formation-sub-shape">
@@ -408,14 +386,6 @@ body.dragging #drop-overlay { display: flex; }
       <input type="range" id="slider-block-scale" min="0.4" max="2.5" step="0.1" value="1.0">
       <span id="val-block-scale" style="min-width:32px; text-align:right;">1.0x</span>
     </div>
-
-    <div class="section-label" style="margin-top:6px;"><span>Synchronized Palette & Lighting</span></div>
-    <div class="palette-builder">
-      <div class="swatches-list" id="swatches-container"></div>
-      <button class="swatch-ctrl-btn" id="btn-add-color">+ Swatch</button>
-      <button class="swatch-ctrl-btn" id="btn-del-color">− Swatch</button>
-    </div>
-    <div id="desktop-spectrum"></div>
   </div>
 
   <!-- Unified Single-Track Timeline -->
@@ -445,13 +415,13 @@ body.dragging #drop-overlay { display: flex; }
     <div class="timeline-bottom-row">
       <button id="btn-play" style="padding:4px 14px; font-size:11px; background:#2e1d0c; border:1px solid #ffab00; color:#ffab00; border-radius:4px; cursor:pointer;">Play</button>
       <span id="time-display" style="font-size:11px; font-variant-numeric:tabular-nums; min-width:85px;">00:00 / 02:45</span>
-      <span style="font-size:10px; color:#a08a75; flex:1; text-align:right;">Tap '🌐 In-Headset SVG Search' to find icons</span>
+      <span style="font-size:10px; color:#a08a75; flex:1; text-align:right;">Drop samhain-tile1.jpg onto viewport to load[cite: 2]</span>
     </div>
   </div>
 
   <div id="hint">
-    <b>Fire Silhouette Active:</b> Scene 1 displays your exact black-and-white flame-with-human silhouette[cite: 1].<br>
-    <b>Text Properly Oriented:</b> Letters read right-side up with "BLESSED" stacked directly above "SAMHAIN"[cite: 1].
+    <b>800-Drone Bonfire Gathering:</b> Moon, stars, swirling fire vortex, and cloaked figures[cite: 2] mapped on coplanar $Z=0$ viewing plane.<br>
+    <b>Negative Space:</b> Unlit black sky and dark figure silhouettes[cite: 2] preserve crisp woodcut line art.
   </div>
 </div>
 <div id="vr-tip">In VR: Press Left X for HUD · Trigger paints drones with active swatch</div>
@@ -466,9 +436,10 @@ import {
   generateTextDrones,
   compileSVGToDrones,
   sampleImageToDrones,
+  generateBonfireLinocutImage,
   RAW_SVGS,
   GOLDEN
-} from "./shapes.js?v=samhain_final_v4";
+} from "./shapes.js?v=samhain_density_v5";
 
 function formatTime(s) {
   if (isNaN(s) || s === undefined || s === null) return "00:00";
@@ -477,11 +448,11 @@ function formatTime(s) {
   return String(m).padStart(2, "0") + ":" + String(sec).padStart(2, "0");
 }
 
-const MAX_DRONES = 1200;
-let activeDroneCount = 400;
+const MAX_DRONES = 2000;
+let activeDroneCount = 800; // Expanded fleet for high-definition linocut reproduction
 let TOTAL_DURATION = 165.0;
 let panSensitivity = 5.0;
-const BASE_DRONE_SIZE = 0.55;
+const BASE_DRONE_SIZE = 0.48;
 const Y_AXIS = new THREE.Vector3(0, 1, 0);
 
 let takeoffConfig = { dur: 10.0, style: "celtic_whirl" };
@@ -547,7 +518,7 @@ scene.add(new THREE.HemisphereLight(0xffb300, 0x0a101a, 1.2));
 const gridHelper = new THREE.GridHelper(90, 45, 0x422915, 0x14100c);
 stageGroup.add(gridHelper);
 
-const launchPadGeom = new THREE.CircleGeometry(16, 32);
+const launchPadGeom = new THREE.CircleGeometry(18, 32);
 const launchPadMat = new THREE.MeshBasicMaterial({ color: 0x140c06, side: THREE.DoubleSide });
 const launchPadMesh = new THREE.Mesh(launchPadGeom, launchPadMat);
 launchPadMesh.rotation.x = -Math.PI / 2;
@@ -578,7 +549,7 @@ const droneSwatchIndices = new Uint8Array(MAX_DRONES);
 const groundPositions = new Float32Array(MAX_DRONES * 3);
 function updateGroundPositions(n) {
   for (let i = 0; i < n; i++) {
-    const r = Math.sqrt((i + 0.5) / n) * 13.5;
+    const r = Math.sqrt((i + 0.5) / n) * 15.5;
     const theta = i * GOLDEN;
     groundPositions[i * 3]     = Math.cos(theta) * r;
     groundPositions[i * 3 + 1] = 0.12;
@@ -648,28 +619,28 @@ function assignMinimalPaths(currentPos, rawTargets, count) {
   return assigned;
 }
 
-// 100% Focused Samhain Sequence with Fire Silhouette[cite: 1] Opening
+// 100% Focused Samhain Sequence with Bonfire Gathering Opening[cite: 2]
 const timelineData = {
   formationBlocks: [
     {
       id: "s0",
-      shapeId: "fireSilhouette",
+      shapeId: "bonfireGathering",
       isText: false,
-      dur: 20.0,
+      dur: 22.0,
       transDur: 4.0,
       altitude: 16.0,
       scale: 1.0,
       rotStartY: 0,
       rotEndY: 0,
-      palette: ["#ffeb3b", "#ff9100", "#d50000"],
+      palette: ["#ffffff", "#ffd54f", "#ff9100", "#d50000"], // Moon White -> Flame Gold -> Amber -> Hearth Crimson
       activeSwatchIdx: 0,
-      cycleSpeed: 1.0,
+      cycleSpeed: 0.5,
       run: true,
       runSpeed: 4.0,
       blink: false,
       blinkSpeed: 3.0,
       sparkle: true,
-      sparkleDensity: 0.3
+      sparkleDensity: 0.35
     },
     {
       id: "s1",
@@ -844,7 +815,7 @@ async function performUndo() {
   timelineData.formationBlocks = state.timeline.formationBlocks;
   droneSwatchIndices.set(state.swatches);
   selectedFormationBlockId = state.selectedF;
-  activeDroneCount = state.activeDroneCount || 400;
+  activeDroneCount = state.activeDroneCount || 800;
 
   droneGeometry.setDrawRange(0, activeDroneCount);
   updateGroundPositions(activeDroneCount);
@@ -882,7 +853,7 @@ function applyLightingFX(block, timeSec) {
 
     if (block.run) {
       const wave = Math.sin(timeSec * block.runSpeed - (i / formationCount) * 8.0);
-      if (wave > 0.3) { r = Math.min(1, r * 1.5); g = Math.min(1, g * 1.5); b = Math.min(1, b * 1.5); }
+      if (wave > 0.3) { r = Math.min(1, r * 1.4); g = Math.min(1, g * 1.4); b = Math.min(1, b * 1.4); }
     }
     if (block.blink) {
       const on = Math.sin(timeSec * Math.PI * 2 * block.blinkSpeed) > 0;
@@ -974,7 +945,7 @@ function evaluateTimeline(t) {
 
       let prog = u;
       if (takeoffConfig.style === "celtic_whirl") {
-        const dist = Math.sqrt(gx * gx + gz * gz) / 14.0;
+        const dist = Math.sqrt(gx * gx + gz * gz) / 16.0;
         prog = THREE.MathUtils.clamp((u - dist * 0.3) / 0.7, 0, 1);
         const aTarget = Math.atan2(skyPosA.z, skyPosA.x);
         const curA = aTarget + (1 - prog) * Math.PI * 3;
@@ -1063,15 +1034,7 @@ function evaluateTimeline(t) {
           else if (currSwatches) droneSwatchIndices[j] = currSwatches[j];
         }
 
-        const transFX = b.transColorFX || "blend";
-        if (transFX === "sparkle") {
-          for (let j = 0; j < formationCount; j++) {
-            const sparkle = Math.sin(t * 16.0 + j * 7.0) > 0.3 ? 1.0 : 0.2;
-            targetColors[j * 3] = sparkle; targetColors[j * 3 + 1] = sparkle * 0.8; targetColors[j * 3 + 2] = sparkle * 0.2;
-          }
-        } else {
-          applyLightingFX(b, t);
-        }
+        applyLightingFX(b, t);
         break;
       }
       curT = transEnd;
@@ -1226,7 +1189,7 @@ $("input-search-query").addEventListener("keydown", (e) => {
   if (e.key === "Enter") runIconSearch(e.target.value.trim());
 });
 
-// Compile and Apply SVG directly to Active Timeline Block
+// Compile and Apply Image/SVG to Current Scene Block
 async function compileAndApplySVG(svgCode, name = "Custom SVG") {
   saveUndoState();
   const b = timelineData.formationBlocks.find(x => x.id === selectedFormationBlockId);
@@ -1250,37 +1213,65 @@ async function compileAndApplySVG(svgCode, name = "Custom SVG") {
   updateContextPanels();
 }
 
+async function compileAndApplyImage(img, name = "Custom Image") {
+  saveUndoState();
+  const b = timelineData.formationBlocks.find(x => x.id === selectedFormationBlockId);
+  if (!b) return;
+
+  const formationCount = precipConfig.enabled ? Math.max(50, activeDroneCount - precipConfig.count) : activeDroneCount;
+  const customPts = new Float32Array(formationCount * 3);
+  const customSwatches = new Uint8Array(formationCount);
+  const scale = parseFloat($("slider-browser-scale").value);
+
+  sampleImageToDrones(img, customPts, formationCount, customSwatches, scale, b.altitude || 16.0);
+
+  b.customPoints = customPts;
+  b.customSwatches = customSwatches;
+  b.isText = false;
+  b.shapeId = name;
+
+  await buildShowTrajectoryData();
+  evaluateTimeline(playheadTime);
+  buildDesktopTimeline();
+  updateContextPanels();
+}
+
 // Preset Handlers
-onEvent("btn-preset-fire", () => compileAndApplySVG(RAW_SVGS.fireSilhouette, "Fire Silhouette"));
+onEvent("btn-preset-fire", () => {
+  const fallbackCanvas = generateBonfireLinocutImage();
+  compileAndApplyImage(fallbackCanvas, "Bonfire Gathering[cite: 2]");
+});
 onEvent("btn-preset-wheat", () => compileAndApplySVG(RAW_SVGS.wheat, "Wheat Barley"));
 onEvent("btn-preset-scythe", () => compileAndApplySVG(RAW_SVGS.scythe, "Scythe Agriculture"));
 onEvent("btn-preset-turnip", () => compileAndApplySVG(RAW_SVGS.turnip, "Turnip Lantern"));
 onEvent("btn-preset-wicker", () => compileAndApplySVG(RAW_SVGS.wickerMan, "Wicker Man"));
 
-// Direct URL Fetcher with CORS Proxy Fallback
+// Direct URL Fetcher
 onEvent("btn-fetch-url", async () => {
   const url = $("input-direct-url").value.trim();
   if (!url) return;
   try {
-    let svgCode = "";
+    let text = "";
     try {
       const res = await fetch(url);
-      svgCode = await res.text();
+      text = await res.text();
     } catch (_) {
       const proxyRes = await fetch(`https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`);
-      svgCode = await proxyRes.text();
+      text = await proxyRes.text();
     }
-    if (svgCode.includes("<svg")) {
-      await compileAndApplySVG(svgCode, "Web Imported SVG");
+    if (text.includes("<svg")) {
+      await compileAndApplySVG(text, "Web Imported SVG");
     } else {
-      alert("Fetched URL did not return valid SVG markup.");
+      const img = new Image();
+      img.onload = () => compileAndApplyImage(img, "Web Imported Image");
+      img.src = url;
     }
   } catch (err) {
-    alert("Could not load SVG from URL: " + err.message);
+    alert("Could not load asset from URL: " + err.message);
   }
 });
 
-// Headset Local File Picker (Handles both SVGs and PNG/JPG images)
+// Headset Local File Picker
 onEvent("file-input-headset", "change", (e) => {
   const file = e.target.files[0];
   if (!file) return;
@@ -1295,26 +1286,7 @@ onEvent("file-input-headset", "change", (e) => {
     reader.onload = (re) => {
       const img = new Image();
       img.onload = async () => {
-        saveUndoState();
-        const b = timelineData.formationBlocks.find(x => x.id === selectedFormationBlockId);
-        if (!b) return;
-
-        const formationCount = precipConfig.enabled ? Math.max(50, activeDroneCount - precipConfig.count) : activeDroneCount;
-        const customPts = new Float32Array(formationCount * 3);
-        const customSwatches = new Uint8Array(formationCount);
-        const scale = parseFloat($("slider-browser-scale").value);
-
-        sampleImageToDrones(img, customPts, formationCount, customSwatches, scale, b.altitude || 16.0);
-
-        b.customPoints = customPts;
-        b.customSwatches = customSwatches;
-        b.isText = false;
-        b.shapeId = file.name.replace(/\.[^/.]+$/, "");
-
-        await buildShowTrajectoryData();
-        evaluateTimeline(playheadTime);
-        buildDesktopTimeline();
-        updateContextPanels();
+        await compileAndApplyImage(img, file.name.replace(/\.[^/.]+$/, ""));
       };
       img.src = re.target.result;
     };
@@ -1322,7 +1294,7 @@ onEvent("file-input-headset", "change", (e) => {
   }
 });
 
-// Drag and drop listener for desktop or VR drag
+// Drag and drop listener for image and SVG files
 window.addEventListener("dragover", (e) => {
   e.preventDefault();
   document.body.classList.add("dragging");
@@ -1348,26 +1320,7 @@ window.addEventListener("drop", (e) => {
     reader.onload = (re) => {
       const img = new Image();
       img.onload = async () => {
-        saveUndoState();
-        const b = timelineData.formationBlocks.find(x => x.id === selectedFormationBlockId);
-        if (!b) return;
-
-        const formationCount = precipConfig.enabled ? Math.max(50, activeDroneCount - precipConfig.count) : activeDroneCount;
-        const customPts = new Float32Array(formationCount * 3);
-        const customSwatches = new Uint8Array(formationCount);
-        const scale = parseFloat($("slider-browser-scale").value);
-
-        sampleImageToDrones(img, customPts, formationCount, customSwatches, scale, b.altitude || 16.0);
-
-        b.customPoints = customPts;
-        b.customSwatches = customSwatches;
-        b.isText = false;
-        b.shapeId = file.name.replace(/\.[^/.]+$/, "");
-
-        await buildShowTrajectoryData();
-        evaluateTimeline(playheadTime);
-        buildDesktopTimeline();
-        updateContextPanels();
+        await compileAndApplyImage(img, file.name.replace(/\.[^/.]+$/, ""));
       };
       img.src = re.target.result;
     };
