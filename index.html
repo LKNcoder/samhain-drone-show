@@ -22,7 +22,7 @@ canvas { display: block; }
   z-index: 2;
   left: 16px;
   top: 16px;
-  width: min(600px, calc(100vw - 32px));
+  width: min(620px, calc(100vw - 32px));
   max-height: calc(100vh - 32px);
   overflow-y: auto;
   padding: 14px;
@@ -94,47 +94,30 @@ canvas { display: block; }
 }
 .context-card.hidden { display: none !important; }
 
-/* In-Headset SVG Search & Browser Grid */
-.icon-browser-grid {
-  display: grid;
-  grid-template-columns: repeat(6, 1fr);
+/* 13-Tile Visual Selector Bar */
+.tiles-scroll-bar {
+  display: flex;
   gap: 6px;
-  max-height: 180px;
-  overflow-y: auto;
-  background: #0a0e17;
-  padding: 6px;
-  border: 1px solid #2d3b4e;
-  border-radius: 6px;
+  overflow-x: auto;
+  padding: 6px 0;
 }
-.browser-item {
+.tile-btn {
+  flex: 0 0 68px;
+  height: 52px;
+  background: #111a28;
+  border: 1px solid #253347;
+  border-radius: 6px;
+  color: #ffab00;
+  font-size: 10px;
+  font-weight: bold;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  height: 60px;
-  background: #111a28;
-  border: 1px solid #253347;
-  border-radius: 6px;
   cursor: pointer;
-  padding: 4px;
 }
-.browser-item:hover { border-color: #ffab00; background: #1c2b42; }
-.browser-item img { width: 32px; height: 32px; filter: drop-shadow(0 0 2px #ffab00); }
-.browser-item span { font-size: 8px; color: #a08a75; margin-top: 2px; text-align: center; overflow: hidden; white-space: nowrap; width: 100%; text-overflow: ellipsis; }
-
-.icon-grid {
-  display: grid; grid-template-columns: repeat(4, 1fr);
-  gap: 6px;
-}
-button.symbol-btn {
-  display: flex; flex-direction: column; align-items: center; justify-content: center;
-  height: 52px; background: #131a26; border: 1px solid #2d3b4e; border-radius: 8px;
-  padding: 4px; cursor: grab;
-}
-button.symbol-btn:hover { background: #222f44; border-color: #ffab00; }
-button.symbol-btn.active { border-color: #ffab00; background: #2c1e0e; }
-button.symbol-btn svg { width: 24px; height: 24px; stroke: #ffab00; fill: none; }
-button.symbol-btn span { font-size: 9px; color: #a08a75; margin-top: 2px; }
+.tile-btn:hover { border-color: #ffab00; background: #1c2b42; }
+.tile-btn.active { border-color: #ffffff; background: #2e1d0c; box-shadow: 0 0 8px #ffab00; }
 
 .timeline-module {
   background: #090e17;
@@ -265,62 +248,22 @@ body.dragging #drop-overlay { display: flex; }
 </script>
 </head>
 <body>
-<div id="drop-overlay">Drop Any SVG, PNG, or JPG File Here to Import</div>
+<div id="drop-overlay">Drop Any samhain-tile PNG/JPG to Load</div>
 <div id="panel">
   <div id="top-bar">
     <div id="title">Samhain XR Drone Show Designer</div>
     <div style="display:flex; gap:6px;">
-      <button class="toolbar-btn" id="btn-toggle-browser" style="border-color:#ffab00; color:#ffab00;">🌐 In-Headset SVG Search</button>
       <button class="toolbar-btn" id="btn-export-unity" style="border-color:#00e5ff; color:#00e5ff;">⤓ Unity Export</button>
       <button class="toolbar-btn" id="btn-undo" title="Revert last action (Ctrl+Z)">↶ Undo</button>
     </div>
   </div>
-  <div id="status">800 Drones Active · Density Centroid Sampler Initialized</div>
+  <div id="status">Active: samhain-tile1.png · 800 Drone Stratified Density Centroid Engine</div>
 
-  <!-- In-Headset SVG Search & Browser Drawer (No PC Required) -->
-  <div class="context-card hidden" id="card-svg-browser" style="border-color:#ffab00;">
-    <div class="section-label" style="margin:0;">
-      <span style="color:#ffab00;">In-Headset Vector Icon Search</span>
-      <span style="font-size:10px; color:#00e5ff;">Search 200,000+ Icons in VR</span>
-    </div>
-    
-    <div class="ctrl-row">
-      <input type="text" id="input-search-query" placeholder="Search keywords (e.g., scythe, wheat, skull, flame)..." value="harvest">
-      <button class="toolbar-btn" id="btn-run-search">Search</button>
-    </div>
-
-    <!-- Quick Samhain Presets -->
-    <div class="ctrl-row">
-      <span style="font-size:10px; color:#a08a75;">Presets:</span>
-      <button class="toolbar-btn" id="btn-preset-fire">Bonfire Gathering</button>
-      <button class="toolbar-btn" id="btn-preset-wheat">Wheat (Barley)</button>
-      <button class="toolbar-btn" id="btn-preset-scythe">Scythe</button>
-      <button class="toolbar-btn" id="btn-preset-turnip">Turnip</button>
-      <button class="toolbar-btn" id="btn-preset-wicker">Wicker Man</button>
-    </div>
-
-    <!-- Live Search Results Grid -->
-    <div class="icon-browser-grid" id="browser-results-grid">
-      <div style="grid-column: 1/-1; text-align:center; padding:12px; color:#6a82a9; font-size:11px;">
-        Type a keyword or tap a preset to browse vector icons.
-      </div>
-    </div>
-
-    <!-- Direct URL or Local File Upload from Headset -->
-    <div class="ctrl-row" style="margin-top:4px;">
-      <input type="text" id="input-direct-url" placeholder="Paste direct SVG link or SVGRepo URL...">
-      <button class="toolbar-btn" id="btn-fetch-url">Fetch URL</button>
-      <label class="toolbar-btn" style="cursor:pointer;">
-        Upload File
-        <input type="file" id="file-input-headset" accept=".svg,.png,.jpg,.jpeg,.webp" style="display:none;">
-      </label>
-    </div>
-    <div class="ctrl-row">
-      <span style="min-width:60px;">Import Scale:</span>
-      <input type="range" id="slider-browser-scale" min="0.02" max="0.2" step="0.005" value="0.046">
-      <span id="val-browser-scale" style="min-width:35px; text-align:right;">0.046</span>
-    </div>
+  <!-- 13 Samhain Tiles Selector Strip -->
+  <div class="section-label" style="margin-top:6px;">
+    <span>13 Samhain Woodcut Tiles (Click to Apply to Selected Block)</span>
   </div>
+  <div class="tiles-scroll-bar" id="tiles-strip"></div>
 
   <!-- Global Fleet & Environmental Precipitation -->
   <div class="ctrl-row" style="margin-top:6px;">
@@ -355,12 +298,9 @@ body.dragging #drop-overlay { display: flex; }
   <div class="context-card hidden" id="card-inspector-formation">
     <div class="section-label" style="margin:0;">
       <span id="inspector-block-title">Formation Properties</span>
-      <span id="inspector-shape-name" style="color:#ffab00;">bonfireGathering</span>
+      <span id="inspector-shape-name" style="color:#ffab00;">samhainTile1</span>
     </div>
 
-    <div id="formation-sub-shape">
-      <div class="icon-grid" id="desktop-icon-grid"></div>
-    </div>
     <div class="hidden" id="formation-sub-text">
       <div class="ctrl-row" style="margin-top:4px;">
         <span style="min-width:55px;">Message:</span>
@@ -415,13 +355,13 @@ body.dragging #drop-overlay { display: flex; }
     <div class="timeline-bottom-row">
       <button id="btn-play" style="padding:4px 14px; font-size:11px; background:#2e1d0c; border:1px solid #ffab00; color:#ffab00; border-radius:4px; cursor:pointer;">Play</button>
       <span id="time-display" style="font-size:11px; font-variant-numeric:tabular-nums; min-width:85px;">00:00 / 02:45</span>
-      <span style="font-size:10px; color:#a08a75; flex:1; text-align:right;">Drop samhain-tile1.jpg onto viewport to load[cite: 2]</span>
+      <span style="font-size:10px; color:#a08a75; flex:1; text-align:right;">Click any Tile above to assign it</span>
     </div>
   </div>
 
   <div id="hint">
-    <b>800-Drone Bonfire Gathering:</b> Moon, stars, swirling fire vortex, and cloaked figures[cite: 2] mapped on coplanar $Z=0$ viewing plane.<br>
-    <b>Negative Space:</b> Unlit black sky and dark figure silhouettes[cite: 2] preserve crisp woodcut line art.
+    <b>samhain-tile1.png Active:</b> Crescent moon, stars, swirling fire vortex, and cloaked circle rendered from actual PNG[cite: 2].<br>
+    <b>Tiles 1-13 Ready:</b> Click any of the 13 tile buttons above to instantly load that scene.
   </div>
 </div>
 <div id="vr-tip">In VR: Press Left X for HUD · Trigger paints drones with active swatch</div>
@@ -434,12 +374,10 @@ import {
   SHAPE_PAGES,
   findShapeById,
   generateTextDrones,
-  compileSVGToDrones,
   sampleImageToDrones,
-  generateBonfireLinocutImage,
-  RAW_SVGS,
+  loadTileImage,
   GOLDEN
-} from "./shapes.js?v=samhain_density_v5";
+} from "./shapes.js?v=samhain_density_v6";
 
 function formatTime(s) {
   if (isNaN(s) || s === undefined || s === null) return "00:00";
@@ -449,7 +387,7 @@ function formatTime(s) {
 }
 
 const MAX_DRONES = 2000;
-let activeDroneCount = 800; // Expanded fleet for high-definition linocut reproduction
+let activeDroneCount = 800;
 let TOTAL_DURATION = 165.0;
 let panSensitivity = 5.0;
 const BASE_DRONE_SIZE = 0.48;
@@ -499,20 +437,6 @@ const leftController = renderer.xr.getController(0);
 const rightController = renderer.xr.getController(1);
 xrRig.add(leftController);
 xrRig.add(rightController);
-
-const controllerRays = [];
-function createRay(controller) {
-  const geom = new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(0, 0, 0), new THREE.Vector3(0, 0, -1)]);
-  const mat = new THREE.LineBasicMaterial({ color: 0xffab00, transparent: true, opacity: 0.65 });
-  const line = new THREE.Line(geom, mat);
-  line.scale.z = 4;
-  line.visible = false;
-  controller.add(line);
-  controllerRays.push(line);
-  return line;
-}
-createRay(leftController);
-createRay(rightController);
 
 scene.add(new THREE.HemisphereLight(0xffb300, 0x0a101a, 1.2));
 const gridHelper = new THREE.GridHelper(90, 45, 0x422915, 0x14100c);
@@ -619,12 +543,12 @@ function assignMinimalPaths(currentPos, rawTargets, count) {
   return assigned;
 }
 
-// 100% Focused Samhain Sequence with Bonfire Gathering Opening[cite: 2]
+// Initial Show Sequence starting with Tile 1 (The Bonfire Gathering)
 const timelineData = {
   formationBlocks: [
     {
       id: "s0",
-      shapeId: "bonfireGathering",
+      shapeId: "samhainTile1",
       isText: false,
       dur: 22.0,
       transDur: 4.0,
@@ -632,7 +556,7 @@ const timelineData = {
       scale: 1.0,
       rotStartY: 0,
       rotEndY: 0,
-      palette: ["#ffffff", "#ffd54f", "#ff9100", "#d50000"], // Moon White -> Flame Gold -> Amber -> Hearth Crimson
+      palette: ["#ffffff", "#ffd54f", "#ff9100", "#d50000"],
       activeSwatchIdx: 0,
       cycleSpeed: 0.5,
       run: true,
@@ -644,35 +568,15 @@ const timelineData = {
     },
     {
       id: "s1",
-      shapeId: "wheatBarley",
+      shapeId: "samhainTile2",
       isText: false,
-      dur: 18.0,
+      dur: 20.0,
       transDur: 4.0,
       altitude: 16.0,
       scale: 1.0,
       rotStartY: 0,
       rotEndY: 0,
-      palette: ["#ffb300", "#5d4037"],
-      activeSwatchIdx: 0,
-      cycleSpeed: 0.0,
-      run: false,
-      runSpeed: 3.0,
-      blink: false,
-      blinkSpeed: 3.0,
-      sparkle: true,
-      sparkleDensity: 0.2
-    },
-    {
-      id: "s2",
-      shapeId: "scytheAgriculture",
-      isText: false,
-      dur: 16.0,
-      transDur: 4.0,
-      altitude: 17.0,
-      scale: 1.05,
-      rotStartY: 0,
-      rotEndY: 15,
-      palette: ["#e0f7fa", "#5d4037", "#8d6e63"],
+      palette: ["#ffffff", "#ffd54f", "#ff9100", "#d50000"],
       activeSwatchIdx: 0,
       cycleSpeed: 0.0,
       run: false,
@@ -680,39 +584,19 @@ const timelineData = {
       blink: false,
       blinkSpeed: 3.0,
       sparkle: false,
-      sparkleDensity: 0.25
+      sparkleDensity: 0.2
     },
     {
-      id: "s3",
-      shapeId: "turnipLantern",
+      id: "s2",
+      shapeId: "samhainTile3",
       isText: false,
       dur: 20.0,
       transDur: 4.0,
       altitude: 16.0,
-      scale: 1.1,
-      rotStartY: 15,
-      rotEndY: 0,
-      palette: ["#a1887f", "#ffab00", "#689f38"],
-      activeSwatchIdx: 0,
-      cycleSpeed: 0.0,
-      run: false,
-      runSpeed: 3.0,
-      blink: true,
-      blinkSpeed: 3.0,
-      sparkle: false,
-      sparkleDensity: 0.2
-    },
-    {
-      id: "s4",
-      shapeId: "wickerMan",
-      isText: false,
-      dur: 22.0,
-      transDur: 4.0,
-      altitude: 17.0,
-      scale: 1.15,
+      scale: 1.0,
       rotStartY: 0,
       rotEndY: 0,
-      palette: ["#8d6e63", "#ffd54f"],
+      palette: ["#ffffff", "#ffd54f", "#ff9100", "#d50000"],
       activeSwatchIdx: 0,
       cycleSpeed: 0.0,
       run: false,
@@ -720,10 +604,10 @@ const timelineData = {
       blink: false,
       blinkSpeed: 3.0,
       sparkle: false,
-      sparkleDensity: 0.25
+      sparkleDensity: 0.2
     },
     {
-      id: "s5",
+      id: "s3",
       isText: true,
       text: "BLESSED SAMHAIN",
       font: "Impact",
@@ -926,7 +810,7 @@ function evaluateTimeline(t) {
   const showBodyEnd = TOTAL_DURATION - landingConfig.dur;
   if (formationTrajectories.length === 0) return;
 
-  // 1. CELTIC SPIRAL VORTEX TAKEOFF
+  // 1. Celtic Spiral Takeoff
   if (t <= takeoffConfig.dur) {
     const u = Math.max(0, t / takeoffConfig.dur);
     const firstTargets = formationTrajectories[0];
@@ -945,7 +829,7 @@ function evaluateTimeline(t) {
 
       let prog = u;
       if (takeoffConfig.style === "celtic_whirl") {
-        const dist = Math.sqrt(gx * gx + gz * gz) / 16.0;
+        const dist = Math.sqrt(gx * gx + gz * gz) / 14.0;
         prog = THREE.MathUtils.clamp((u - dist * 0.3) / 0.7, 0, 1);
         const aTarget = Math.atan2(skyPosA.z, skyPosA.x);
         const curA = aTarget + (1 - prog) * Math.PI * 3;
@@ -970,7 +854,7 @@ function evaluateTimeline(t) {
     }
   }
 
-  // 2. ACTIVE SHOW
+  // 2. Active Show Scenes
   else if (t > takeoffConfig.dur && t < showBodyEnd) {
     const showT = t - takeoffConfig.dur;
     let curT = 0;
@@ -1041,7 +925,7 @@ function evaluateTimeline(t) {
     }
   }
 
-  // 3. CELTIC EMBER SPIRAL FUNNEL DESCENT TO HEARTH (LANDING)
+  // 3. Celtic Hearth Settle (Landing)
   else {
     const landT = t - showBodyEnd;
     const u = THREE.MathUtils.clamp(landT / landingConfig.dur, 0, 1);
@@ -1079,7 +963,7 @@ function evaluateTimeline(t) {
     }
   }
 
-  // 4. ATMOSPHERIC PARTICLES
+  // 4. Atmospheric Particles
   if (precipConfig.enabled) {
     const precipHex = new THREE.Color(precipConfig.color);
 
@@ -1128,205 +1012,34 @@ function onEvent(id, event, handler) {
   if (el) el.addEventListener(event, handler);
 }
 
-// In-Headset SVG Search & Browser Engine
-onEvent("btn-toggle-browser", "click", () => {
-  const card = $("card-svg-browser");
-  const isHidden = card.classList.contains("hidden");
-  card.classList.toggle("hidden", !isHidden);
-  $("btn-toggle-browser").classList.toggle("active", isHidden);
-  if (isHidden) runIconSearch($("input-search-query").value.trim());
-});
+// 13 Tiles Strip UI Builder
+function populateTilesStrip() {
+  const strip = $("tiles-strip");
+  if (!strip) return;
+  strip.innerHTML = "";
 
-onEvent("slider-browser-scale", "input", (e) => {
-  $("val-browser-scale").textContent = e.target.value;
-});
-
-async function runIconSearch(query) {
-  if (!query) return;
-  const grid = $("browser-results-grid");
-  grid.innerHTML = `<div style="grid-column: 1/-1; text-align:center; padding:12px; color:#ffab00; font-size:11px;">Searching icons for '${query}'...</div>`;
-
-  try {
-    const res = await fetch(`https://api.iconify.design/search?query=${encodeURIComponent(query)}&limit=30`);
-    const data = await res.json();
-
-    if (!data.icons || data.icons.length === 0) {
-      grid.innerHTML = `<div style="grid-column: 1/-1; text-align:center; padding:12px; color:#ff859c; font-size:11px;">No icons found for '${query}'.</div>`;
-      return;
-    }
-
-    grid.innerHTML = "";
-    data.icons.forEach(iconKey => {
-      const parts = iconKey.split(":");
-      const prefix = parts[0];
-      const name = parts[1];
-      const svgUrl = `https://api.iconify.design/${prefix}/${name}.svg?color=%23ffab00`;
-
-      const item = document.createElement("div");
-      item.className = "browser-item";
-      item.title = iconKey;
-      item.innerHTML = `<img src="${svgUrl}" alt="${name}"><span>${name}</span>`;
-
-      item.onclick = async () => {
-        try {
-          const svgRes = await fetch(`https://api.iconify.design/${prefix}/${name}.svg`);
-          const svgCode = await svgRes.text();
-          await compileAndApplySVG(svgCode, name);
-        } catch (err) {
-          alert("Error fetching icon: " + err.message);
-        }
-      };
-
-      grid.appendChild(item);
-    });
-  } catch (e) {
-    grid.innerHTML = `<div style="grid-column: 1/-1; text-align:center; padding:12px; color:#ff859c; font-size:11px;">Search connection failed.</div>`;
+  for (let i = 1; i <= 13; i++) {
+    const btn = document.createElement("button");
+    btn.className = "tile-btn" + (selectedFormationBlockId && timelineData.formationBlocks.find(b => b.id === selectedFormationBlockId)?.shapeId === `samhainTile${i}` ? " active" : "");
+    btn.innerHTML = `<span>Tile ${i}</span>`;
+    btn.onclick = async () => {
+      saveUndoState();
+      const b = timelineData.formationBlocks.find(x => x.id === selectedFormationBlockId);
+      if (b) {
+        b.isText = false;
+        b.customPoints = null;
+        b.shapeId = `samhainTile${i}`;
+        $("status").textContent = `Active: samhain-tile${i}.png · 800 Drone Stratified Density Centroid Engine`;
+        await buildShowTrajectoryData();
+        evaluateTimeline(playheadTime);
+        buildDesktopTimeline();
+        updateContextPanels();
+        populateTilesStrip();
+      }
+    };
+    strip.appendChild(btn);
   }
 }
-
-onEvent("btn-run-search", () => runIconSearch($("input-search-query").value.trim()));
-$("input-search-query").addEventListener("keydown", (e) => {
-  if (e.key === "Enter") runIconSearch(e.target.value.trim());
-});
-
-// Compile and Apply Image/SVG to Current Scene Block
-async function compileAndApplySVG(svgCode, name = "Custom SVG") {
-  saveUndoState();
-  const b = timelineData.formationBlocks.find(x => x.id === selectedFormationBlockId);
-  if (!b) return;
-
-  const formationCount = precipConfig.enabled ? Math.max(50, activeDroneCount - precipConfig.count) : activeDroneCount;
-  const customPts = new Float32Array(formationCount * 3);
-  const customSwatches = new Uint8Array(formationCount);
-  const scale = parseFloat($("slider-browser-scale").value);
-
-  await compileSVGToDrones(svgCode, customPts, formationCount, customSwatches, scale, b.altitude || 16.0);
-
-  b.customPoints = customPts;
-  b.customSwatches = customSwatches;
-  b.isText = false;
-  b.shapeId = name;
-
-  await buildShowTrajectoryData();
-  evaluateTimeline(playheadTime);
-  buildDesktopTimeline();
-  updateContextPanels();
-}
-
-async function compileAndApplyImage(img, name = "Custom Image") {
-  saveUndoState();
-  const b = timelineData.formationBlocks.find(x => x.id === selectedFormationBlockId);
-  if (!b) return;
-
-  const formationCount = precipConfig.enabled ? Math.max(50, activeDroneCount - precipConfig.count) : activeDroneCount;
-  const customPts = new Float32Array(formationCount * 3);
-  const customSwatches = new Uint8Array(formationCount);
-  const scale = parseFloat($("slider-browser-scale").value);
-
-  sampleImageToDrones(img, customPts, formationCount, customSwatches, scale, b.altitude || 16.0);
-
-  b.customPoints = customPts;
-  b.customSwatches = customSwatches;
-  b.isText = false;
-  b.shapeId = name;
-
-  await buildShowTrajectoryData();
-  evaluateTimeline(playheadTime);
-  buildDesktopTimeline();
-  updateContextPanels();
-}
-
-// Preset Handlers
-onEvent("btn-preset-fire", () => {
-  const fallbackCanvas = generateBonfireLinocutImage();
-  compileAndApplyImage(fallbackCanvas, "Bonfire Gathering[cite: 2]");
-});
-onEvent("btn-preset-wheat", () => compileAndApplySVG(RAW_SVGS.wheat, "Wheat Barley"));
-onEvent("btn-preset-scythe", () => compileAndApplySVG(RAW_SVGS.scythe, "Scythe Agriculture"));
-onEvent("btn-preset-turnip", () => compileAndApplySVG(RAW_SVGS.turnip, "Turnip Lantern"));
-onEvent("btn-preset-wicker", () => compileAndApplySVG(RAW_SVGS.wickerMan, "Wicker Man"));
-
-// Direct URL Fetcher
-onEvent("btn-fetch-url", async () => {
-  const url = $("input-direct-url").value.trim();
-  if (!url) return;
-  try {
-    let text = "";
-    try {
-      const res = await fetch(url);
-      text = await res.text();
-    } catch (_) {
-      const proxyRes = await fetch(`https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`);
-      text = await proxyRes.text();
-    }
-    if (text.includes("<svg")) {
-      await compileAndApplySVG(text, "Web Imported SVG");
-    } else {
-      const img = new Image();
-      img.onload = () => compileAndApplyImage(img, "Web Imported Image");
-      img.src = url;
-    }
-  } catch (err) {
-    alert("Could not load asset from URL: " + err.message);
-  }
-});
-
-// Headset Local File Picker
-onEvent("file-input-headset", "change", (e) => {
-  const file = e.target.files[0];
-  if (!file) return;
-
-  const reader = new FileReader();
-  if (file.name.endsWith(".svg")) {
-    reader.onload = async (re) => {
-      await compileAndApplySVG(re.target.result, file.name.replace(".svg", ""));
-    };
-    reader.readAsText(file);
-  } else {
-    reader.onload = (re) => {
-      const img = new Image();
-      img.onload = async () => {
-        await compileAndApplyImage(img, file.name.replace(/\.[^/.]+$/, ""));
-      };
-      img.src = re.target.result;
-    };
-    reader.readAsDataURL(file);
-  }
-});
-
-// Drag and drop listener for image and SVG files
-window.addEventListener("dragover", (e) => {
-  e.preventDefault();
-  document.body.classList.add("dragging");
-});
-window.addEventListener("dragleave", (e) => {
-  if (e.clientX <= 0 || e.clientY <= 0) document.body.classList.remove("dragging");
-});
-window.addEventListener("drop", (e) => {
-  e.preventDefault();
-  document.body.classList.remove("dragging");
-  const files = e.dataTransfer.files;
-  if (!files || files.length === 0) return;
-
-  const file = files[0];
-  const reader = new FileReader();
-
-  if (file.name.endsWith(".svg")) {
-    reader.onload = async (re) => {
-      await compileAndApplySVG(re.target.result, file.name.replace(".svg", ""));
-    };
-    reader.readAsText(file);
-  } else {
-    reader.onload = (re) => {
-      const img = new Image();
-      img.onload = async () => {
-        await compileAndApplyImage(img, file.name.replace(/\.[^/.]+$/, ""));
-      };
-      img.src = re.target.result;
-    };
-    reader.readAsDataURL(file);
-  }
-});
 
 // Unity JSON Exporter
 onEvent("btn-export-unity", () => {
@@ -1373,7 +1086,7 @@ onEvent("btn-export-unity", () => {
   URL.revokeObjectURL(url);
 });
 
-// Atmospheric Precipitation Handlers
+// Precipitation Handlers
 onEvent("chk-precip", "change", (e) => {
   saveUndoState();
   precipConfig.enabled = e.target.checked;
@@ -1426,23 +1139,21 @@ function updateContextPanels() {
     const b = timelineData.formationBlocks.find(x => x.id === selectedFormationBlockId);
     if (!b) return;
 
-    $("formation-sub-shape").classList.toggle("hidden", Boolean(b.isText || b.customPoints));
     $("formation-sub-text").classList.toggle("hidden", !b.isText);
 
     if (b.isText) {
       $("inspector-shape-name").textContent = `Text: "${b.text || ""}"`;
       $("input-text-msg").value = b.text || "";
-    } else if (b.customPoints) {
-      $("inspector-shape-name").textContent = b.shapeId || "Custom Icon";
     } else {
       $("inspector-shape-name").textContent = b.shapeId;
-      populateDesktopIcons();
     }
 
     $("slider-block-alt").value = b.altitude || 16.0;
     $("val-block-alt").textContent = `${b.altitude || 16.0}m`;
     $("slider-block-scale").value = b.scale || 1.0;
     $("val-block-scale").textContent = `${(b.scale || 1.0).toFixed(1)}x`;
+
+    populateTilesStrip();
   }
 }
 
@@ -1469,8 +1180,8 @@ onEvent("btn-add-shape", async () => {
   saveUndoState();
   const id = "s" + Date.now();
   timelineData.formationBlocks.push({
-    id, shapeId: "wheatBarley", isText: false, dur: 20.0, transDur: 4.0,
-    altitude: 16.0, scale: 1.0, palette: ["#ffb300", "#5d4037"], activeSwatchIdx: 0,
+    id, shapeId: "samhainTile1", isText: false, dur: 20.0, transDur: 4.0,
+    altitude: 16.0, scale: 1.0, palette: ["#ffffff", "#ffd54f", "#ff9100", "#d50000"], activeSwatchIdx: 0,
     cycleSpeed: 0.0, run: false, runSpeed: 3.0, blink: false, blinkSpeed: 3.0, sparkle: false, sparkleDensity: 0.35
   });
   selectedFormationBlockId = id;
@@ -1509,34 +1220,6 @@ onEvent("btn-del-shape", async () => {
     updateContextPanels();
   }
 });
-
-function populateDesktopIcons() {
-  const container = $("desktop-icon-grid");
-  if (!container) return;
-  container.innerHTML = "";
-  const shapes = SHAPE_PAGES[0];
-  const activeFormation = timelineData.formationBlocks.find(b => b && b.id === selectedFormationBlockId);
-
-  for (const s of shapes) {
-    if (!s) continue;
-    const btn = document.createElement("button");
-    btn.className = "symbol-btn" + (activeFormation?.shapeId === s.id && !activeFormation?.isText && !activeFormation?.customPoints ? " active" : "");
-    btn.innerHTML = `<svg viewBox="0 0 24 24">${s.drawSVG || ""}</svg><span>${s.id}</span>`;
-    btn.onclick = async () => {
-      if (activeFormation) {
-        saveUndoState();
-        activeFormation.isText = false;
-        activeFormation.customPoints = null;
-        activeFormation.shapeId = s.id;
-        await buildShowTrajectoryData();
-        evaluateTimeline(playheadTime);
-        buildDesktopTimeline();
-        updateContextPanels();
-      }
-    };
-    container.appendChild(btn);
-  }
-}
 
 function attachResizeHandle(handleEl, blockObj, getTrackWidth) {
   let isDragging = false, startX = 0, origDur = 0;
@@ -1592,13 +1275,9 @@ function buildDesktopTimeline() {
 
     if (b.isText) {
       fBlock.innerHTML = `<span>T: ${b.text || "TEXT"}</span>`;
-    } else if (b.customPoints) {
-      fBlock.style.background = "#0d3326";
-      fBlock.innerHTML = `<span>★ ${b.shapeId || "ICON"}</span>`;
     } else {
       fBlock.style.background = "#192231";
-      const s = findShapeById(b.shapeId);
-      fBlock.innerHTML = `<svg viewBox="0 0 24 24" style="width:18px;height:18px;stroke:#ffab00;fill:none;">${s ? (s.drawSVG || "") : ""}</svg>`;
+      fBlock.innerHTML = `<span style="color:#ffab00;">${b.shapeId}</span>`;
     }
 
     fBlock.onclick = (e) => {
@@ -1686,7 +1365,7 @@ onEvent("btn-play", "click", () => {
 
 // Boot Sequence
 (async () => {
-  populateDesktopIcons();
+  populateTilesStrip();
   updateContextPanels();
   buildDesktopTimeline();
   updateUndoButton();
@@ -1699,11 +1378,9 @@ renderer.xr.addEventListener("sessionstart", () => {
   renderer.xr.setFoveation(0.0);
   xrRig.position.set(0, 0, 38);
   xrRig.rotation.set(0, 0, 0);
-  for (const ray of controllerRays) ray.visible = false;
 });
 renderer.xr.addEventListener("sessionend", () => {
   document.body.classList.remove("xr-active");
-  for (const ray of controllerRays) ray.visible = false;
 });
 
 const SPRING = 7.5;
