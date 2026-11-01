@@ -256,11 +256,11 @@ body.dragging #drop-overlay { display: flex; }
       <button class="toolbar-btn" id="btn-undo" title="Revert last action (Ctrl+Z)">↶ Undo</button>
     </div>
   </div>
-  <div id="status">Tiles 16–19 Sequence Loaded · Kinetic Vortexes & Supernova Bursts Active</div>
+  <div id="status">Tiles 20–23 Sequence Loaded · Arc-Length Balanced Contour Resampling Active</div>
 
   <!-- Samhain Tiles Selector Bar -->
   <div class="section-label" style="margin-top:6px;">
-    <span>Samhain Tiles (Tiles 16, 17, 18, 19 Front & Center)</span>
+    <span>Samhain Tiles (Tiles 20–23 Front & Center)</span>
   </div>
   <div class="tiles-scroll-bar" id="tiles-strip"></div>
 
@@ -297,7 +297,7 @@ body.dragging #drop-overlay { display: flex; }
   <div class="context-card hidden" id="card-inspector-formation">
     <div class="section-label" style="margin:0;">
       <span id="inspector-block-title">Formation Properties</span>
-      <span id="inspector-shape-name" style="color:#ffab00;">samhainTile16</span>
+      <span id="inspector-shape-name" style="color:#ffab00;">samhainTile20</span>
     </div>
 
     <div class="hidden" id="formation-sub-text">
@@ -390,8 +390,7 @@ body.dragging #drop-overlay { display: flex; }
   </div>
 
   <div id="hint">
-    <b>Tiles 16–19 Sequence Active:</b> Simpler, high-contrast graphics mapped accurately with Blue Noise density and boundary tracing.<br>
-    <b>Magical Transitions:</b> Vortex spirals, supernova explosions, and Celtic wind ribbons connecting scenes.
+    <b>Equidistant Arc-Length Sampling:</b> Drones maintain uniform metric spacing along perimeters, preventing small features (like stems and stumps) from being starved of points.
   </div>
 </div>
 <div id="vr-tip">In VR: Press Left X for HUD · Trigger paints drones with active swatch</div>
@@ -406,7 +405,7 @@ import {
   generateTextDrones,
   sampleImageToDrones,
   GOLDEN
-} from "./shapes.js?v=samhain_tiles16_19_v1";
+} from "./shapes.js?v=samhain_tiles20_23_v1";
 
 function formatTime(s) {
   if (isNaN(s) || s === undefined || s === null) return "00:00";
@@ -586,12 +585,12 @@ function assignMinimalPaths(currentPos, rawTargets, count) {
   return assigned;
 }
 
-// Master Sequence featuring Tiles 16, 17, 18, 19 with Kinetic Transitions
+// Master Sequence featuring Tiles 20, 21, 22, 23, and 15
 const timelineData = {
   formationBlocks: [
     {
       id: "s0",
-      shapeId: "samhainTile16",
+      shapeId: "samhainTile20",
       isText: false,
       dur: 18.0,
       transDur: 4.5,
@@ -613,7 +612,7 @@ const timelineData = {
     },
     {
       id: "s1",
-      shapeId: "samhainTile17",
+      shapeId: "samhainTile21",
       isText: false,
       dur: 18.0,
       transDur: 4.5,
@@ -635,7 +634,7 @@ const timelineData = {
     },
     {
       id: "s2",
-      shapeId: "samhainTile18",
+      shapeId: "samhainTile22",
       isText: false,
       dur: 18.0,
       transDur: 4.5,
@@ -657,7 +656,7 @@ const timelineData = {
     },
     {
       id: "s3",
-      shapeId: "samhainTile19",
+      shapeId: "samhainTile23",
       isText: false,
       dur: 18.0,
       transDur: 4.5,
@@ -679,6 +678,28 @@ const timelineData = {
     },
     {
       id: "s4",
+      shapeId: "samhainTile15",
+      isText: false,
+      dur: 20.0,
+      transDur: 4.5,
+      transMotion: "vortex",
+      transColorFX: "fire_burst",
+      altitude: 16.0,
+      scale: 1.0,
+      rotStartY: 0,
+      rotEndY: 0,
+      palette: ["#ffffff", "#ffd54f", "#ff9100", "#d50000"],
+      activeSwatchIdx: 0,
+      cycleSpeed: 0.5,
+      run: true,
+      runSpeed: 4.0,
+      blink: false,
+      blinkSpeed: 3.0,
+      sparkle: true,
+      sparkleDensity: 0.35
+    },
+    {
+      id: "s5",
       isText: true,
       text: "BLESSED SAMHAIN",
       font: "Impact",
@@ -1156,13 +1177,13 @@ function onEvent(id, event, handler) {
   if (el) el.addEventListener(event, handler);
 }
 
-// Build Tile Selector Strip (Tiles 16-19 listed first)
+// Build Tile Selector Strip (Tiles 20-23 listed first)
 function populateTilesStrip() {
   const strip = $("tiles-strip");
   if (!strip) return;
   strip.innerHTML = "";
 
-  const tileOrder = [16, 17, 18, 19, 15, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14];
+  const tileOrder = [20, 21, 22, 23, 15, 16, 17, 18, 19, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14];
   tileOrder.forEach((tileNum) => {
     const btn = document.createElement("button");
     const shapeId = `samhainTile${tileNum}`;
@@ -1176,7 +1197,7 @@ function populateTilesStrip() {
         b.isText = false;
         b.customPoints = null;
         b.shapeId = shapeId;
-        $("status").textContent = `Active: samhain-tile${tileNum}.png · 800 Drone Stratified Density Centroid Engine`;
+        $("status").textContent = `Active: samhain-tile${tileNum}.png · Arc-Length Balanced Contour Resampling`;
         await buildShowTrajectoryData();
         evaluateTimeline(playheadTime);
         buildDesktopTimeline();
@@ -1366,7 +1387,7 @@ onEvent("btn-add-shape", async () => {
   saveUndoState();
   const id = "s" + Date.now();
   timelineData.formationBlocks.push({
-    id, shapeId: "samhainTile16", isText: false, dur: 18.0, transDur: 4.5,
+    id, shapeId: "samhainTile20", isText: false, dur: 18.0, transDur: 4.5,
     transMotion: "vortex", transColorFX: "sparkle",
     altitude: 16.0, scale: 1.0, palette: ["#ffffff", "#ffd54f", "#ff9100", "#d50000"], activeSwatchIdx: 0,
     cycleSpeed: 0.0, run: false, runSpeed: 3.0, blink: false, blinkSpeed: 3.0, sparkle: false, sparkleDensity: 0.35
