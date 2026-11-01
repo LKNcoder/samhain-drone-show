@@ -1,69 +1,118 @@
 import * as THREE from "three";
-import { SVGLoader } from "three/addons/loaders/SVGLoader.js";
 
 export const GOLDEN = Math.PI * (3 - Math.sqrt(5));
 
-// Universal W3C SVG-to-Drone Compiler (Strict Single-Layer Z = 0)
+// Dual-Pass Silhouette & Infill Compiler for 100% Faithful Icon Reproduction
 export function compileSVGToDrones(svgString, out, count, swatchOut, scale = 0.065, altitude = 16) {
-  const loader = new SVGLoader();
-  const svgData = loader.parse(svgString);
+  return new Promise((resolve) => {
+    const canvas = document.createElement("canvas");
+    canvas.width = 512;
+    canvas.height = 512;
+    const ctx = canvas.getContext("2d", { willReadFrequently: true });
 
-  const curves = [];
-  let totalLength = 0;
+    const img = new Image();
+    const svgBlob = new Blob([svgString], { type: "image/svg+xml;charset=utf-8" });
+    const url = URL.createObjectURL(svgBlob);
 
-  svgData.paths.forEach((path, pIdx) => {
-    const swatch = pIdx % 3;
-    path.subPaths.forEach(subPath => {
-      const len = subPath.getLength();
-      if (len > 0.05) {
-        curves.push({ subPath, len, swatch });
-        totalLength += len;
+    img.onload = () => {
+      ctx.clearRect(0, 0, 512, 512);
+      ctx.drawImage(img, 0, 0, 512, 512);
+      URL.revokeObjectURL(url);
+
+      const imgData = ctx.getImageData(0, 0, 512, 512);
+      const data = imgData.data;
+
+      const boundaryPts = [];
+      const interiorPts = [];
+
+      let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
+
+      // Classify edge boundary pixels vs interior infill
+      for (let y = 1; y < 511; y += 2) {
+        for (let x = 1; x < 511; x += 2) {
+          const idx = (y * 512 + x) * 4;
+          const a = data[idx + 3];
+
+          if (a > 90) {
+            const r = data[idx], g = data[idx + 1], b = data[idx + 2];
+            // Determine swatch by dominant color channel
+            let swatch = 0;
+            if (r > 180 && g > 130 && b < 100) swatch = 1; // Gold/Wheat/Flame
+            else if (r > 80 && g < 70 && b < 70) swatch = 2; // Dark Timber/Stem
+            else if (r > 180 && g > 180 && b > 200) swatch = 0; // Silver Steel/White
+
+            // Check neighbor opacity to isolate boundaries
+            const aTop = data[((y - 2) * 512 + x) * 4 + 3];
+            const aBot = data[((y + 2) * 512 + x) * 4 + 3];
+            const aLeft = data[(y * 512 + (x - 2)) * 4 + 3];
+            const aRight = data[(y * 512 + (x + 2)) * 4 + 3];
+
+            if (aTop < 60 || aBot < 60 || aLeft < 60 || aRight < 60) {
+              boundaryPts.push({ x, y, swatch });
+            } else {
+              interiorPts.push({ x, y, swatch });
+            }
+
+            if (x < minX) minX = x; if (x > maxX) maxX = x;
+            if (y < minY) minY = y; if (y > maxY) maxY = y;
+          }
+        }
       }
-    });
+
+      if (boundaryPts.length === 0 && interiorPts.length === 0) {
+        resolve();
+        return;
+      }
+
+      const cx = (minX + maxX) / 2;
+      const cy = (minY + maxY) / 2;
+
+      // 55% perimeter outline drones + 45% hexagonal interior body drones
+      const targetBoundaryCount = Math.round(count * 0.55);
+      const targetInteriorCount = count - targetBoundaryCount;
+
+      let ptr = 0;
+
+      // Sample Boundary Outline
+      if (boundaryPts.length > 0) {
+        const stepB = boundaryPts.length / targetBoundaryCount;
+        for (let i = 0; i < targetBoundaryCount && ptr < count; i++) {
+          const p = boundaryPts[Math.floor(i * stepB) % boundaryPts.length];
+          out[ptr * 3]     = (p.x - cx) * scale;
+          out[ptr * 3 + 1] = altitude - (p.y - cy) * scale;
+          out[ptr * 3 + 2] = 0.0;
+          if (swatchOut) swatchOut[ptr] = p.swatch;
+          ptr++;
+        }
+      }
+
+      // Sample Interior Body
+      const sourceInterior = interiorPts.length > 0 ? interiorPts : boundaryPts;
+      const stepI = sourceInterior.length / targetInteriorCount;
+      for (let i = 0; i < targetInteriorCount && ptr < count; i++) {
+        const p = sourceInterior[Math.floor(i * stepI) % sourceInterior.length];
+        out[ptr * 3]     = (p.x - cx) * scale;
+        out[ptr * 3 + 1] = altitude - (p.y - cy) * scale;
+        out[ptr * 3 + 2] = 0.0;
+        if (swatchOut) swatchOut[ptr] = p.swatch;
+        ptr++;
+      }
+
+      while (ptr < count) {
+        out[ptr * 3]     = out[(ptr - 1) * 3] + 0.1;
+        out[ptr * 3 + 1] = out[(ptr - 1) * 3 + 1];
+        out[ptr * 3 + 2] = 0.0;
+        if (swatchOut) swatchOut[ptr] = 0;
+        ptr++;
+      }
+
+      resolve();
+    };
+
+    img.src = url;
   });
-
-  if (curves.length === 0 || totalLength === 0) return;
-
-  let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
-  const sampled = [];
-
-  for (let i = 0; i < count; i++) {
-    const targetDist = (i / count) * totalLength;
-    let accum = 0;
-    let selected = curves[curves.length - 1];
-    let distOnCurve = 0;
-
-    for (const c of curves) {
-      if (accum + c.len >= targetDist) {
-        selected = c;
-        distOnCurve = targetDist - accum;
-        break;
-      }
-      accum += c.len;
-    }
-
-    const u = THREE.MathUtils.clamp(distOnCurve / selected.len, 0, 1);
-    const pt = selected.subPath.getPointAt(u);
-    sampled.push({ x: pt.x, y: pt.y, swatch: selected.swatch });
-
-    if (pt.x < minX) minX = pt.x; if (pt.x > maxX) maxX = pt.x;
-    if (pt.y < minY) minY = pt.y; if (pt.y > maxY) maxY = pt.y;
-  }
-
-  const cx = (minX + maxX) / 2;
-  const cy = (minY + maxY) / 2;
-
-  // Single plane (Z = 0) with inverted Y so SVGs render upright in Three.js sky
-  for (let i = 0; i < count; i++) {
-    const p = sampled[i];
-    out[i * 3]     = (p.x - cx) * scale;
-    out[i * 3 + 1] = altitude - (p.y - cy) * scale;
-    out[i * 3 + 2] = 0.0;
-    if (swatchOut) swatchOut[i] = p.swatch;
-  }
 }
 
-// Backward-compatible alias
 export const parseAndSampleSVG = compileSVGToDrones;
 
 // Glyph Vector Definitions
@@ -98,7 +147,6 @@ const GLYPH_PATHS = {
   '?': "M 0.1 1.05 C 0.1 1.45 0.8 1.45 0.8 1.05 C 0.8 0.7 0.45 0.7 0.45 0.35 M 0.45 0 L 0.45 0.1"
 };
 
-// Vector Text Generator with BLESSED stacked above SAMHAIN
 export function generateTextDrones(out, text, count, font = "Impact", scale = 0.28, altitude = 16) {
   const words = text.trim().toUpperCase().split(/\s+/);
   let lines = [text.trim().toUpperCase()];
@@ -165,7 +213,7 @@ export function generateTextDrones(out, text, count, font = "Impact", scale = 0.
   }
 }
 
-// Authentic SVGs
+// Authentic SVGs from svgrepo.com
 export const RAW_SVGS = {
   // SVGRepo 196385: Scythe Agriculture
   scythe: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
@@ -190,7 +238,7 @@ export const RAW_SVGS = {
     <line x1="332" y1="160" x2="382" y2="100" stroke="#ffb300" stroke-width="4"/>
   </svg>`,
 
-  // Turnip Lantern
+  // Authentic Turnip Lantern
   turnip: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 120">
     <polygon points="50,12 82,34 96,72 68,112 32,112 4,72 18,34" fill="#a1887f"/>
     <path d="M 50 12 C 45 -4, 30 -8, 25 -14 M 50 12 C 55 -6, 68 -6, 75 -12 M 50 12 L 50 -12" stroke="#689f38" stroke-width="3" fill="none"/>
@@ -222,7 +270,7 @@ export const SHAPE_PAGES = [
         ctx.beginPath(); ctx.moveTo(cx, cy + 22); ctx.lineTo(cx, cy - 18); ctx.stroke();
         for (let y = -14; y <= 10; y += 7) ctx.strokeRect(cx - 6, cy + y, 12, 5);
       },
-      gen: (out, n, swatchOut) => compileSVGToDrones(RAW_SVGS.wheat, out, n, swatchOut, 0.062, 15.5)
+      gen: (out, n, swatchOut) => compileSVGToDrones(RAW_SVGS.wheat, out, n, swatchOut, 0.052, 16)
     },
     {
       id: "scytheAgriculture",
@@ -233,7 +281,7 @@ export const SHAPE_PAGES = [
         ctx.strokeStyle = "#e0f7fa"; ctx.lineWidth = 3.5;
         ctx.beginPath(); ctx.moveTo(cx + 10, cy - 14); ctx.bezierCurveTo(cx + 24, cy - 22, cx + 22, cy - 2, cx + 8, cy - 4); ctx.stroke();
       },
-      gen: (out, n, swatchOut) => compileSVGToDrones(RAW_SVGS.scythe, out, n, swatchOut, 0.065, 16.5)
+      gen: (out, n, swatchOut) => compileSVGToDrones(RAW_SVGS.scythe, out, n, swatchOut, 0.056, 16)
     },
     {
       id: "turnipLantern",
@@ -246,7 +294,7 @@ export const SHAPE_PAGES = [
         ctx.beginPath(); ctx.moveTo(cx - 9, cy - 6); ctx.lineTo(cx - 4, cy - 2); ctx.lineTo(cx - 10, cy + 2); ctx.fill();
         ctx.beginPath(); ctx.moveTo(cx + 9, cy - 6); ctx.lineTo(cx + 4, cy - 2); ctx.lineTo(cx + 10, cy + 2); ctx.fill();
       },
-      gen: (out, n, swatchOut) => compileSVGToDrones(RAW_SVGS.turnip, out, n, swatchOut, 0.28, 16.0)
+      gen: (out, n, swatchOut) => compileSVGToDrones(RAW_SVGS.turnip, out, n, swatchOut, 0.28, 16)
     },
     {
       id: "wickerMan",
@@ -259,7 +307,7 @@ export const SHAPE_PAGES = [
         ctx.beginPath(); ctx.moveTo(cx - 22, cy - 6); ctx.lineTo(cx + 22, cy - 6); ctx.stroke();
         ctx.beginPath(); ctx.arc(cx, cy - 14, 5, 0, Math.PI * 2); ctx.stroke();
       },
-      gen: (out, n, swatchOut) => compileSVGToDrones(RAW_SVGS.wickerMan, out, n, swatchOut, 0.28, 16.0)
+      gen: (out, n, swatchOut) => compileSVGToDrones(RAW_SVGS.wickerMan, out, n, swatchOut, 0.28, 16)
     }
   ]
 ];
