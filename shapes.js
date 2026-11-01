@@ -12,7 +12,6 @@ function traceOrderedPerimeter(edgePixels, binaryMask) {
   const visited = new Set();
   const ordered = [];
 
-  // Start at the topmost-leftmost pixel
   let curr = edgePixels[0];
   for (const p of edgePixels) {
     if (p.y < curr.y || (p.y === curr.y && p.x < curr.x)) curr = p;
@@ -40,13 +39,13 @@ function traceOrderedPerimeter(edgePixels, binaryMask) {
 
       if (edgeSet.has(nKey)) {
         if (nKey === startKey && ordered.length > 10) {
-          return ordered; // Closed loop complete
+          return ordered;
         }
         if (!visited.has(nKey)) {
           visited.add(nKey);
           curr = { x: nx, y: ny };
           ordered.push(curr);
-          lastDir = (dIdx + 5) % 8; // Backtrack tangent + 1
+          lastDir = (dIdx + 5) % 8;
           found = true;
           break;
         }
@@ -54,7 +53,6 @@ function traceOrderedPerimeter(edgePixels, binaryMask) {
     }
 
     if (!found) {
-      // Connect across small anti-aliasing gaps to nearest unvisited boundary pixel
       let nearest = null;
       let minD = Infinity;
       for (const p of edgePixels) {
@@ -64,7 +62,7 @@ function traceOrderedPerimeter(edgePixels, binaryMask) {
           if (d < minD) { minD = d; nearest = p; }
         }
       }
-      if (nearest && minD < 49) { // Jump up to 7 pixels gap
+      if (nearest && minD < 49) {
         curr = nearest;
         visited.add((curr.y << 10) | curr.x);
         ordered.push(curr);
@@ -178,7 +176,7 @@ export function sampleImageToDrones(imgElement, out, count, swatchOut, scale = 0
           }
         }
 
-        // Filter out tiny isolated noise specks (< 12px)
+        // Keep islands with 12+ pixels
         if (islandPixels.length >= 12) {
           const edge = [];
           for (const p of islandPixels) {
@@ -190,7 +188,6 @@ export function sampleImageToDrones(imgElement, out, count, swatchOut, scale = 0
           }
 
           const orderedContour = traceOrderedPerimeter(edge, binary);
-          // Perimeter-dominant weight prevents stems/stumps from being starved by huge bodies
           const weight = orderedContour.length * 1.5 + Math.sqrt(islandPixels.length) * 4.0;
           islands.push({ pixels: islandPixels, contour: orderedContour, weight });
         }
@@ -204,25 +201,23 @@ export function sampleImageToDrones(imgElement, out, count, swatchOut, scale = 0
   const cy = (minY + maxY) / 2;
   const totalWeight = islands.reduce((acc, isl) => acc + isl.weight, 0);
 
-  // 3. Proportional Fleet Budget Allocation (75% Perimeter Outlines, 25% Infill)
+  // 3. Proportional Fleet Budget Allocation (75% Outlines, 25% Infill)
   let ptr = 0;
   for (const isl of islands) {
     const islDroneCount = Math.max(6, Math.round((isl.weight / totalWeight) * count));
     const edgeCount = Math.min(isl.contour.length, Math.round(islDroneCount * 0.75));
     const fillCount = islDroneCount - edgeCount;
 
-    // A. Equidistant Metric Outline Sampling (Equal drone distance across stems, ribs, and loops)
     const edgeDrones = resampleEquidistant(isl.contour, edgeCount);
     for (let i = 0; i < edgeDrones.length && ptr < count; i++) {
       const p = edgeDrones[i];
       out[ptr * 3]     = (p.x - cx) * scale;
       out[ptr * 3 + 1] = altitude - (p.y - cy) * scale;
       out[ptr * 3 + 2] = 0.0;
-      if (swatchOut) swatchOut[ptr] = 0; // Boundary contour swatch
+      if (swatchOut) swatchOut[ptr] = 0;
       ptr++;
     }
 
-    // B. Relaxed Interior Infill
     if (isl.pixels.length > 0 && fillCount > 0) {
       const stepF = isl.pixels.length / fillCount;
       for (let i = 0; i < fillCount && ptr < count; i++) {
@@ -230,7 +225,7 @@ export function sampleImageToDrones(imgElement, out, count, swatchOut, scale = 0
         out[ptr * 3]     = (p.x - cx) * scale;
         out[ptr * 3 + 1] = altitude - (p.y - cy) * scale;
         out[ptr * 3 + 2] = 0.0;
-        if (swatchOut) swatchOut[ptr] = 1; // Infill swatch
+        if (swatchOut) swatchOut[ptr] = 1;
         ptr++;
       }
     }
@@ -281,127 +276,11 @@ export function loadTileImage(filename) {
   });
 }
 
-// Universal SVG Vector-to-Drone Compiler
-export function compileSVGToDrones(svgString, out, count, swatchOut, scale = 0.055, altitude = 16) {
-  return new Promise((resolve) => {
-    const img = new Image();
-    const svgBlob = new Blob([svgString], { type: "image/svg+xml;charset=utf-8" });
-    const url = URL.createObjectURL(svgBlob);
-
-    img.onload = () => {
-      sampleImageToDrones(img, out, count, swatchOut, scale, altitude);
-      URL.revokeObjectURL(url);
-      resolve();
-    };
-    img.onerror = () => {
-      URL.revokeObjectURL(url);
-      resolve();
-    };
-    img.src = url;
-  });
-}
-
-export const parseAndSampleSVG = compileSVGToDrones;
-
-// Vector Stroke Typography Engine (Stacked "BLESSED" above "SAMHAIN")
-const GLYPH_PATHS = {
-  'A': "M 0 0 L 0.5 1.4 L 1 0 M 0.22 0.52 L 0.78 0.52",
-  'B': "M 0 0 L 0 1.4 L 0.55 1.4 C 0.9 1.4 0.9 0.72 0.55 0.72 L 0 0.72 M 0.55 0.72 C 0.95 0.72 0.95 0 0.55 0 L 0 0",
-  'C': "M 0.95 1.15 C 0.7 1.45 0.25 1.45 0.1 1.15 C -0.05 0.85 -0.05 0.55 0.1 0.25 C 0.25 -0.05 0.7 -0.05 0.95 0.25",
-  'D': "M 0 0 L 0 1.4 L 0.45 1.4 C 1.0 1.4 1.0 0 0.45 0 Z",
-  'E': "M 0.85 0 L 0 0 L 0 1.4 L 0.85 1.4 M 0 0.7 L 0.65 0.7",
-  'F': "M 0 0 L 0 1.4 L 0.85 1.4 M 0 0.7 L 0.65 0.7",
-  'G': "M 0.95 1.15 C 0.7 1.45 0.25 1.45 0.1 1.15 C -0.05 0.85 -0.05 0.55 0.1 0.25 C 0.25 -0.05 0.7 -0.05 0.95 0.25 L 0.95 0.65 L 0.5 0.65",
-  'H': "M 0 0 L 0 1.4 M 0.9 0 L 0.9 1.4 M 0 0.7 L 0.9 0.7",
-  'I': "M 0.1 0 L 0.5 0 M 0.3 0 L 0.3 1.4 M 0.1 1.4 L 0.5 1.4",
-  'J': "M 0.1 0.4 C 0.1 0 0.6 0 0.7 0.3 L 0.7 1.4 L 0.5 1.4",
-  'K': "M 0 0 L 0 1.4 M 0.9 1.4 L 0 0.6 L 0.9 0",
-  'L': "M 0 1.4 L 0 0 L 0.8 0",
-  'M': "M 0 0 L 0 1.4 L 0.5 0.5 L 1.0 1.4 L 1.0 0",
-  'N': "M 0 0 L 0 1.4 L 0.9 0 L 0.9 1.4",
-  'O': "M 0.5 0 C 1.0 0 1.0 1.4 0.5 1.4 C 0 1.4 0 0 0.5 0 Z",
-  'P': "M 0 0 L 0 1.4 L 0.55 1.4 C 0.95 1.4 0.95 0.7 0.55 0.7 L 0 0.7",
-  'Q': "M 0.5 0 C 1.0 0 1.0 1.4 0.5 1.4 C 0 1.4 0 0 0.5 0 Z M 0.6 0.3 L 0.95 -0.15",
-  'R': "M 0 0 L 0 1.4 L 0.55 1.4 C 0.95 1.4 0.95 0.7 0.55 0.7 L 0 0.7 M 0.5 0.7 L 0.9 0",
-  'S': "M 0.85 1.15 C 0.65 1.45 0.2 1.45 0.1 1.15 C 0 0.8 0.9 0.8 0.85 0.3 C 0.8 -0.05 0.25 -0.05 0.05 0.25",
-  'T': "M 0.5 0 L 0.5 1.4 M 0 1.4 L 1.0 1.4",
-  'U': "M 0 1.4 L 0 0.45 C 0 -0.05 0.9 -0.05 0.9 0.45 L 0.9 1.4",
-  'V': "M 0 1.4 L 0.5 0 L 1.0 1.4",
-  'W': "M 0 1.4 L 0.25 0 L 0.5 0.9 L 0.75 0 L 1.0 1.4",
-  'X': "M 0 0 L 0.9 1.4 M 0 1.4 L 0.9 0",
-  'Y': "M 0.45 0 L 0.45 0.65 L 0 1.4 M 0.45 0.65 L 0.9 1.4",
-  'Z': "M 0 1.4 L 0.9 1.4 L 0 0 L 0.9 0",
-  '!': "M 0.2 0.35 L 0.2 1.4 M 0.2 0 L 0.2 0.1"
-};
-
-export function generateTextDrones(out, text, count, font = "Impact", scale = 0.28, altitude = 16) {
-  const words = text.trim().toUpperCase().split(/\s+/);
-  let lines = [text.trim().toUpperCase()];
-  if (words.length >= 2) {
-    const mid = Math.ceil(words.length / 2);
-    lines = [words.slice(0, mid).join(" "), words.slice(mid).join(" ")];
-  }
-
-  const lineSpacing = 2.4;
-  const charSpacing = 1.35;
-  const paths = [];
-  let totalLength = 0;
-
-  const totalLines = lines.length;
-  const startY = ((totalLines - 1) * lineSpacing) / 2;
-
-  lines.forEach((line, lineIdx) => {
-    const yOffset = startY - lineIdx * lineSpacing;
-    const chars = line.split("");
-    const lineWidth = chars.length * charSpacing;
-    const startX = -lineWidth / 2 + charSpacing * 0.15;
-
-    chars.forEach((ch, charIdx) => {
-      const d = GLYPH_PATHS[ch];
-      if (d) {
-        const xOffset = startX + charIdx * charSpacing;
-        const p = document.createElementNS("http://www.w3.org/2000/svg", "path");
-        const transformedD = d.replace(/([0-9\.\-]+)\s+([0-9\.\-]+)/g, (_, x, y) => {
-          const nx = (parseFloat(x) + xOffset).toFixed(3);
-          const ny = (parseFloat(y) + yOffset).toFixed(3);
-          return `${nx} ${ny}`;
-        });
-        p.setAttribute("d", transformedD);
-        const len = p.getTotalLength();
-        if (len > 0) {
-          paths.push({ path: p, len });
-          totalLength += len;
-        }
-      }
-    });
-  });
-
-  if (paths.length === 0) return;
-
-  for (let i = 0; i < count; i++) {
-    const targetDist = (i / count) * totalLength;
-    let accum = 0;
-    let selected = paths[paths.length - 1];
-    let distOnPath = 0;
-
-    for (const p of paths) {
-      if (accum + p.len >= targetDist) {
-        selected = p;
-        distOnPath = targetDist - accum;
-        break;
-      }
-      accum += p.len;
-    }
-
-    const pt = selected.path.getPointAtLength(distOnPath);
-    out[i * 3]     = pt.x * (scale * 6.5);
-    out[i * 3 + 1] = altitude + pt.y * (scale * 6.5);
-    out[i * 3 + 2] = 0.0;
-  }
-}
-
-// Master Shape Directory prioritizing Tiles 20–23, followed by 15–19 and earlier sets
-const TILE_ORDER = [20, 21, 22, 23, 15, 16, 17, 18, 19, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14];
+// Master Shape Directory prioritizing Tiles 16–34
+const TILE_ORDER = [
+  16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34,
+  15, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14
+];
 
 export const SHAPE_PAGES = [
   TILE_ORDER.map((tileNum) => {
