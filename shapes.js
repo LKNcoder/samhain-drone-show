@@ -112,7 +112,6 @@ export function generateTextDrones(out, text, count, font = "Impact", scale = 0.
   const paths = [];
   let totalLength = 0;
 
-  // startY places Line 0 (BLESSED) higher (+Y) and Line 1 (SAMHAIN) lower (-Y)
   const totalLines = lines.length;
   const startY = ((totalLines - 1) * lineSpacing) / 2;
 
@@ -161,7 +160,7 @@ export function generateTextDrones(out, text, count, font = "Impact", scale = 0.
 
     const pt = selected.path.getPointAtLength(distOnPath);
     out[i * 3]     = pt.x * (scale * 6.5);
-    out[i * 3 + 1] = altitude + pt.y * (scale * 6.5); // Additive ensures upright orientation
+    out[i * 3 + 1] = altitude + pt.y * (scale * 6.5);
     out[i * 3 + 2] = 0.0;
   }
 }
