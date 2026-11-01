@@ -358,6 +358,45 @@ export const SHAPE_PAGES = [
   ]
 ];
 
+window.addEventListener("drop", (e) => {
+  e.preventDefault();
+  document.body.classList.remove("dragging");
+  const files = e.dataTransfer.files;
+  if (!files || files.length === 0) return;
+
+  const file = files[0];
+  const isImage = file.type.startsWith("image/") || file.name.endsWith(".svg");
+  if (!isImage) return;
+
+  const reader = new FileReader();
+  reader.onload = (ev) => {
+    const img = new Image();
+    img.onload = () => {
+      saveUndoState();
+      const b = timelineData.formationBlocks.find(x => x.id === selectedFormationBlockId);
+      if (!b) return;
+
+      const formationCount = precipConfig.enabled ? Math.max(50, activeDroneCount - precipConfig.count) : activeDroneCount;
+      const pts = new Float32Array(formationCount * 3);
+      const swatches = new Uint8Array(formationCount);
+
+      sampleImageToDrones(img, pts, formationCount, swatches, 0.055, b.altitude || 16);
+
+      b.customPoints = pts;
+      b.customSwatches = swatches;
+      b.isText = false;
+      b.shapeId = file.name.replace(/\.[^/.]+$/, "");
+
+      buildShowTrajectoryData();
+      evaluateTimeline(playheadTime);
+      buildDesktopTimeline();
+      updateContextPanels();
+    };
+    img.src = ev.target.result;
+  };
+  reader.readAsDataURL(file);
+});
+
 export function findShapeById(id) {
   for (const page of SHAPE_PAGES) {
     for (const shape of page) {
