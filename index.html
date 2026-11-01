@@ -136,6 +136,28 @@ button.symbol-btn.active { border-color: #ffab00; background: #2c1e0e; }
 button.symbol-btn svg { width: 24px; height: 24px; stroke: #ffab00; fill: none; }
 button.symbol-btn span { font-size: 9px; color: #a08a75; margin-top: 2px; }
 
+.palette-builder {
+  display: flex; align-items: center; gap: 8px;
+  background: #0e1420; padding: 6px 8px; border-radius: 8px; border: 1px solid #2d3b4e;
+}
+.swatches-list { display: flex; gap: 6px; flex: 1; }
+.swatch-slot {
+  width: 22px; height: 22px; border-radius: 50%;
+  border: 2px solid #ffffff44; cursor: pointer;
+}
+.swatch-slot.active { border-color: #ffffff; transform: scale(1.15); box-shadow: 0 0 8px #ffab00; }
+.swatch-ctrl-btn {
+  padding: 3px 8px; font-size: 11px; font-weight: bold;
+  background: #131a26; border: 1px solid #2d3b4e; color: #ecf3ff;
+  border-radius: 6px; cursor: pointer;
+}
+
+#desktop-spectrum {
+  width: 100%; height: 16px; border-radius: 6px; border: 1px solid #ffffff44;
+  cursor: crosshair;
+  background: linear-gradient(to right, #ff0000, #ff9100, #ffff00, #00e5ff, #7b1fa2, #ff0000);
+}
+
 .timeline-module {
   background: #090e17;
   border: 1px solid #2d3b4e;
@@ -247,6 +269,13 @@ button.symbol-btn span { font-size: 9px; color: #a08a75; margin-top: 2px; }
   padding: 7px 11px; border-radius: 8px; font-size: 12px; pointer-events: none;
 }
 body.xr-active #panel, body.xr-active #vr-tip, body.xr-active #VRButton { display: none !important; }
+
+#drop-overlay {
+  display: none; position: fixed; inset: 0; background: rgba(255, 171, 0, 0.2);
+  border: 4px dashed #ffab00; z-index: 100; pointer-events: none;
+  align-items: center; justify-content: center; font-size: 24px; font-weight: bold; color: #ffab00;
+}
+body.dragging #drop-overlay { display: flex; }
 </style>
 <script type="importmap">
 {
@@ -258,6 +287,7 @@ body.xr-active #panel, body.xr-active #vr-tip, body.xr-active #VRButton { displa
 </script>
 </head>
 <body>
+<div id="drop-overlay">Drop Any SVG, PNG, or JPG File Here to Import</div>
 <div id="panel">
   <div id="top-bar">
     <div id="title">Samhain XR Drone Show Designer</div>
@@ -267,9 +297,9 @@ body.xr-active #panel, body.xr-active #vr-tip, body.xr-active #VRButton { displa
       <button class="toolbar-btn" id="btn-undo" title="Revert last action (Ctrl+Z)">↶ Undo</button>
     </div>
   </div>
-  <div id="status">Dual-Pass Silhouette Infill Active · 100% Faithful Icon Geometry</div>
+  <div id="status">Fire Silhouette Active · Faithful 2D Silhouette Infill Engine</div>
 
-  <!-- In-Headset SVG Browser & Search Drawer (No PC Required) -->
+  <!-- In-Headset SVG Search & Browser Drawer (No PC Required) -->
   <div class="context-card hidden" id="card-svg-browser" style="border-color:#ffab00;">
     <div class="section-label" style="margin:0;">
       <span style="color:#ffab00;">In-Headset Vector Icon Search</span>
@@ -284,8 +314,9 @@ body.xr-active #panel, body.xr-active #vr-tip, body.xr-active #VRButton { displa
     <!-- Quick Samhain Presets -->
     <div class="ctrl-row">
       <span style="font-size:10px; color:#a08a75;">Presets:</span>
-      <button class="toolbar-btn" id="btn-preset-scythe">Scythe (Agriculture)</button>
+      <button class="toolbar-btn" id="btn-preset-fire">Fire Silhouette</button>
       <button class="toolbar-btn" id="btn-preset-wheat">Wheat (Barley)</button>
+      <button class="toolbar-btn" id="btn-preset-scythe">Scythe</button>
       <button class="toolbar-btn" id="btn-preset-turnip">Turnip</button>
       <button class="toolbar-btn" id="btn-preset-wicker">Wicker Man</button>
     </div>
@@ -303,7 +334,7 @@ body.xr-active #panel, body.xr-active #vr-tip, body.xr-active #VRButton { displa
       <button class="toolbar-btn" id="btn-fetch-url">Fetch URL</button>
       <label class="toolbar-btn" style="cursor:pointer;">
         Upload File
-        <input type="file" id="file-input-headset" accept=".svg" style="display:none;">
+        <input type="file" id="file-input-headset" accept=".svg,.png,.jpg,.jpeg,.webp" style="display:none;">
       </label>
     </div>
     <div class="ctrl-row">
@@ -346,7 +377,7 @@ body.xr-active #panel, body.xr-active #vr-tip, body.xr-active #VRButton { displa
   <div class="context-card hidden" id="card-inspector-formation">
     <div class="section-label" style="margin:0;">
       <span id="inspector-block-title">Formation Properties</span>
-      <span id="inspector-shape-name" style="color:#ffab00;">wheatBarley</span>
+      <span id="inspector-shape-name" style="color:#ffab00;">fireSilhouette</span>
     </div>
 
     <div id="formation-sub-shape">
@@ -371,12 +402,20 @@ body.xr-active #panel, body.xr-active #vr-tip, body.xr-active #VRButton { displa
     <div class="section-label" style="margin-top:6px;"><span>Staging & Kinematics</span></div>
     <div class="ctrl-row">
       <span style="min-width:50px;">Altitude:</span>
-      <input type="range" id="slider-block-alt" min="6" max="36" step="1" value="18">
-      <span id="val-block-alt" style="min-width:32px; text-align:right;">18m</span>
+      <input type="range" id="slider-block-alt" min="6" max="36" step="1" value="16">
+      <span id="val-block-alt" style="min-width:32px; text-align:right;">16m</span>
       <span style="min-width:40px; text-align:right;">Scale:</span>
       <input type="range" id="slider-block-scale" min="0.4" max="2.5" step="0.1" value="1.0">
       <span id="val-block-scale" style="min-width:32px; text-align:right;">1.0x</span>
     </div>
+
+    <div class="section-label" style="margin-top:6px;"><span>Synchronized Palette & Lighting</span></div>
+    <div class="palette-builder">
+      <div class="swatches-list" id="swatches-container"></div>
+      <button class="swatch-ctrl-btn" id="btn-add-color">+ Swatch</button>
+      <button class="swatch-ctrl-btn" id="btn-del-color">− Swatch</button>
+    </div>
+    <div id="desktop-spectrum"></div>
   </div>
 
   <!-- Unified Single-Track Timeline -->
@@ -411,8 +450,8 @@ body.xr-active #panel, body.xr-active #vr-tip, body.xr-active #VRButton { displa
   </div>
 
   <div id="hint">
-    <b>Exact Icon Silhouette:</b> Wheat & Scythe are now compiled with boundary + solid infill for maximum clarity at distance.<br>
-    <b>In-Headset Search:</b> Search any keyword directly in VR; tap to bake into your show without a PC.
+    <b>Fire Silhouette Active:</b> Scene 1 displays your exact black-and-white flame-with-human silhouette[cite: 1].<br>
+    <b>Text Properly Oriented:</b> Letters read right-side up with "BLESSED" stacked directly above "SAMHAIN"[cite: 1].
   </div>
 </div>
 <div id="vr-tip">In VR: Press Left X for HUD · Trigger paints drones with active swatch</div>
@@ -426,9 +465,10 @@ import {
   findShapeById,
   generateTextDrones,
   compileSVGToDrones,
+  sampleImageToDrones,
   RAW_SVGS,
   GOLDEN
-} from "./shapes.js?v=samhain_v3";
+} from "./shapes.js?v=samhain_final_v4";
 
 function formatTime(s) {
   if (isNaN(s) || s === undefined || s === null) return "00:00";
@@ -488,6 +528,20 @@ const leftController = renderer.xr.getController(0);
 const rightController = renderer.xr.getController(1);
 xrRig.add(leftController);
 xrRig.add(rightController);
+
+const controllerRays = [];
+function createRay(controller) {
+  const geom = new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(0, 0, 0), new THREE.Vector3(0, 0, -1)]);
+  const mat = new THREE.LineBasicMaterial({ color: 0xffab00, transparent: true, opacity: 0.65 });
+  const line = new THREE.Line(geom, mat);
+  line.scale.z = 4;
+  line.visible = false;
+  controller.add(line);
+  controllerRays.push(line);
+  return line;
+}
+createRay(leftController);
+createRay(rightController);
 
 scene.add(new THREE.HemisphereLight(0xffb300, 0x0a101a, 1.2));
 const gridHelper = new THREE.GridHelper(90, 45, 0x422915, 0x14100c);
@@ -594,44 +648,137 @@ function assignMinimalPaths(currentPos, rawTargets, count) {
   return assigned;
 }
 
-// 100% Focused Samhain Sequence
+// 100% Focused Samhain Sequence with Fire Silhouette[cite: 1] Opening
 const timelineData = {
   formationBlocks: [
     {
-      id: "s1", shapeId: "wheatBarley", isText: false, dur: 18.0, transDur: 4.0,
-      altitude: 16.0, scale: 1.0, rotStartY: 0, rotEndY: 0,
-      palette: ["#ffb300", "#ffa000", "#5d4037"], activeSwatchIdx: 0,
-      cycleSpeed: 0.0, run: false, runSpeed: 3.0, blink: false, blinkSpeed: 3.0, sparkle: true, sparkleDensity: 0.2
+      id: "s0",
+      shapeId: "fireSilhouette",
+      isText: false,
+      dur: 20.0,
+      transDur: 4.0,
+      altitude: 16.0,
+      scale: 1.0,
+      rotStartY: 0,
+      rotEndY: 0,
+      palette: ["#ffeb3b", "#ff9100", "#d50000"],
+      activeSwatchIdx: 0,
+      cycleSpeed: 1.0,
+      run: true,
+      runSpeed: 4.0,
+      blink: false,
+      blinkSpeed: 3.0,
+      sparkle: true,
+      sparkleDensity: 0.3
     },
     {
-      id: "s2", shapeId: "scytheAgriculture", isText: false, dur: 16.0, transDur: 4.0,
-      altitude: 17.0, scale: 1.05, rotStartY: 0, rotEndY: 15,
-      palette: ["#e0f7fa", "#5d4037", "#8d6e63"], activeSwatchIdx: 0,
-      cycleSpeed: 0.0, run: false, runSpeed: 3.0, blink: false, blinkSpeed: 3.0, sparkle: false, sparkleDensity: 0.25
+      id: "s1",
+      shapeId: "wheatBarley",
+      isText: false,
+      dur: 18.0,
+      transDur: 4.0,
+      altitude: 16.0,
+      scale: 1.0,
+      rotStartY: 0,
+      rotEndY: 0,
+      palette: ["#ffb300", "#5d4037"],
+      activeSwatchIdx: 0,
+      cycleSpeed: 0.0,
+      run: false,
+      runSpeed: 3.0,
+      blink: false,
+      blinkSpeed: 3.0,
+      sparkle: true,
+      sparkleDensity: 0.2
     },
     {
-      id: "s3", shapeId: "turnipLantern", isText: false, dur: 20.0, transDur: 4.0,
-      altitude: 16.0, scale: 1.1, rotStartY: 15, rotEndY: 0,
-      palette: ["#a1887f", "#ffab00", "#689f38"], activeSwatchIdx: 0,
-      cycleSpeed: 0.0, run: false, runSpeed: 3.0, blink: true, blinkSpeed: 3.0, sparkle: false, sparkleDensity: 0.2
+      id: "s2",
+      shapeId: "scytheAgriculture",
+      isText: false,
+      dur: 16.0,
+      transDur: 4.0,
+      altitude: 17.0,
+      scale: 1.05,
+      rotStartY: 0,
+      rotEndY: 15,
+      palette: ["#e0f7fa", "#5d4037", "#8d6e63"],
+      activeSwatchIdx: 0,
+      cycleSpeed: 0.0,
+      run: false,
+      runSpeed: 3.0,
+      blink: false,
+      blinkSpeed: 3.0,
+      sparkle: false,
+      sparkleDensity: 0.25
     },
     {
-      id: "s4", shapeId: "wickerMan", isText: false, dur: 22.0, transDur: 4.0,
-      altitude: 17.0, scale: 1.15, rotStartY: 0, rotEndY: 0,
-      palette: ["#8d6e63", "#ffd54f"], activeSwatchIdx: 0,
-      cycleSpeed: 0.0, run: false, runSpeed: 3.0, blink: false, blinkSpeed: 3.0, sparkle: false, sparkleDensity: 0.25
+      id: "s3",
+      shapeId: "turnipLantern",
+      isText: false,
+      dur: 20.0,
+      transDur: 4.0,
+      altitude: 16.0,
+      scale: 1.1,
+      rotStartY: 15,
+      rotEndY: 0,
+      palette: ["#a1887f", "#ffab00", "#689f38"],
+      activeSwatchIdx: 0,
+      cycleSpeed: 0.0,
+      run: false,
+      runSpeed: 3.0,
+      blink: true,
+      blinkSpeed: 3.0,
+      sparkle: false,
+      sparkleDensity: 0.2
     },
     {
-      id: "s5", isText: true, text: "BLESSED SAMHAIN", font: "Impact", fx: "wave", speed: 1.0,
-      dur: 24.0, transDur: 4.0, altitude: 18.0, scale: 1.0, rotStartY: 0, rotEndY: 0,
-      palette: ["#ffab00", "#e0f7fa"], activeSwatchIdx: 0,
-      cycleSpeed: 0.5, run: false, runSpeed: 3.0, blink: false, blinkSpeed: 3.0, sparkle: true, sparkleDensity: 0.3
+      id: "s4",
+      shapeId: "wickerMan",
+      isText: false,
+      dur: 22.0,
+      transDur: 4.0,
+      altitude: 17.0,
+      scale: 1.15,
+      rotStartY: 0,
+      rotEndY: 0,
+      palette: ["#8d6e63", "#ffd54f"],
+      activeSwatchIdx: 0,
+      cycleSpeed: 0.0,
+      run: false,
+      runSpeed: 3.0,
+      blink: false,
+      blinkSpeed: 3.0,
+      sparkle: false,
+      sparkleDensity: 0.25
+    },
+    {
+      id: "s5",
+      isText: true,
+      text: "BLESSED SAMHAIN",
+      font: "Impact",
+      fx: "wave",
+      speed: 1.0,
+      dur: 24.0,
+      transDur: 4.0,
+      altitude: 18.0,
+      scale: 1.0,
+      rotStartY: 0,
+      rotEndY: 0,
+      palette: ["#ffab00", "#e0f7fa"],
+      activeSwatchIdx: 0,
+      cycleSpeed: 0.5,
+      run: false,
+      runSpeed: 3.0,
+      blink: false,
+      blinkSpeed: 3.0,
+      sparkle: true,
+      sparkleDensity: 0.3
     }
   ]
 };
 
 let selectedInspectorType = "formation";
-let selectedFormationBlockId = "s1";
+let selectedFormationBlockId = "s0";
 
 let formationTrajectories = [];
 let formationSwatchStore = [];
@@ -916,7 +1063,15 @@ function evaluateTimeline(t) {
           else if (currSwatches) droneSwatchIndices[j] = currSwatches[j];
         }
 
-        applyLightingFX(b, t);
+        const transFX = b.transColorFX || "blend";
+        if (transFX === "sparkle") {
+          for (let j = 0; j < formationCount; j++) {
+            const sparkle = Math.sin(t * 16.0 + j * 7.0) > 0.3 ? 1.0 : 0.2;
+            targetColors[j * 3] = sparkle; targetColors[j * 3 + 1] = sparkle * 0.8; targetColors[j * 3 + 2] = sparkle * 0.2;
+          }
+        } else {
+          applyLightingFX(b, t);
+        }
         break;
       }
       curT = transEnd;
@@ -1026,14 +1181,14 @@ onEvent("slider-browser-scale", "input", (e) => {
 async function runIconSearch(query) {
   if (!query) return;
   const grid = $("browser-results-grid");
-  grid.innerHTML = `<div style="grid-column: 1/-1; text-align:center; padding:12px; color:#ffab00; font-size:11px;">Searching 200,000+ icons for '${query}'...</div>`;
+  grid.innerHTML = `<div style="grid-column: 1/-1; text-align:center; padding:12px; color:#ffab00; font-size:11px;">Searching icons for '${query}'...</div>`;
 
   try {
     const res = await fetch(`https://api.iconify.design/search?query=${encodeURIComponent(query)}&limit=30`);
     const data = await res.json();
 
     if (!data.icons || data.icons.length === 0) {
-      grid.innerHTML = `<div style="grid-column: 1/-1; text-align:center; padding:12px; color:#ff859c; font-size:11px;">No icons found for '${query}'. Try another harvest term.</div>`;
+      grid.innerHTML = `<div style="grid-column: 1/-1; text-align:center; padding:12px; color:#ff859c; font-size:11px;">No icons found for '${query}'.</div>`;
       return;
     }
 
@@ -1062,7 +1217,7 @@ async function runIconSearch(query) {
       grid.appendChild(item);
     });
   } catch (e) {
-    grid.innerHTML = `<div style="grid-column: 1/-1; text-align:center; padding:12px; color:#ff859c; font-size:11px;">Search connection failed. Check network.</div>`;
+    grid.innerHTML = `<div style="grid-column: 1/-1; text-align:center; padding:12px; color:#ff859c; font-size:11px;">Search connection failed.</div>`;
   }
 }
 
@@ -1071,7 +1226,7 @@ $("input-search-query").addEventListener("keydown", (e) => {
   if (e.key === "Enter") runIconSearch(e.target.value.trim());
 });
 
-// Compile and Apply to Current Scene Block
+// Compile and Apply SVG directly to Active Timeline Block
 async function compileAndApplySVG(svgCode, name = "Custom SVG") {
   saveUndoState();
   const b = timelineData.formationBlocks.find(x => x.id === selectedFormationBlockId);
@@ -1096,8 +1251,9 @@ async function compileAndApplySVG(svgCode, name = "Custom SVG") {
 }
 
 // Preset Handlers
-onEvent("btn-preset-scythe", () => compileAndApplySVG(RAW_SVGS.scythe, "Scythe Agriculture"));
+onEvent("btn-preset-fire", () => compileAndApplySVG(RAW_SVGS.fireSilhouette, "Fire Silhouette"));
 onEvent("btn-preset-wheat", () => compileAndApplySVG(RAW_SVGS.wheat, "Wheat Barley"));
+onEvent("btn-preset-scythe", () => compileAndApplySVG(RAW_SVGS.scythe, "Scythe Agriculture"));
 onEvent("btn-preset-turnip", () => compileAndApplySVG(RAW_SVGS.turnip, "Turnip Lantern"));
 onEvent("btn-preset-wicker", () => compileAndApplySVG(RAW_SVGS.wickerMan, "Wicker Man"));
 
@@ -1111,7 +1267,6 @@ onEvent("btn-fetch-url", async () => {
       const res = await fetch(url);
       svgCode = await res.text();
     } catch (_) {
-      // CORS fallback proxy
       const proxyRes = await fetch(`https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`);
       svgCode = await proxyRes.text();
     }
@@ -1125,15 +1280,98 @@ onEvent("btn-fetch-url", async () => {
   }
 });
 
-// Headset Local File Picker
+// Headset Local File Picker (Handles both SVGs and PNG/JPG images)
 onEvent("file-input-headset", "change", (e) => {
   const file = e.target.files[0];
-  if (file) {
-    const reader = new FileReader();
+  if (!file) return;
+
+  const reader = new FileReader();
+  if (file.name.endsWith(".svg")) {
     reader.onload = async (re) => {
       await compileAndApplySVG(re.target.result, file.name.replace(".svg", ""));
     };
     reader.readAsText(file);
+  } else {
+    reader.onload = (re) => {
+      const img = new Image();
+      img.onload = async () => {
+        saveUndoState();
+        const b = timelineData.formationBlocks.find(x => x.id === selectedFormationBlockId);
+        if (!b) return;
+
+        const formationCount = precipConfig.enabled ? Math.max(50, activeDroneCount - precipConfig.count) : activeDroneCount;
+        const customPts = new Float32Array(formationCount * 3);
+        const customSwatches = new Uint8Array(formationCount);
+        const scale = parseFloat($("slider-browser-scale").value);
+
+        sampleImageToDrones(img, customPts, formationCount, customSwatches, scale, b.altitude || 16.0);
+
+        b.customPoints = customPts;
+        b.customSwatches = customSwatches;
+        b.isText = false;
+        b.shapeId = file.name.replace(/\.[^/.]+$/, "");
+
+        await buildShowTrajectoryData();
+        evaluateTimeline(playheadTime);
+        buildDesktopTimeline();
+        updateContextPanels();
+      };
+      img.src = re.target.result;
+    };
+    reader.readAsDataURL(file);
+  }
+});
+
+// Drag and drop listener for desktop or VR drag
+window.addEventListener("dragover", (e) => {
+  e.preventDefault();
+  document.body.classList.add("dragging");
+});
+window.addEventListener("dragleave", (e) => {
+  if (e.clientX <= 0 || e.clientY <= 0) document.body.classList.remove("dragging");
+});
+window.addEventListener("drop", (e) => {
+  e.preventDefault();
+  document.body.classList.remove("dragging");
+  const files = e.dataTransfer.files;
+  if (!files || files.length === 0) return;
+
+  const file = files[0];
+  const reader = new FileReader();
+
+  if (file.name.endsWith(".svg")) {
+    reader.onload = async (re) => {
+      await compileAndApplySVG(re.target.result, file.name.replace(".svg", ""));
+    };
+    reader.readAsText(file);
+  } else {
+    reader.onload = (re) => {
+      const img = new Image();
+      img.onload = async () => {
+        saveUndoState();
+        const b = timelineData.formationBlocks.find(x => x.id === selectedFormationBlockId);
+        if (!b) return;
+
+        const formationCount = precipConfig.enabled ? Math.max(50, activeDroneCount - precipConfig.count) : activeDroneCount;
+        const customPts = new Float32Array(formationCount * 3);
+        const customSwatches = new Uint8Array(formationCount);
+        const scale = parseFloat($("slider-browser-scale").value);
+
+        sampleImageToDrones(img, customPts, formationCount, customSwatches, scale, b.altitude || 16.0);
+
+        b.customPoints = customPts;
+        b.customSwatches = customSwatches;
+        b.isText = false;
+        b.shapeId = file.name.replace(/\.[^/.]+$/, "");
+
+        await buildShowTrajectoryData();
+        evaluateTimeline(playheadTime);
+        buildDesktopTimeline();
+        updateContextPanels();
+      };
+      img.src = re.target.result;
+    };
+    reader.readAsDataURL(file);
   }
 });
 
