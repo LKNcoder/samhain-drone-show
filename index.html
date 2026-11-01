@@ -193,7 +193,6 @@ canvas { display: block; }
 }
 .block-element.active-block { outline: 2px solid #ffffff; z-index: 2; }
 .block-element.flight-gate { background: #1a140a !important; color: #ffab00; }
-.block-element.text-block { background: #26162d; color: #e4c2ff; border-left: 3px solid #df52ff; }
 
 .resize-handle {
   position: absolute; right: 0; top: 0; width: 10px; height: 100%;
@@ -256,11 +255,11 @@ body.dragging #drop-overlay { display: flex; }
       <button class="toolbar-btn" id="btn-undo" title="Revert last action (Ctrl+Z)">↶ Undo</button>
     </div>
   </div>
-  <div id="status">Tiles 20–23 Sequence Loaded · Arc-Length Balanced Contour Resampling Active</div>
+  <div id="status">Tiles 16–34 Integrated · Tile 17 Configured as Grand Finale Before Landing</div>
 
-  <!-- Samhain Tiles Selector Bar -->
+  <!-- Samhain Tiles Selector Bar (Tiles 16-34) -->
   <div class="section-label" style="margin-top:6px;">
-    <span>Samhain Tiles (Tiles 20–23 Front & Center)</span>
+    <span>Samhain Tiles (Tiles 16–34 Ready to Inspect)</span>
   </div>
   <div class="tiles-scroll-bar" id="tiles-strip"></div>
 
@@ -297,23 +296,7 @@ body.dragging #drop-overlay { display: flex; }
   <div class="context-card hidden" id="card-inspector-formation">
     <div class="section-label" style="margin:0;">
       <span id="inspector-block-title">Formation Properties</span>
-      <span id="inspector-shape-name" style="color:#ffab00;">samhainTile20</span>
-    </div>
-
-    <div class="hidden" id="formation-sub-text">
-      <div class="ctrl-row" style="margin-top:4px;">
-        <span style="min-width:55px;">Message:</span>
-        <input type="text" id="input-text-msg" value="BLESSED SAMHAIN" maxlength="28">
-      </div>
-      <div class="ctrl-row">
-        <span style="min-width:55px;">Motion FX:</span>
-        <select id="sel-text-fx">
-          <option value="wave" selected>Harmonic Wave</option>
-          <option value="scroll">Marquee Scroll</option>
-          <option value="pulse">Pulse</option>
-          <option value="none">Static</option>
-        </select>
-      </div>
+      <span id="inspector-shape-name" style="color:#ffab00;">samhainTile16</span>
     </div>
 
     <div class="section-label" style="margin-top:6px;"><span>Staging & Kinematics</span></div>
@@ -336,24 +319,24 @@ body.dragging #drop-overlay { display: flex; }
     <div class="ctrl-row" style="margin-top:4px;">
       <span style="min-width:75px;">Kinematic FX:</span>
       <select id="sel-trans-motion">
-        <option value="vortex" selected>Mystical Vortex Spiral</option>
+        <option value="vortex" selected>Single Majestic Spiral Vortex</option>
         <option value="explosion">Supernova Starburst Shockwave</option>
-        <option value="celtic_swirl">Chaotic Celtic Wind Tendrils</option>
-        <option value="helix">Double-Helix Cyclone</option>
+        <option value="celtic_swirl">Celtic Wind Ribbon Waves</option>
+        <option value="helix">Double-Helix Cyclonic Lift</option>
       </select>
     </div>
     <div class="ctrl-row">
       <span style="min-width:75px;">Duration:</span>
-      <input type="range" id="slider-trans-dur" min="1.0" max="10.0" step="0.5" value="4.5">
-      <span id="val-trans-dur" style="min-width:35px; text-align:right;">4.5s</span>
+      <input type="range" id="slider-trans-dur" min="1.0" max="10.0" step="0.5" value="5.5">
+      <span id="val-trans-dur" style="min-width:35px; text-align:right;">5.5s</span>
     </div>
     <div class="ctrl-row">
       <span style="min-width:75px;">Lighting FX:</span>
       <select id="sel-trans-fx">
-        <option value="sparkle" selected>Spiritual Sparkle Flurry</option>
-        <option value="fire_burst">Ember Fire Strobe</option>
+        <option value="sparkle" selected>Spiritual Diamond Sparkle</option>
+        <option value="fire_burst">Ember Fire Strobe Burst</option>
+        <option value="mystic_aurora">Mystic Aurora Shift</option>
         <option value="beacon">Amber Hearth Beacon Pulse</option>
-        <option value="blend">Cross-Fade</option>
       </select>
     </div>
   </div>
@@ -367,7 +350,6 @@ body.dragging #drop-overlay { display: flex; }
           <span>SAMHAIN</span>
           <div class="header-actions">
             <button class="track-add-btn" id="btn-add-shape" title="Add block">+</button>
-            <button class="track-add-btn" id="btn-add-text" title="Add text block" style="color:#df52ff;">T</button>
             <button class="track-del-btn" id="btn-del-shape" title="Delete block">−</button>
           </div>
         </div>
@@ -385,12 +367,13 @@ body.dragging #drop-overlay { display: flex; }
     <div class="timeline-bottom-row">
       <button id="btn-play" style="padding:4px 14px; font-size:11px; background:#2e1d0c; border:1px solid #ffab00; color:#ffab00; border-radius:4px; cursor:pointer;">Play</button>
       <span id="time-display" style="font-size:11px; font-variant-numeric:tabular-nums; min-width:85px;">00:00 / 02:45</span>
-      <span style="font-size:10px; color:#a08a75; flex:1; text-align:right;">Click transitions to modify swirl styles</span>
+      <span style="font-size:10px; color:#a08a75; flex:1; text-align:right;">Tile 17 is the Grand Finale before Hearth Landing</span>
     </div>
   </div>
 
   <div id="hint">
-    <b>Equidistant Arc-Length Sampling:</b> Drones maintain uniform metric spacing along perimeters, preventing small features (like stems and stumps) from being starved of points.
+    <b>Grand Single-Pass Vortex:</b> Spiral transitions now sweep forward in a clean, elegant 400° curve without oscillatory reversing.<br>
+    <b>Finale:</b> Tile 17 concludes the show before descending smoothly to the launch hearth.
   </div>
 </div>
 <div id="vr-tip">In VR: Press Left X for HUD · Trigger paints drones with active swatch</div>
@@ -402,10 +385,9 @@ import { VRButton } from "three/addons/webxr/VRButton.js";
 import {
   SHAPE_PAGES,
   findShapeById,
-  generateTextDrones,
   sampleImageToDrones,
   GOLDEN
-} from "./shapes.js?v=samhain_tiles20_23_v1";
+} from "./shapes.js?v=samhain_tiles_16_34_v1";
 
 function formatTime(s) {
   if (isNaN(s) || s === undefined || s === null) return "00:00";
@@ -585,15 +567,15 @@ function assignMinimalPaths(currentPos, rawTargets, count) {
   return assigned;
 }
 
-// Master Sequence featuring Tiles 20, 21, 22, 23, and 15
+// Master Sequence: Tiles 16, 18, 20, 15, and ending on Tile 17 as the Grand Finale
 const timelineData = {
   formationBlocks: [
     {
       id: "s0",
-      shapeId: "samhainTile20",
+      shapeId: "samhainTile16",
       isText: false,
       dur: 18.0,
-      transDur: 4.5,
+      transDur: 5.5,
       transMotion: "vortex",
       transColorFX: "sparkle",
       altitude: 16.0,
@@ -612,10 +594,10 @@ const timelineData = {
     },
     {
       id: "s1",
-      shapeId: "samhainTile21",
+      shapeId: "samhainTile18",
       isText: false,
       dur: 18.0,
-      transDur: 4.5,
+      transDur: 5.5,
       transMotion: "explosion",
       transColorFX: "fire_burst",
       altitude: 16.0,
@@ -634,12 +616,12 @@ const timelineData = {
     },
     {
       id: "s2",
-      shapeId: "samhainTile22",
+      shapeId: "samhainTile20",
       isText: false,
       dur: 18.0,
-      transDur: 4.5,
+      transDur: 5.5,
       transMotion: "celtic_swirl",
-      transColorFX: "beacon",
+      transColorFX: "mystic_aurora",
       altitude: 16.0,
       scale: 1.0,
       rotStartY: 0,
@@ -656,10 +638,10 @@ const timelineData = {
     },
     {
       id: "s3",
-      shapeId: "samhainTile23",
+      shapeId: "samhainTile15",
       isText: false,
       dur: 18.0,
-      transDur: 4.5,
+      transDur: 5.5,
       transMotion: "helix",
       transColorFX: "sparkle",
       altitude: 16.0,
@@ -678,12 +660,10 @@ const timelineData = {
     },
     {
       id: "s4",
-      shapeId: "samhainTile15",
+      shapeId: "samhainTile17", // Final formation before hearth landing
       isText: false,
-      dur: 20.0,
-      transDur: 4.5,
-      transMotion: "vortex",
-      transColorFX: "fire_burst",
+      dur: 22.0,
+      transDur: 0.0,
       altitude: 16.0,
       scale: 1.0,
       rotStartY: 0,
@@ -692,36 +672,11 @@ const timelineData = {
       activeSwatchIdx: 0,
       cycleSpeed: 0.5,
       run: true,
-      runSpeed: 4.0,
+      runSpeed: 3.5,
       blink: false,
       blinkSpeed: 3.0,
       sparkle: true,
-      sparkleDensity: 0.35
-    },
-    {
-      id: "s5",
-      isText: true,
-      text: "BLESSED SAMHAIN",
-      font: "Impact",
-      fx: "wave",
-      speed: 1.0,
-      dur: 24.0,
-      transDur: 4.0,
-      transMotion: "celtic_swirl",
-      transColorFX: "sparkle",
-      altitude: 18.0,
-      scale: 1.0,
-      rotStartY: 0,
-      rotEndY: 0,
-      palette: ["#ffab00", "#e0f7fa"],
-      activeSwatchIdx: 0,
-      cycleSpeed: 0.5,
-      run: false,
-      runSpeed: 3.0,
-      blink: false,
-      blinkSpeed: 3.0,
-      sparkle: true,
-      sparkleDensity: 0.3
+      sparkleDensity: 0.4
     }
   ]
 };
@@ -748,9 +703,6 @@ async function buildShowTrajectoryData() {
     if (b.customPoints) {
       raw.set(b.customPoints.subarray(0, formationCount * 3));
       if (b.customSwatches) swatches.set(b.customSwatches.subarray(0, formationCount));
-    } else if (b.isText) {
-      generateTextDrones(raw, b.text || "SAMHAIN", formationCount, b.font || "Impact", 0.28, 16);
-      for (let s = 0; s < formationCount; s++) swatches[s] = s % 2;
     } else {
       const shape = findShapeById(b.shapeId);
       if (shape) await shape.gen(raw, formationCount, swatches);
@@ -853,33 +805,6 @@ function applyLightingFX(block, timeSec) {
   }
 }
 
-function applyTextProceduralFX(block, tOffset, count, inOutVecArray) {
-  if (!block || !block.isText || !block.fx || block.fx === "none") return;
-  const speed = block.speed || 1.0;
-  const time = tOffset * speed;
-
-  if (block.fx === "wave") {
-    for (let i = 0; i < count; i++) {
-      const x = inOutVecArray[i * 3];
-      inOutVecArray[i * 3 + 1] += Math.sin(time * 3.5 + x * 0.28) * 1.8;
-    }
-  } else if (block.fx === "scroll") {
-    const scrollSpan = 38.0;
-    const xShift = (time * 8.5) % scrollSpan;
-    for (let i = 0; i < count; i++) {
-      let x = inOutVecArray[i * 3] - xShift;
-      if (x < -scrollSpan * 0.5) x += scrollSpan;
-      inOutVecArray[i * 3] = x;
-    }
-  } else if (block.fx === "pulse") {
-    const s = 1.0 + Math.sin(time * 3.0) * 0.12;
-    for (let i = 0; i < count; i++) {
-      inOutVecArray[i * 3]     *= s;
-      inOutVecArray[i * 3 + 1] = 16 + (inOutVecArray[i * 3 + 1] - 16) * s;
-    }
-  }
-}
-
 const rotEuler = new THREE.Euler(0, 0, 0, "YXZ");
 const rotMatrix = new THREE.Matrix4();
 const centerPt = new THREE.Vector3(0, 16, 0);
@@ -953,7 +878,7 @@ function evaluateTimeline(t) {
     }
   }
 
-  // 2. Active Show Scenes & Dynamic Chaotic Transitions
+  // 2. Active Show Scenes & Clean Forward Transitions
   else if (t > takeoffConfig.dur && t < showBodyEnd) {
     const showT = t - takeoffConfig.dur;
     let curT = 0;
@@ -975,7 +900,6 @@ function evaluateTimeline(t) {
         const curRotY = v0y + (v1y - v0y) * uBlock;
 
         localScratchPoints.set(currTargets.subarray(0, formationCount * 3));
-        if (b.isText) applyTextProceduralFX(b, showT - formStart, formationCount, localScratchPoints);
 
         for (let j = 0; j < formationCount; j++) {
           transformToSky(localScratchPoints[j * 3], localScratchPoints[j * 3 + 1], localScratchPoints[j * 3 + 2], alt, scl, curRotY, skyPosA);
@@ -988,7 +912,7 @@ function evaluateTimeline(t) {
         applyLightingFX(b, t);
         break;
       }
-      // Chaotic Kinematic Transition Period
+      // Single-Pass Grand Transition Period
       else if (showT >= formEnd && showT < transEnd) {
         const nextIdx = (i + 1 < timelineData.formationBlocks.length) ? i + 1 : 0;
         const nextB = timelineData.formationBlocks[nextIdx];
@@ -1019,36 +943,39 @@ function evaluateTimeline(t) {
           let midZ = skyPosA.z + (skyPosB.z - skyPosA.z) * ease;
 
           if (motionStyle === "vortex") {
+            // One continuous forward 400-degree rotation (no backward unwinding)
             const distFromCenter = Math.sqrt(midX * midX + (midY - interpAlt) * (midY - interpAlt));
-            const angle = Math.atan2(midY - interpAlt, midX) + arc * Math.PI * 3.5 * ((j % 2 === 0) ? 1 : -0.7);
-            const radius = distFromCenter * (1.0 + arc * 0.7);
+            const baseAngle = Math.atan2(midY - interpAlt, midX);
+            const spinAngle = baseAngle + progress * Math.PI * 2.22;
+            const expandRadius = distFromCenter * (1.0 + arc * 0.42);
 
-            midX = Math.cos(angle) * radius;
-            midY = interpAlt + Math.sin(angle) * radius;
-            midZ += Math.sin(j * 17.3 + t * 6.0) * (arc * 7.5);
+            midX = Math.cos(spinAngle) * expandRadius;
+            midY = interpAlt + Math.sin(spinAngle) * expandRadius;
+            midZ += Math.sin(j * 0.12 + progress * Math.PI * 2.0) * (arc * 5.0);
           } else if (motionStyle === "explosion") {
+            // Supernova shockwave
             const dirX = midX;
             const dirY = midY - interpAlt;
-            const len = Math.max(0.2, Math.sqrt(dirX * dirX + dirY * dirY));
-            const blastForce = (arc * 16.0) * (0.8 + Math.sin(j * 31.7) * 0.4);
+            const len = Math.max(0.1, Math.sqrt(dirX * dirX + dirY * dirY));
+            const blast = arc * 14.0 * (0.8 + (j % 12) * 0.035);
 
-            midX += (dirX / len) * blastForce;
-            midY += (dirY / len) * blastForce;
-            midZ += Math.cos(j * 13.5) * (arc * 9.0);
+            midX += (dirX / len) * blast;
+            midY += (dirY / len) * blast;
+            midZ += (Math.sin(j * 37.1) * 2.0 - 1.0) * (arc * 7.5);
           } else if (motionStyle === "celtic_swirl") {
-            const ribbonSide = (j % 2 === 0) ? 1 : -1;
-            const swirlTheta = t * 4.0 + (j / formationCount) * Math.PI * 6.0;
-
-            midX += Math.cos(swirlTheta) * (arc * 10.0 * ribbonSide);
-            midY += Math.sin(progress * Math.PI * 2.0 + (midX * 0.2)) * (arc * 5.0);
-            midZ += Math.sin(swirlTheta) * (arc * 10.0);
+            // Celtic wind ribbons
+            const ribbonPhase = (j / formationCount) * Math.PI * 4.0;
+            const wave = Math.sin(progress * Math.PI * 2.0 + ribbonPhase);
+            midX += Math.cos(ribbonPhase + progress * Math.PI) * (arc * 8.5);
+            midY += wave * (arc * 5.0);
+            midZ += Math.sin(progress * Math.PI * 3.0 + (j % 5)) * (arc * 7.0);
           } else if (motionStyle === "helix") {
-            const helixAngle = progress * Math.PI * 5.0 + (j % 30) * 0.2;
-            const helixRadius = 12.0 * arc;
-
-            midX += Math.cos(helixAngle) * helixRadius;
-            midY += Math.sin(helixAngle) * (arc * 6.0);
-            midZ += Math.sin(helixAngle) * helixRadius;
+            // Double-helix cyclone
+            const helixAngle = progress * Math.PI * 2.4 + (j % 24) * (Math.PI / 12);
+            const r = 9.5 * arc;
+            midX += Math.cos(helixAngle) * r;
+            midY += Math.sin(helixAngle) * (arc * 4.0);
+            midZ += Math.sin(helixAngle) * r;
           }
 
           targetPositions[j * 3]     = midX;
@@ -1059,6 +986,7 @@ function evaluateTimeline(t) {
           else if (currSwatches) droneSwatchIndices[j] = currSwatches[j];
         }
 
+        // Lighting FX during transition
         const transColorStyle = b.transColorFX || "sparkle";
         if (transColorStyle === "sparkle") {
           for (let j = 0; j < formationCount; j++) {
@@ -1073,6 +1001,14 @@ function evaluateTimeline(t) {
             targetColors[j * 3]     = 1.0;
             targetColors[j * 3 + 1] = burst * 0.65;
             targetColors[j * 3 + 2] = 0.05;
+          }
+        } else if (transColorStyle === "mystic_aurora") {
+          for (let j = 0; j < formationCount; j++) {
+            const hue = (progress * 0.6 + (j / formationCount) * 0.4) % 1.0;
+            tempColor.setHSL(hue, 1.0, 0.55);
+            targetColors[j * 3]     = tempColor.r;
+            targetColors[j * 3 + 1] = tempColor.g;
+            targetColors[j * 3 + 2] = tempColor.b;
           }
         } else if (transColorStyle === "beacon") {
           for (let j = 0; j < formationCount; j++) {
@@ -1090,13 +1026,13 @@ function evaluateTimeline(t) {
     }
   }
 
-  // 3. Celtic Hearth Settle (Landing)
+  // 3. Celtic Hearth Settle (Landing from Tile 17)
   else {
     const landT = t - showBodyEnd;
     const u = THREE.MathUtils.clamp(landT / landingConfig.dur, 0, 1);
     const lastTargets = formationTrajectories[formationTrajectories.length - 1];
     const lastB = timelineData.formationBlocks[timelineData.formationBlocks.length - 1];
-    const alt = lastB.altitude || 18.0;
+    const alt = lastB.altitude || 16.0;
     const scl = lastB.scale || 1.0;
     const v1y = THREE.MathUtils.degToRad(lastB.rotEndY || 0);
 
@@ -1177,13 +1113,16 @@ function onEvent(id, event, handler) {
   if (el) el.addEventListener(event, handler);
 }
 
-// Build Tile Selector Strip (Tiles 20-23 listed first)
+// Build Tile Selector Strip (Tiles 16-34 listed first)
 function populateTilesStrip() {
   const strip = $("tiles-strip");
   if (!strip) return;
   strip.innerHTML = "";
 
-  const tileOrder = [20, 21, 22, 23, 15, 16, 17, 18, 19, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14];
+  const tileOrder = [
+    16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34,
+    15, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14
+  ];
   tileOrder.forEach((tileNum) => {
     const btn = document.createElement("button");
     const shapeId = `samhainTile${tileNum}`;
@@ -1263,7 +1202,7 @@ onEvent("btn-export-unity", () => {
 
       return {
         sceneId: b.id,
-        name: b.isText ? b.text : b.shapeId,
+        name: b.shapeId,
         duration: b.dur,
         transDuration: b.transDur,
         transMotion: b.transMotion || "vortex",
@@ -1338,15 +1277,7 @@ function updateContextPanels() {
     const b = timelineData.formationBlocks.find(x => x.id === selectedFormationBlockId);
     if (!b) return;
 
-    $("formation-sub-text").classList.toggle("hidden", !b.isText);
-
-    if (b.isText) {
-      $("inspector-shape-name").textContent = `Text: "${b.text || ""}"`;
-      $("input-text-msg").value = b.text || "";
-    } else {
-      $("inspector-shape-name").textContent = b.shapeId;
-    }
-
+    $("inspector-shape-name").textContent = b.shapeId;
     $("slider-block-alt").value = b.altitude || 16.0;
     $("val-block-alt").textContent = `${b.altitude || 16.0}m`;
     $("slider-block-scale").value = b.scale || 1.0;
@@ -1357,58 +1288,22 @@ function updateContextPanels() {
     const b = timelineData.formationBlocks.find(x => x.id === selectedTransitionBlockId);
     if (b) {
       $("sel-trans-motion").value = b.transMotion || "vortex";
-      $("slider-trans-dur").value = b.transDur || 4.5;
-      $("val-trans-dur").textContent = `${(b.transDur || 4.5).toFixed(1)}s`;
+      $("slider-trans-dur").value = b.transDur || 5.5;
+      $("val-trans-dur").textContent = `${(b.transDur || 5.5).toFixed(1)}s`;
       $("sel-trans-fx").value = b.transColorFX || "sparkle";
     }
   }
 }
-
-onEvent("input-text-msg", "input", async (e) => {
-  const b = timelineData.formationBlocks.find(x => x.id === selectedFormationBlockId);
-  if (b && b.isText) {
-    b.text = e.target.value.toUpperCase();
-    await buildShowTrajectoryData();
-    evaluateTimeline(playheadTime);
-    buildDesktopTimeline();
-  }
-});
-onEvent("sel-text-fx", "change", (e) => {
-  saveUndoState();
-  const b = timelineData.formationBlocks.find(x => x.id === selectedFormationBlockId);
-  if (b && b.isText) {
-    b.fx = e.target.value;
-    evaluateTimeline(playheadTime);
-  }
-});
 
 // Track Actions
 onEvent("btn-add-shape", async () => {
   saveUndoState();
   const id = "s" + Date.now();
   timelineData.formationBlocks.push({
-    id, shapeId: "samhainTile20", isText: false, dur: 18.0, transDur: 4.5,
+    id, shapeId: "samhainTile16", isText: false, dur: 18.0, transDur: 5.5,
     transMotion: "vortex", transColorFX: "sparkle",
     altitude: 16.0, scale: 1.0, palette: ["#ffffff", "#ffd54f", "#ff9100", "#d50000"], activeSwatchIdx: 0,
     cycleSpeed: 0.0, run: false, runSpeed: 3.0, blink: false, blinkSpeed: 3.0, sparkle: false, sparkleDensity: 0.35
-  });
-  selectedFormationBlockId = id;
-  selectedInspectorType = "formation";
-  recalculateTimelineDuration();
-  await buildShowTrajectoryData();
-  buildDesktopTimeline();
-  updateContextPanels();
-});
-
-onEvent("btn-add-text", async () => {
-  saveUndoState();
-  const id = "t" + Date.now();
-  timelineData.formationBlocks.push({
-    id, isText: true, text: "BLESSED SAMHAIN", font: "Impact", fx: "wave", speed: 1.0,
-    dur: 20.0, transDur: 4.0, transMotion: "celtic_swirl", transColorFX: "sparkle",
-    altitude: 18.0, scale: 1.0,
-    palette: ["#ffab00", "#e0f7fa"], activeSwatchIdx: 0,
-    cycleSpeed: 1.0, run: false, runSpeed: 3.0, blink: false, blinkSpeed: 3.0, sparkle: true, sparkleDensity: 0.35
   });
   selectedFormationBlockId = id;
   selectedInspectorType = "formation";
@@ -1482,15 +1377,9 @@ function buildDesktopTimeline() {
     const fBlock = document.createElement("div");
     const isSelected = (selectedInspectorType === "formation" && selectedFormationBlockId === b.id);
     fBlock.className = "block-element" + (isSelected ? " active-block" : "");
-    if (b.isText) fBlock.classList.add("text-block");
     fBlock.style.width = (b.dur / TOTAL_DURATION) * 100 + "%";
-
-    if (b.isText) {
-      fBlock.innerHTML = `<span>T: ${b.text || "TEXT"}</span>`;
-    } else {
-      fBlock.style.background = "#192231";
-      fBlock.innerHTML = `<span style="color:#ffab00;">${b.shapeId}</span>`;
-    }
+    fBlock.style.background = "#192231";
+    fBlock.innerHTML = `<span style="color:#ffab00;">${b.shapeId}</span>`;
 
     fBlock.onclick = (e) => {
       e.stopPropagation();
