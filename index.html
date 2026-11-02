@@ -232,7 +232,7 @@ body.dragging #drop-overlay { display: flex; }
       <button class="toolbar-btn" id="btn-undo" title="Revert last action (Ctrl+Z)">↶ Undo</button>
     </div>
   </div>
-  <div id="status">Synchronized Color Mapping Active: Candle Flame Waver & Palette Mapped Accurately</div>
+  <div id="status">Candle Color Zones Active: Red/Orange Flame, White Wax, Yellow Base</div>
 
   <!-- Samhain Tiles Selector Bar -->
   <div class="section-label" style="margin-top:6px;">
@@ -342,8 +342,8 @@ body.dragging #drop-overlay { display: flex; }
   </div>
 
   <div id="hint">
-    <b>Candle Physics Verified:</b> Top 25% is red/orange flame that wavers, middle is pure white wax, bottom is yellow candlestick base.<br>
-    <b>Synchronized Swatches:</b> Drones carry their assigned feature colors accurately through all movements.
+    <b>Candle Fixed:</b> Flame drones waver at the top in red/orange, wax is white, and the holder base is yellow.<br>
+    <b>Wobbling Key:</b> The key tilts gently back and forth without extreme 3D twisting.
   </div>
 </div>
 <div id="vr-tip">In VR: Press Left X for HUD · Trigger paints drones with active swatch</div>
@@ -357,7 +357,7 @@ import {
   findShapeById,
   sampleImageToDrones,
   GOLDEN
-} from "./shapes.js?v=samhain_candle_fix_v13";
+} from "./shapes.js?v=samhain_candle_fix_v14";
 
 function formatTime(s) {
   if (isNaN(s) || s === undefined || s === null) return "00:00";
@@ -547,14 +547,14 @@ const SHOW_SCENES = [
   { tNum: 16, palette: ["#ffd54f", "#8d4e28"], motion: "vortex", colorFX: "sparkle" },                                // Wheat
   { tNum: 25, palette: ["#cfd8dc", "#5d4037"], motion: "celtic_swirl", colorFX: "fire_burst" },                         // Scythe
   { tNum: 28, palette: ["#d50000", "#8d4e28"], motion: "vortex", colorFX: "mystic_aurora" },                            // Leaf
-  { tNum: 26, palette: ["#388e3c", "#8d4e28", "#ffd54f"], motion: "explosion", colorFX: "beacon" },                   // Oak branch
+  { tNum: 26, palette: ["#5d4037", "#8d6e63"], motion: "explosion", colorFX: "beacon" },                                // Bare tree (NO green)
   { tNum: 27, palette: ["#ffffff", "#ffab00", "#5d4037"], motion: "vortex", colorFX: "fire_burst" },                     // Owl
-  { tNum: 18, palette: ["#ff6d00", "#43a047"], motion: "celtic_swirl", colorFX: "sparkle" },                            // Pumpkin
+  { tNum: 18, palette: ["#ff6d00", "#43a047"], motion: "celtic_swirl", colorFX: "sparkle" },                            // Pumpkin (deep orange body, tiny stem green)
   // Candle: Wax (0: #ffffff), Flame (1: #ff3d00), Base (2: #ffd600)
   { tNum: 24, palette: ["#ffffff", "#ff3d00", "#ffd600"], motion: "explosion", colorFX: "fire_burst" },                   
   { tNum: 23, palette: ["#ffffff", "#6d4c41", "#00c853", "#ffffff"], motion: "helix", colorFX: "beacon" },               // Witch
-  { tNum: 22, palette: ["#ffffff"], motion: "celtic_swirl", colorFX: "sparkle", isStill: true },                         // Skull (stationary)
-  { tNum: 19, palette: ["#ffffff", "#00e5ff"], motion: "vortex", colorFX: "mystic_aurora" },                            // Ghost
+  { tNum: 22, palette: ["#ffffff"], motion: "celtic_swirl", colorFX: "sparkle", isStill: true },                         // Skull (100% bone white, motionless)
+  { tNum: 19, palette: ["#ffffff"], motion: "vortex", colorFX: "mystic_aurora" },                                        // Ghost (100% pure white, NO blue stomach)
   { tNum: 32, palette: ["#ffd700", "#ffb300"], motion: "explosion", colorFX: "sparkle" },                              // Key
   { tNum: 29, palette: ["#00e676", "#00b0ff"], motion: "celtic_swirl", colorFX: "beacon" },                            // Celtic Knot
   { tNum: 30, palette: ["#ff1744", "#d50000"], motion: "helix", colorFX: "fire_burst" },                               // Sigil
@@ -618,7 +618,6 @@ async function buildShowTrajectoryData() {
       if (shape) await shape.gen(raw, formationCount, swatches);
     }
 
-    // Simultaneously reorders positions and swatches
     const result = assignMinimalPaths(prevSlots, raw, swatches, formationCount);
     formationTrajectories.push(result.positions);
     formationSwatchStore.push(result.swatches);
@@ -854,13 +853,13 @@ function evaluateTimeline(t) {
             localScratchPoints[j * 3 + 2] += Math.cos(tScene * 3.0 + py * 0.3) * 0.6;
           }
         }
-        // Tile 26: Acorn Branch (Leaf wavers, wood branch stays rigid)
+        // Tile 26: Bare Tree Branch Sway (NO green)
         else if (b.tileNum === 26) {
           for (let j = 0; j < formationCount; j++) {
             const py = localScratchPoints[j * 3 + 1];
             if (py > 15.5) {
               const yNorm = Math.max(0, (py - 15.5) / 10.0);
-              localScratchPoints[j * 3] += Math.sin(tScene * 2.6 + py * 0.3) * (yNorm * 0.85);
+              localScratchPoints[j * 3] += Math.sin(tScene * 2.2 + py * 0.25) * (yNorm * 0.7);
             }
           }
         }
@@ -890,11 +889,10 @@ function evaluateTimeline(t) {
             localScratchPoints[j * 3 + 1] = alt + (localScratchPoints[j * 3 + 1] - alt) * wobbleY;
           }
         }
-        // Tile 24: Candle Flame Waver ONLY (Wax and base remain completely motionless)
+        // Tile 24: Candle Flame Waver ONLY (Wax and candlestick base are strictly stationary)
         else if (b.tileNum === 24) {
           for (let j = 0; j < formationCount; j++) {
-            // Strictly target the flame drones at the top (Swatch 1)
-            if (currSwatches && currSwatches[j] === 1) {
+            if (currSwatches && currSwatches[j] === 1) { // Strictly flame drones (Swatch 1)
               const py = localScratchPoints[j * 3 + 1];
               localScratchPoints[j * 3] += Math.sin(tScene * 5.5 + py * 1.5) * 0.45;
             }
@@ -912,7 +910,7 @@ function evaluateTimeline(t) {
             }
           }
         }
-        // Tile 19: Ghost Ethereal Float & Waver
+        // Tile 19: Ghost Ethereal Float & Waver (100% white body)
         else if (b.tileNum === 19) {
           const floatY = Math.sin(tScene * 2.0) * 0.8;
           for (let j = 0; j < formationCount; j++) {
@@ -921,15 +919,15 @@ function evaluateTimeline(t) {
             localScratchPoints[j * 3] += Math.sin(tScene * 2.5 + py * 0.3) * 0.5;
           }
         }
-        // Tile 32: Skeleton Key Lock-Turning Rotation
+        // Tile 32: Skeleton Key Gentle 2D Wobble (No twisting/turning)
         else if (b.tileNum === 32) {
-          const turn = Math.sin(tScene * 2.4) * (Math.PI / 2.0);
-          const cosK = Math.cos(turn), sinK = Math.sin(turn);
+          const wobble = Math.sin(tScene * 2.8) * 0.08; // Gentle tilt
+          const cosW = Math.cos(wobble), sinW = Math.sin(wobble);
           for (let j = 0; j < formationCount; j++) {
             const lx = localScratchPoints[j * 3];
             const ly = localScratchPoints[j * 3 + 1] - alt;
-            localScratchPoints[j * 3]     = lx * cosK - ly * sinK;
-            localScratchPoints[j * 3 + 1] = alt + (lx * sinK + ly * cosK);
+            localScratchPoints[j * 3]     = lx * cosW - ly * sinW;
+            localScratchPoints[j * 3 + 1] = alt + (lx * sinW + ly * cosW);
           }
         }
         // Tile 29 & 30: Celtic Symbols Continuous Rotation
