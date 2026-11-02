@@ -113,7 +113,7 @@ function resampleEquidistant(orderedPts, targetCount) {
   return resampled;
 }
 
-// Multi-Loop Arc-Length Density Sampler with Strict Height-Zoned Semantic Color Classification
+// Multi-Loop Arc-Length Density Sampler with Strict Height-Zoned Semantic Colors
 export function sampleImageToDrones(imgElement, out, count, swatchOut, scale = 0.048, altitude = 16, tileNum = 16) {
   const canvas = document.createElement("canvas");
   canvas.width = 512;
@@ -143,7 +143,7 @@ export function sampleImageToDrones(imgElement, out, count, swatchOut, scale = 0
     }
   }
 
-  // 2. Connected Component Segmentation (Isolates shapes & preserves inner cutouts)
+  // 2. Connected Component Segmentation
   const visited = new Uint8Array(512 * 512);
   const islands = [];
 
@@ -213,7 +213,7 @@ export function sampleImageToDrones(imgElement, out, count, swatchOut, scale = 0
   const cy = (minY + maxY) / 2;
   const totalWeight = islands.reduce((acc, isl) => acc + isl.weight, 0);
 
-  // 3. Proportional Fleet Budget Allocation (75% Boundaries & Cutouts, 25% Infill)
+  // 3. Proportional Fleet Budget Allocation (75% Boundaries, 25% Infill)
   let ptr = 0;
   for (const isl of islands) {
     const islDroneCount = Math.max(6, Math.round((isl.weight / totalWeight) * count));
@@ -273,38 +273,38 @@ function getSemanticSwatch(px, py, tileNum, minY = 0, maxY = 512, minX = 0, maxX
 
   switch (tileNum) {
     case 24: // Candle: Top Flame (1: Red/Orange), Middle Wax (0: Pure White), Bottom Base (2: Yellow)
-      if (normY < 0.24) return 1; // Top 24%: Flame (Red/Orange)
-      if (normY > 0.74) return 2; // Bottom 26%: Candlestick Holder (Yellow/Bronze)
-      return 0;                   // Middle 50%: Candle Wax Column (Pure White)
+      if (normY < 0.25) return 1; // Top 25%: Flame (Red/Orange)
+      if (normY > 0.72) return 2; // Bottom 28%: Candlestick Holder (Yellow)
+      return 0;                   // Middle 47%: Candle Wax Column (Pure White)
 
     case 18: // Pumpkin: Entire body & ribs (0: Deep Orange), Stem ONLY (1: Green)
-      if (normY < 0.14 && Math.abs(px - cx) < 32) return 1; // Stem ONLY at top
+      if (normY < 0.16 && Math.abs(px - cx) < 32) return 1; // Stem ONLY at top
       return 0; // Entire pumpkin body is 100% deep saturated orange
 
-    case 16: // Wheat: Grain heads (0: Golden Grain), Stalk (1: Wood Brown)
-      if (normY > 0.65) return 1; // Wood Stalk
-      return 0; // Golden Grain Head
+    case 16: // Wheat: Grain heads (0: Gold), Stalk (1: Wood Brown)
+      if (normY > 0.65) return 1;
+      return 0;
 
     case 25: // Scythe: Blade (0: Steel Grey), Handle Snath (1: Hardwood Brown)
-      if (normY < 0.50 && px > cx - 20) return 0; // Cutting Blade
-      return 1; // Long Wooden Handle
+      if (normY < 0.50 && px > cx - 20) return 0;
+      return 1;
 
     case 26: // Oak/Acorn Branch: Leaf (0: Leaf Green), Branch Wood (1: Rich Wood Brown), Acorn (2: Gold)
-      if (normY > 0.62) return 1; // Wood Branch
-      if (normY > 0.40 && Math.abs(px - cx) < 45) return 2; // Acorn
-      return 0; // Oak Leaf
+      if (normY > 0.62) return 1;
+      if (normY > 0.40 && Math.abs(px - cx) < 45) return 2;
+      return 0;
 
     case 27: // Owl: Body Feathers (0: Soft White), Beak & Eyes (1: Amber Gold), Perch (2: Wood Brown)
-      if (normY > 0.78) return 2; // Branch
-      if (normY >= 0.28 && normY <= 0.52 && Math.abs(px - cx) < 55) return 1; // Beak & Eyes
-      return 0; // Feathers
+      if (normY > 0.78) return 2;
+      if (normY >= 0.28 && normY <= 0.52 && Math.abs(px - cx) < 55) return 1;
+      return 0;
 
     case 23: // Witch: Pale Moon (0: White), Broom (1: Wood Brown), Cloak (2: Emerald Green), Skin/Trim (3: White)
-      if (normY < 0.32 && (px < minX + 80 || px > maxX - 80)) return 0; // Moon (White)
-      if (normY > 0.72 || (px > cx + 45 && normY > 0.52)) return 1; // Broom (Wood Brown)
-      if (normY >= 0.30 && normY <= 0.45 && Math.abs(px - cx) < 32) return 0; // Face (White)
-      if (Math.abs(px - cx) > 55) return 3; // Highlights (White)
-      return 2; // Witch Cloak (Emerald Green)
+      if (normY < 0.32 && (px < minX + 80 || px > maxX - 80)) return 0;
+      if (normY > 0.72 || (px > cx + 45 && normY > 0.52)) return 1;
+      if (normY >= 0.30 && normY <= 0.45 && Math.abs(px - cx) < 32) return 0;
+      if (Math.abs(px - cx) > 55) return 3;
+      return 2;
 
     case 22: // Skull: 100% Bone White
       return 0;
@@ -314,19 +314,19 @@ function getSemanticSwatch(px, py, tileNum, minY = 0, maxY = 512, minX = 0, maxX
       return 0;
 
     case 28: // Autumn Leaf: Leaf Blade (0: Crimson Red), Stem (1: Wood Brown)
-      if (normY > 0.75) return 1; // Stem
-      return 0; // Leaf
+      if (normY > 0.75) return 1;
+      return 0;
 
     case 32: // Skeleton Key: Shaft & Teeth (0: Polished Gold), Bow/Handle (1: Warm Brass)
       if (normY < 0.45) return 1;
       return 0;
 
     case 17: // Finale Bonfire & Banner: White (0), Gold (1), Orange (2), Crimson (3)
-      if (normY > 0.74) return 1; // "Blessed Samhain" Banner (Radiant Gold)
-      if (normY < 0.30 && (Math.abs(px - cx) > 85 || normY < 0.18)) return 0; // Stars/Moon (White)
-      if (normY >= 0.14 && normY < 0.48) return 1; // Fire Column (Gold)
-      if (normY >= 0.48 && normY <= 0.74) return 2; // Fire Midsection (Orange)
-      return 3; // Hearth Base (Crimson)
+      if (normY > 0.74) return 1;
+      if (normY < 0.30 && (Math.abs(px - cx) > 85 || normY < 0.18)) return 0;
+      if (normY >= 0.14 && normY < 0.48) return 1;
+      if (normY >= 0.48 && normY <= 0.74) return 2;
+      return 3;
 
     default:
       return 0;
@@ -369,7 +369,7 @@ export function loadTileImage(filename) {
   });
 }
 
-// Master Shape Directory in logical narrative order (Raven Tile 20 excluded)
+// Master Shape Directory in logical narrative order
 const TILE_ORDER = [
   16, 25, 28, 26, 27, 18, 24, 23, 22, 19, 32, 29, 30, 31, 33, 34, 17,
   1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15
