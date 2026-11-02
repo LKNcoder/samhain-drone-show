@@ -232,11 +232,11 @@ body.dragging #drop-overlay { display: flex; }
       <button class="toolbar-btn" id="btn-undo" title="Revert last action (Ctrl+Z)">↶ Undo</button>
     </div>
   </div>
-  <div id="status">Tile 17 'N' Boldly Allocated · Unified Kaleidoscopic Sparkle Landing Active</div>
+  <div id="status">Tile 17 'N' Fully Allocated · Continuous Volumetric Finale & Sparkle Swarm Active</div>
 
   <!-- Samhain Tiles Selector Bar -->
   <div class="section-label" style="margin-top:6px;">
-    <span>Samhain Tiles (Wheat -> Scythe -> Leaf -> Tree -> Owl -> Pumpkin -> Candle -> Witch -> Ghost -> Key...)</span>
+    <span>Samhain Tiles (Narrative Order: Wheat -> Scythe -> Leaf -> Tree -> Owl -> Pumpkin -> Candle -> Ghost -> Key...)</span>
   </div>
   <div class="tiles-scroll-bar" id="tiles-strip"></div>
 
@@ -336,7 +336,7 @@ body.dragging #drop-overlay { display: flex; }
 
     <div class="timeline-bottom-row">
       <button id="btn-play" style="padding:4px 14px; font-size:11px; background:#2e1d0c; border:1px solid #ffab00; color:#ffab00; border-radius:4px; cursor:pointer;">Play</button>
-      <span id="time-display" style="font-size:11px; font-variant-numeric:tabular-nums; min-width:85px;">00:00 / 02:35</span>
+      <span id="time-display" style="font-size:11px; font-variant-numeric:tabular-nums; min-width:85px;">00:00 / 02:25</span>
       <span style="font-size:10px; color:#a08a75; flex:1; text-align:right;">Seamless Loop: Drones land at start positions</span>
     </div>
   </div>
@@ -356,7 +356,7 @@ import {
   findShapeById,
   sampleImageToDrones,
   GOLDEN
-} from "./shapes.js?v=samhain_final_polish_v16";
+} from "./shapes.js?v=samhain_final_polish_v17";
 
 function formatTime(s) {
   if (isNaN(s) || s === undefined || s === null) return "00:00";
@@ -367,7 +367,7 @@ function formatTime(s) {
 
 const MAX_DRONES = 2000;
 let activeDroneCount = 800;
-let TOTAL_DURATION = 155.0;
+let TOTAL_DURATION = 145.0;
 let panSensitivity = 5.0;
 const BASE_DRONE_SIZE = 0.48;
 const Y_AXIS = new THREE.Vector3(0, 1, 0);
@@ -541,7 +541,7 @@ function assignMinimalPaths(currentPos, rawTargets, rawSwatches, count) {
   return { positions: assigned, swatches: assignedSwatches };
 }
 
-// Master Scene Sequence: Raven, Cauldron, and Skull removed; sensible colors throughout
+// Master Scene Sequence: Raven, Cauldron, Skull, and Witch removed
 const SHOW_SCENES = [
   { tNum: 16, palette: ["#ffd54f", "#8d4e28"], motion: "vortex", colorFX: "sparkle" },                                // Wheat
   { tNum: 25, palette: ["#cfd8dc", "#5d4037"], motion: "celtic_swirl", colorFX: "fire_burst" },                         // Scythe
@@ -549,8 +549,7 @@ const SHOW_SCENES = [
   { tNum: 26, palette: ["#5d4037", "#8d6e63"], motion: "explosion", colorFX: "beacon" },                                // Bare tree (NO green)
   { tNum: 27, palette: ["#ffffff", "#ffab00", "#5d4037"], motion: "vortex", colorFX: "fire_burst" },                     // Owl
   { tNum: 18, palette: ["#ff6d00"], motion: "celtic_swirl", colorFX: "sparkle" },                                       // Pumpkin (100% deep orange)
-  { tNum: 24, palette: ["#ffffff", "#ff3d00", "#ffd600"], motion: "explosion", colorFX: "fire_burst" },                   // Candle (white wax, red/orange flame, yellow base)
-  { tNum: 23, palette: ["#00e676", "#5d4037", "#ffffff"], motion: "helix", colorFX: "beacon" },                         // Witch (green cloak, brown broom, white face)
+  { tNum: 24, palette: ["#ffffff", "#ff3d00", "#ffd600"], motion: "explosion", colorFX: "fire_burst" },                   // Candle
   { tNum: 19, palette: ["#ffffff"], motion: "vortex", colorFX: "mystic_aurora" },                                        // Ghost (100% white)
   { tNum: 32, palette: ["#ffd700", "#ffb300"], motion: "explosion", colorFX: "sparkle" },                              // Key
   { tNum: 29, palette: ["#00e676", "#00b0ff"], motion: "celtic_swirl", colorFX: "beacon" },                            // Celtic Knot
@@ -882,20 +881,13 @@ function evaluateTimeline(t) {
             localScratchPoints[j * 3 + 1] = alt + (localScratchPoints[j * 3 + 1] - alt) * wobbleY;
           }
         }
-        // Tile 24: Candle Flame Waver ONLY (Wax and base remain completely motionless)
+        // Tile 24: Candle Flame Waver ONLY (Wax and base are strictly stationary)
         else if (b.tileNum === 24) {
           for (let j = 0; j < formationCount; j++) {
-            if (currSwatches && currSwatches[j] === 1) { // Strictly flame drones (Swatch 1)
+            if (currSwatches && currSwatches[j] === 1) { // Flame drones (Swatch 1)
               const py = localScratchPoints[j * 3 + 1];
               localScratchPoints[j * 3] += Math.sin(tScene * 5.5 + py * 1.5) * 0.45;
             }
-          }
-        }
-        // Tile 23: Witch Bobbing (Entire figure bobs together without tearing)
-        else if (b.tileNum === 23) {
-          const bob = Math.sin(tScene * 2.8) * 0.85;
-          for (let j = 0; j < formationCount; j++) {
-            localScratchPoints[j * 3 + 1] += bob;
           }
         }
         // Tile 19: Ghost Ethereal Float & Waver (100% white body)
@@ -939,6 +931,17 @@ function evaluateTimeline(t) {
             const ly = localScratchPoints[j * 3 + 1] - alt;
             localScratchPoints[j * 3]     = lx * cosS - ly * sinS;
             localScratchPoints[j * 3 + 1] = alt + (lx * sinS + ly * cosS);
+          }
+        }
+        // Tile 17: Finale Bonfire Active Vortex Roar
+        else if (b.tileNum === 17) {
+          for (let j = 0; j < formationCount; j++) {
+            const py = localScratchPoints[j * 3 + 1];
+            if (py > 13.0) { // Flames swirling upwards
+              const swirl = Math.sin(tScene * 4.0 + py * 0.6) * 0.65;
+              localScratchPoints[j * 3] += swirl;
+              localScratchPoints[j * 3 + 2] += Math.cos(tScene * 3.5 + py * 0.5) * 0.85;
+            }
           }
         }
 
@@ -1219,7 +1222,7 @@ function populateTilesStrip() {
   strip.innerHTML = "";
 
   const tileOrder = [
-    16, 25, 28, 26, 27, 18, 24, 23, 19, 32, 29, 30, 31, 33, 34, 17,
+    16, 25, 28, 26, 27, 18, 24, 19, 32, 29, 30, 31, 33, 34, 17,
     1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15
   ];
   tileOrder.forEach((tileNum) => {
