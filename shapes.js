@@ -136,6 +136,11 @@ export function sampleImageToDrones(imgElement, out, count, swatchOut, scale = 0
       const lum = imgData[idx] * 0.299 + imgData[idx + 1] * 0.587 + imgData[idx + 2] * 0.114;
 
       if (lum > 110) {
+        // Tile 23 Moon Removal: completely ignore background moon pixels in the upper corners
+        if (tileNum === 23 && y < 195 && (x < 190 || x > 325)) {
+          continue;
+        }
+
         binary[y * 512 + x] = 1;
         if (x < minX) minX = x; if (x > maxX) maxX = x;
         if (y < minY) minY = y; if (y > maxY) maxY = y;
@@ -196,8 +201,8 @@ export function sampleImageToDrones(imgElement, out, count, swatchOut, scale = 0
             const avgY = islandPixels.reduce((acc, p) => acc + p.y, 0) / islandPixels.length;
             const avgX = islandPixels.reduce((acc, p) => acc + p.x, 0) / islandPixels.length;
             if (avgY > 350) {
-              weight *= 4.0; // Boost entire text banner
-              if (avgX > 320) weight *= 6.0; // Extra dedicated boost to 'N' at the far right
+              weight *= 4.5; // Boost entire text banner
+              if (avgX > 310) weight *= 8.0; // Dedicated boost ensuring 'N' gets full allotment
             }
           }
 
@@ -209,11 +214,26 @@ export function sampleImageToDrones(imgElement, out, count, swatchOut, scale = 0
 
   if (islands.length === 0) return;
 
+  // For Tile 17: sort islands so the text banner and letter 'N' are allocated first
+  if (tileNum === 17) {
+    islands.sort((a, b) => {
+      const aY = a.pixels[0].y, bY = b.pixels[0].y;
+      const aX = a.pixels[0].x, bX = b.pixels[0].x;
+      const aIsN = (aY > 350 && aX > 300) ? 1 : 0;
+      const bIsN = (bY > 350 && bX > 300) ? 1 : 0;
+      if (aIsN !== bIsN) return bIsN - aIsN;
+      const aIsText = aY > 350 ? 1 : 0;
+      const bIsText = bY > 350 ? 1 : 0;
+      if (aIsText !== bIsText) return bIsText - aIsText;
+      return b.weight - a.weight;
+    });
+  }
+
   const cx = (minX + maxX) / 2;
   const cy = (minY + maxY) / 2;
   const totalWeight = islands.reduce((acc, isl) => acc + isl.weight, 0);
 
-  // 3. Exact Hamilton/Largest-Remainder Quota Allocation (Guarantees bottom-right islands never starve)
+  // 3. Exact Hamilton/Largest-Remainder Quota Allocation (Eliminates truncation starvation)
   const quotas = [];
   let allocatedSum = 0;
 
@@ -291,41 +311,38 @@ function getSemanticSwatch(px, py, tileNum, minY = 0, maxY = 512, minX = 0, maxX
   const cx = (minX + maxX) / 2;
 
   switch (tileNum) {
-    case 24: // Candle: Red flame goes down to 35%, white wax goes down to 86%, yellow base at bottom
-      if (normY < 0.35) return 1; // Top 35%: Whole flame (Red/Orange)
-      if (normY > 0.86) return 2; // Bottom 14%: Candlestick holder (Yellow/Bronze)
-      return 0;                   // Middle 51%: Candle wax column (Pure White)
+    case 24: // Candle: Red flame down to 38%, white wax down to 88%, yellow holder at base
+      if (normY < 0.38) return 1; // Top 38%: Entire flame (Red/Orange)
+      if (normY > 0.88) return 2; // Bottom 12%: Candlestick holder base (Yellow/Bronze)
+      return 0;                   // Middle 50%: Candle wax column (Pure White)
 
-    case 26: // Bare Leafless Tree: 100% Wood Brown Tones, ZERO Green
-      if (normY > 0.65) return 0; // Trunk and roots: Deep bark brown
-      return 1;                   // Bare branches: Warm wood brown
-
-    case 19: // Ghost: 100% Pure Brilliant White (#ffffff), ZERO Blue Stomach
+    case 18: // Pumpkin: 100% Deep Saturated Orange
       return 0;
 
-    case 18: // Pumpkin: Entire body is deep orange, green ONLY on the tiny top stem
-      if (normY < 0.10 && Math.abs(px - cx) < 18) return 1; // Stem ONLY
-      return 0; // 100% Deep Saturated Orange
+    case 25: // Scythe: Top ~70% blade (Steel Grey), bottom ~30% handle (Wood Brown)
+      if (normY > 0.70) return 1; // Bottom 30%: Wood handle
+      return 0;                   // Top 70%: Steel blade
+
+    case 23: // Witch: Cloak (0: Emerald Green), Broom (1: Wood Brown), Face (2: White)
+      if (normY > 0.75 || (px > cx + 55 && normY > 0.58)) return 1; // Broom handle & straw
+      if (normY >= 0.28 && normY <= 0.44 && Math.abs(px - cx) < 28) return 2; // Face / skin
+      return 0; // Entire cloak (including billowing rear tail and legs) is Emerald Green
+
+    case 26: // Bare Leafless Tree: 100% Wood Brown Tones, ZERO Green
+      if (normY > 0.65) return 0; // Trunk and roots
+      return 1;                   // Bare branches
+
+    case 19: // Ghost: 100% Pure Brilliant White (#ffffff), ZERO Blue
+      return 0;
 
     case 16: // Wheat: Grain heads (0: Gold), Stalk (1: Wood Brown)
       if (normY > 0.65) return 1;
       return 0;
 
-    case 25: // Scythe: Top 67% blade (steel grey), bottom 33% handle (wood brown)
-      if (normY > 0.67) return 1; // Bottom 33%: Wood handle
-      return 0;                   // Top 67%: Steel grey blade
-
     case 27: // Owl: Body Feathers (0: Soft White), Beak & Eyes (1: Amber Gold), Perch (2: Wood Brown)
       if (normY > 0.78) return 2;
       if (normY >= 0.28 && normY <= 0.52 && Math.abs(px - cx) < 55) return 1;
       return 0;
-
-    case 23: // Witch: White moon/face, wood brown broom, emerald cloak with white highlights
-      if (normY < 0.32 && (px < minX + 80 || px > maxX - 80)) return 0; // Moon (White)
-      if (normY > 0.72 || (px > cx + 45 && normY > 0.52)) return 1; // Broom (Wood Brown)
-      if (normY >= 0.30 && normY <= 0.45 && Math.abs(px - cx) < 32) return 0; // Face (White)
-      if (Math.abs(px - cx) > 55) return 3; // Highlights (White)
-      return 2; // Cloak (Green)
 
     case 28: // Autumn Leaf: Leaf Blade (0: Crimson Red), Stem (1: Wood Brown)
       if (normY > 0.75) return 1;
@@ -337,7 +354,7 @@ function getSemanticSwatch(px, py, tileNum, minY = 0, maxY = 512, minX = 0, maxX
 
     case 17: // Finale Bonfire & Banner: White (0), Gold (1), Orange (2), Crimson (3)
       if (normY > 0.74) return 1; // "Blessed Samhain" Banner (Radiant Gold)
-      if (normY < 0.30 && (Math.abs(px - cx) > 85 || normY < 0.18)) return 0; // Stars/Moon (White)
+      if (normY < 0.30 && (Math.abs(px - cx) > 85 || normY < 0.18)) return 0; // Stars (White)
       if (normY >= 0.14 && normY < 0.48) return 1; // Upper Fire (Gold)
       if (normY >= 0.48 && normY <= 0.74) return 2; // Lower Fire (Orange)
       return 3; // Hearth Base (Crimson)
