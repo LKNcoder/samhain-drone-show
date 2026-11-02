@@ -232,7 +232,7 @@ body.dragging #drop-overlay { display: flex; }
       <button class="toolbar-btn" id="btn-undo" title="Revert last action (Ctrl+Z)">↶ Undo</button>
     </div>
   </div>
-  <div id="status">Candle Color Zones Active: Red/Orange Flame, White Wax, Yellow Base</div>
+  <div id="status">Tile 17 'N' Boldly Allocated · Candle Flame & Wax Color Bounds Perfected</div>
 
   <!-- Samhain Tiles Selector Bar -->
   <div class="section-label" style="margin-top:6px;">
@@ -336,14 +336,14 @@ body.dragging #drop-overlay { display: flex; }
 
     <div class="timeline-bottom-row">
       <button id="btn-play" style="padding:4px 14px; font-size:11px; background:#2e1d0c; border:1px solid #ffab00; color:#ffab00; border-radius:4px; cursor:pointer;">Play</button>
-      <span id="time-display" style="font-size:11px; font-variant-numeric:tabular-nums; min-width:85px;">00:00 / 02:35</span>
+      <span id="time-display" style="font-size:11px; font-variant-numeric:tabular-nums; min-width:85px;">00:00 / 02:25</span>
       <span style="font-size:10px; color:#a08a75; flex:1; text-align:right;">Seamless Loop: Drones land at start positions</span>
     </div>
   </div>
 
   <div id="hint">
-    <b>Candle Fixed:</b> Flame drones waver at the top in red/orange, wax is white, and the holder base is yellow.<br>
-    <b>Wobbling Key:</b> The key tilts gently back and forth without extreme 3D twisting.
+    <b>Color Rules Enforced:</b> Candle flame is top 35% red/orange, wax is middle 51% white, base is bottom 14% yellow.<br>
+    <b>Motions:</b> Key wobbles gently without 3D twisting. Ghost is 100% pure white.
   </div>
 </div>
 <div id="vr-tip">In VR: Press Left X for HUD · Trigger paints drones with active swatch</div>
@@ -357,7 +357,7 @@ import {
   findShapeById,
   sampleImageToDrones,
   GOLDEN
-} from "./shapes.js?v=samhain_candle_fix_v14";
+} from "./shapes.js?v=samhain_final_polish_v15";
 
 function formatTime(s) {
   if (isNaN(s) || s === undefined || s === null) return "00:00";
@@ -368,7 +368,7 @@ function formatTime(s) {
 
 const MAX_DRONES = 2000;
 let activeDroneCount = 800;
-let TOTAL_DURATION = 165.0;
+let TOTAL_DURATION = 155.0;
 let panSensitivity = 5.0;
 const BASE_DRONE_SIZE = 0.48;
 const Y_AXIS = new THREE.Vector3(0, 1, 0);
@@ -542,19 +542,17 @@ function assignMinimalPaths(currentPos, rawTargets, rawSwatches, count) {
   return { positions: assigned, swatches: assignedSwatches };
 }
 
-// Master Scene Sequence: Raven and Cauldron removed
+// Master Scene Sequence: Raven, Cauldron, and Skull removed
 const SHOW_SCENES = [
   { tNum: 16, palette: ["#ffd54f", "#8d4e28"], motion: "vortex", colorFX: "sparkle" },                                // Wheat
   { tNum: 25, palette: ["#cfd8dc", "#5d4037"], motion: "celtic_swirl", colorFX: "fire_burst" },                         // Scythe
   { tNum: 28, palette: ["#d50000", "#8d4e28"], motion: "vortex", colorFX: "mystic_aurora" },                            // Leaf
   { tNum: 26, palette: ["#5d4037", "#8d6e63"], motion: "explosion", colorFX: "beacon" },                                // Bare tree (NO green)
   { tNum: 27, palette: ["#ffffff", "#ffab00", "#5d4037"], motion: "vortex", colorFX: "fire_burst" },                     // Owl
-  { tNum: 18, palette: ["#ff6d00", "#43a047"], motion: "celtic_swirl", colorFX: "sparkle" },                            // Pumpkin (deep orange body, tiny stem green)
-  // Candle: Wax (0: #ffffff), Flame (1: #ff3d00), Base (2: #ffd600)
-  { tNum: 24, palette: ["#ffffff", "#ff3d00", "#ffd600"], motion: "explosion", colorFX: "fire_burst" },                   
+  { tNum: 18, palette: ["#ff6d00", "#43a047"], motion: "celtic_swirl", colorFX: "sparkle" },                            // Pumpkin
+  { tNum: 24, palette: ["#ffffff", "#ff3d00", "#ffd600"], motion: "explosion", colorFX: "fire_burst" },                   // Candle
   { tNum: 23, palette: ["#ffffff", "#6d4c41", "#00c853", "#ffffff"], motion: "helix", colorFX: "beacon" },               // Witch
-  { tNum: 22, palette: ["#ffffff"], motion: "celtic_swirl", colorFX: "sparkle", isStill: true },                         // Skull (100% bone white, motionless)
-  { tNum: 19, palette: ["#ffffff"], motion: "vortex", colorFX: "mystic_aurora" },                                        // Ghost (100% pure white, NO blue stomach)
+  { tNum: 19, palette: ["#ffffff"], motion: "vortex", colorFX: "mystic_aurora" },                                        // Ghost (100% white)
   { tNum: 32, palette: ["#ffd700", "#ffb300"], motion: "explosion", colorFX: "sparkle" },                              // Key
   { tNum: 29, palette: ["#00e676", "#00b0ff"], motion: "celtic_swirl", colorFX: "beacon" },                            // Celtic Knot
   { tNum: 30, palette: ["#ff1744", "#d50000"], motion: "helix", colorFX: "fire_burst" },                               // Sigil
@@ -570,7 +568,6 @@ const timelineData = {
     shapeId: `samhainTile${sc.tNum}`,
     tileNum: sc.tNum,
     isText: false,
-    isStill: sc.isStill || false,
     dur: sc.isLast ? 10.0 : 5.0,
     transDur: sc.isLast ? 0.0 : 4.0,
     transMotion: sc.motion,
@@ -814,12 +811,8 @@ function evaluateTimeline(t) {
 
         localScratchPoints.set(currTargets.subarray(0, formationCount * 3));
 
-        // Skip animation for Skull (stationary stillness of death)
-        if (b.isStill) {
-          // Stationary
-        }
         // Tile 16: Harvest Wheat Wind Sway
-        else if (b.tileNum === 16) {
+        if (b.tileNum === 16) {
           for (let j = 0; j < formationCount; j++) {
             const py = localScratchPoints[j * 3 + 1];
             const px = localScratchPoints[j * 3];
@@ -889,10 +882,10 @@ function evaluateTimeline(t) {
             localScratchPoints[j * 3 + 1] = alt + (localScratchPoints[j * 3 + 1] - alt) * wobbleY;
           }
         }
-        // Tile 24: Candle Flame Waver ONLY (Wax and candlestick base are strictly stationary)
+        // Tile 24: Candle Flame Waver ONLY (Wax and base are strictly stationary)
         else if (b.tileNum === 24) {
           for (let j = 0; j < formationCount; j++) {
-            if (currSwatches && currSwatches[j] === 1) { // Strictly flame drones (Swatch 1)
+            if (currSwatches && currSwatches[j] === 1) { // Flame drones (Swatch 1)
               const py = localScratchPoints[j * 3 + 1];
               localScratchPoints[j * 3] += Math.sin(tScene * 5.5 + py * 1.5) * 0.45;
             }
@@ -921,7 +914,7 @@ function evaluateTimeline(t) {
         }
         // Tile 32: Skeleton Key Gentle 2D Wobble (No twisting/turning)
         else if (b.tileNum === 32) {
-          const wobble = Math.sin(tScene * 2.8) * 0.08; // Gentle tilt
+          const wobble = Math.sin(tScene * 2.8) * 0.08;
           const cosW = Math.cos(wobble), sinW = Math.sin(wobble);
           for (let j = 0; j < formationCount; j++) {
             const lx = localScratchPoints[j * 3];
@@ -1203,7 +1196,7 @@ function populateTilesStrip() {
   strip.innerHTML = "";
 
   const tileOrder = [
-    16, 25, 28, 26, 27, 18, 24, 23, 22, 19, 32, 29, 30, 31, 33, 34, 17,
+    16, 25, 28, 26, 27, 18, 24, 23, 19, 32, 29, 30, 31, 33, 34, 17,
     1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15
   ];
   tileOrder.forEach((tileNum) => {
