@@ -5,7 +5,7 @@ export const GOLDEN = Math.PI * (3 - Math.sqrt(5));
 
 const ASSET_BASE_URL = "https://lkncoder.github.io/tacocat/";
 
-// Traces ALL closed boundary loops (both outer silhouettes AND inner holes like eyes, beaks, and key rings)
+// Traces ALL closed boundary loops (both outer silhouettes AND interior holes like eyes, beaks, and key rings)
 function traceAllBoundaryLoops(edgePixels) {
   if (edgePixels.length === 0) return [];
   const edgeSet = new Set(edgePixels.map(p => (p.y << 10) | p.x));
@@ -27,7 +27,7 @@ function traceAllBoundaryLoops(edgePixels) {
     visited.add(startKey);
     currentLoop.push(curr);
 
-    const maxSteps = Math.max(200, edgePixels.length);
+    const maxSteps = Math.max(300, edgePixels.length);
     for (let step = 0; step < maxSteps; step++) {
       let found = false;
       for (let i = 0; i < 8; i++) {
@@ -114,8 +114,8 @@ function resampleEquidistant(orderedPts, targetCount) {
   return resampled;
 }
 
-// Multi-Loop Arc-Length Density Sampler (Preserves Ghost Eyes, Owl Beaks & Key Holes)
-export function sampleImageToDrones(imgElement, out, count, swatchOut, scale = 0.048, altitude = 16) {
+// Multi-Loop Arc-Length Density Sampler with Per-Tile Semantic Coloring
+export function sampleImageToDrones(imgElement, out, count, swatchOut, scale = 0.048, altitude = 16, tileNum = 16) {
   const canvas = document.createElement("canvas");
   canvas.width = 512;
   canvas.height = 512;
@@ -144,7 +144,7 @@ export function sampleImageToDrones(imgElement, out, count, swatchOut, scale = 0
     }
   }
 
-  // 2. Connected Component Segmentation (Isolates shapes & preserves holes)
+  // 2. Connected Component Segmentation (Isolates shapes & preserves inner cutouts)
   const visited = new Uint8Array(512 * 512);
   const islands = [];
 
@@ -186,12 +186,10 @@ export function sampleImageToDrones(imgElement, out, count, swatchOut, scale = 0
             if (!top || !bot || !left || !right) edge.push(p);
           }
 
-          // Traces both outer perimeter and interior holes (eyes, cutouts, beaks)
           const allLoops = traceAllBoundaryLoops(edge);
           let totalLoopLen = 0;
           for (const loop of allLoops) totalLoopLen += loop.length;
 
-          // Weight balances perimeter against area so slender features don't starve
           const weight = totalLoopLen * 2.2 + Math.sqrt(islandPixels.length) * 4.0;
           islands.push({ pixels: islandPixels, loops: allLoops, totalLoopLen, weight });
         }
@@ -212,7 +210,7 @@ export function sampleImageToDrones(imgElement, out, count, swatchOut, scale = 0
     const edgeCount = Math.min(Math.round(isl.totalLoopLen * 1.5), Math.round(islDroneCount * 0.75));
     const fillCount = islDroneCount - edgeCount;
 
-    // A. Sample all boundary loops (outer perimeter + inner eye/beak holes)
+    // A. Sample all boundary loops (outer perimeter + inner eye/beak/key holes)
     if (isl.loops.length > 0 && edgeCount > 0 && isl.totalLoopLen > 0) {
       for (const loop of isl.loops) {
         const loopDrones = Math.max(3, Math.round((loop.length / isl.totalLoopLen) * edgeCount));
@@ -223,7 +221,10 @@ export function sampleImageToDrones(imgElement, out, count, swatchOut, scale = 0
           out[ptr * 3]     = (p.x - cx) * scale;
           out[ptr * 3 + 1] = altitude - (p.y - cy) * scale;
           out[ptr * 3 + 2] = 0.0;
-          if (swatchOut) swatchOut[ptr] = 0;
+
+          if (swatchOut) {
+            swatchOut[ptr] = getSemanticSwatch(p.x, p.y, tileNum);
+          }
           ptr++;
         }
       }
@@ -237,7 +238,10 @@ export function sampleImageToDrones(imgElement, out, count, swatchOut, scale = 0
         out[ptr * 3]     = (p.x - cx) * scale;
         out[ptr * 3 + 1] = altitude - (p.y - cy) * scale;
         out[ptr * 3 + 2] = 0.0;
-        if (swatchOut) swatchOut[ptr] = 1;
+
+        if (swatchOut) {
+          swatchOut[ptr] = getSemanticSwatch(p.x, p.y, tileNum);
+        }
         ptr++;
       }
     }
@@ -249,6 +253,67 @@ export function sampleImageToDrones(imgElement, out, count, swatchOut, scale = 0
     out[ptr * 3 + 2] = 0.0;
     if (swatchOut) swatchOut[ptr] = 0;
     ptr++;
+  }
+}
+
+// Logical Semantic Color Classifier based on Shape Physics and Icon Features
+function getSemanticSwatch(px, py, tileNum) {
+  switch (tileNum) {
+    case 21: // Cauldron: Fire underneath (0), Pot Iron Slate (1), Bubbling Steam/Potion (2)
+      if (py > 370) return 0; // Fire underneath (Bright Orange/Red)
+      if (py >= 220) return 1; // Cauldron Pot Body (Visible Slate/Iron)
+      return 2; // Steam curls & bubbling brew (Electric Blue)
+
+    case 23: // Witch: Pale Moon (0), Straw/Wood Broom (1), Emerald Witch Cloak (2)
+      if (py < 160 && (px < 180 || px > 330)) return 0; // Pale Moon
+      if (py > 350 || (px > 310 && py > 280)) return 1; // Broom Handle & Straw
+      return 2; // Witch Cloak & Hat (Vibrant Emerald Green)
+
+    case 22: // Skull & Leaves: Bone White Skull (0), Forest Green Wreath (1)
+      if (Math.abs(px - 256) < 115 && py > 110 && py < 365) return 0; // Skull (White)
+      return 1; // Surrounding Leaves/Branches (Foliage Green)
+
+    case 18: // Pumpkin: Ribs/Body (0: Saturated Orange), Stem (1: Fresh Green)
+      if (py < 165 && Math.abs(px - 256) < 48) return 1; // Pumpkin Stem (Green)
+      return 0; // Pumpkin Ribs & Body (Deep Saturated Orange)
+
+    case 20: // Crow/Raven: Bird Body (0: Electric Blue), Perch Branch (1: Warm Wood Brown), Eye/Beak (2: Gold)
+      if (py > 365) return 1; // Branch (Wood Brown)
+      if (py < 210 && Math.abs(px - 256) < 55) return 2; // Eye & Beak (Amber Gold)
+      return 0; // Raven Feathers (Luminous Twilight Blue)
+
+    case 24: // Candle: Wax Body (0: Ivory White), Flame (1: Fiery Red/Orange), Base (2: Brass)
+      if (py < 185) return 1; // Flame Tip (Red/Orange)
+      if (py >= 395) return 2; // Brass Holder (Dark Gold)
+      return 0; // Candle Wax & Dripping Droplets (Pure White)
+
+    case 25: // Scythe: Blade (0: Steel Grey), Handle Snath (1: Hardwood Brown)
+      if (py < 240 && px > 160) return 0; // Curved Cutting Blade (Silver Steel Grey)
+      return 1; // Long Wooden Handle (Timber Brown)
+
+    case 27: // Owl: Feathers (0: Soft White/Cream), Beak & Eyes (1: Glowing Amber Gold), Perch (2: Brown)
+      if (py > 390) return 2; // Branch (Forest Brown)
+      if (py >= 160 && py <= 260 && Math.abs(px - 256) < 65) return 1; // Beak & Eyes (Amber Gold)
+      return 0; // Body Feathers (Crisp White)
+
+    case 28: // Autumn Leaf: Blade (0: Crimson Red), Stem & Veins (1: Amber Gold)
+      if (py > 380 || (Math.abs(px - 256) < 15 && py > 200)) return 1; // Stem (Amber Gold)
+      return 0; // Leaf Blade (Vibrant Autumn Red)
+
+    case 32: // Skeleton Key: Shaft & Teeth (0: Polished Gold), Handle Ring Bow (1: Warm Brass)
+      if (py < 230) return 1; // Handle Bow & Ring (Brass)
+      return 0; // Shaft & Key Bits (Gold)
+
+    case 19: // Ghost: Spectral Body (0: Brilliant White), Eyes/Mouth (1: Luminous Spectral Cyan)
+      if (py >= 160 && py <= 240 && Math.abs(px - 256) < 70) return 1; // Eyes / Mouth cutouts (Cyan)
+      return 0; // Flowing Sheet Body (Pure White)
+
+    case 26: // Ancient Tree: Trunk & Roots (0: Bark Brown), Canopy (1: Autumn Amber)
+      if (py > 310 && Math.abs(px - 256) < 65) return 0; // Trunk (Bark Brown)
+      return 1; // Canopy Foliage (Autumn Gold/Amber)
+
+    default:
+      return 0;
   }
 }
 
@@ -288,6 +353,103 @@ export function loadTileImage(filename) {
   });
 }
 
+// Robust Vector Typography Engine with Precision Path Bounds (Guarantees 'N' has full drone allotment)
+const GLYPH_PATHS = {
+  'A': "M 0 0 L 0.5 1.4 L 1 0 M 0.2 0.55 L 0.8 0.55",
+  'B': "M 0 0 L 0 1.4 L 0.55 1.4 C 0.9 1.4 0.9 0.72 0.55 0.72 L 0 0.72 M 0.55 0.72 C 0.95 0.72 0.95 0 0.55 0 L 0 0",
+  'C': "M 0.95 1.15 C 0.7 1.45 0.25 1.45 0.1 1.15 C -0.05 0.85 -0.05 0.55 0.1 0.25 C 0.25 -0.05 0.7 -0.05 0.95 0.25",
+  'D': "M 0 0 L 0 1.4 L 0.45 1.4 C 1.0 1.4 1.0 0 0.45 0 Z",
+  'E': "M 0.85 0 L 0 0 L 0 1.4 L 0.85 1.4 M 0 0.7 L 0.65 0.7",
+  'F': "M 0 0 L 0 1.4 L 0.85 1.4 M 0 0.7 L 0.65 0.7",
+  'G': "M 0.95 1.15 C 0.7 1.45 0.25 1.45 0.1 1.15 C -0.05 0.85 -0.05 0.55 0.1 0.25 C 0.25 -0.05 0.7 -0.05 0.95 0.25 L 0.95 0.65 L 0.5 0.65",
+  'H': "M 0 0 L 0 1.4 M 0.9 0 L 0.9 1.4 M 0 0.7 L 0.9 0.7",
+  'I': "M 0.1 0 L 0.5 0 M 0.3 0 L 0.3 1.4 M 0.1 1.4 L 0.5 1.4",
+  'J': "M 0.1 0.4 C 0.1 0 0.6 0 0.7 0.3 L 0.7 1.4 L 0.5 1.4",
+  'K': "M 0 0 L 0 1.4 M 0.9 1.4 L 0 0.6 L 0.9 0",
+  'L': "M 0 1.4 L 0 0 L 0.8 0",
+  'M': "M 0 0 L 0 1.4 L 0.5 0.5 L 1.0 1.4 L 1.0 0",
+  'N': "M 0 0 L 0 1.4 L 0.9 0 L 0.9 1.4", // Perfect symmetry N with full height
+  'O': "M 0.5 0 C 1.0 0 1.0 1.4 0.5 1.4 C 0 1.4 0 0 0.5 0 Z",
+  'P': "M 0 0 L 0 1.4 L 0.55 1.4 C 0.95 1.4 0.95 0.7 0.55 0.7 L 0 0.7",
+  'Q': "M 0.5 0 C 1.0 0 1.0 1.4 0.5 1.4 C 0 1.4 0 0 0.5 0 Z M 0.6 0.3 L 0.95 -0.15",
+  'R': "M 0 0 L 0 1.4 L 0.55 1.4 C 0.95 1.4 0.95 0.7 0.55 0.7 L 0 0.7 M 0.5 0.7 L 0.9 0",
+  'S': "M 0.85 1.15 C 0.65 1.45 0.2 1.45 0.1 1.15 C 0 0.8 0.9 0.8 0.85 0.3 C 0.8 -0.05 0.25 -0.05 0.05 0.25",
+  'T': "M 0.5 0 L 0.5 1.4 M 0 1.4 L 1.0 1.4",
+  'U': "M 0 1.4 L 0 0.45 C 0 -0.05 0.9 -0.05 0.9 0.45 L 0.9 1.4",
+  'V': "M 0 1.4 L 0.5 0 L 1.0 1.4",
+  'W': "M 0 1.4 L 0.25 0 L 0.5 0.9 L 0.75 0 L 1.0 1.4",
+  'X': "M 0 0 L 0.9 1.4 M 0 1.4 L 0.9 0",
+  'Y': "M 0.45 0 L 0.45 0.65 L 0 1.4 M 0.45 0.65 L 0.9 1.4",
+  'Z': "M 0 1.4 L 0.9 1.4 L 0 0 L 0.9 0"
+};
+
+export function generateTextDrones(out, text, count, font = "Impact", scale = 0.28, altitude = 16) {
+  const words = text.trim().toUpperCase().split(/\s+/);
+  let lines = [text.trim().toUpperCase()];
+  if (words.length >= 2) {
+    const mid = Math.ceil(words.length / 2);
+    lines = [words.slice(0, mid).join(" "), words.slice(mid).join(" ")];
+  }
+
+  const lineSpacing = 2.4;
+  const charSpacing = 1.35;
+  const paths = [];
+  let totalLength = 0;
+
+  const totalLines = lines.length;
+  const startY = ((totalLines - 1) * lineSpacing) / 2;
+
+  lines.forEach((line, lineIdx) => {
+    const yOffset = startY - lineIdx * lineSpacing;
+    const chars = line.split("");
+    const lineWidth = chars.length * charSpacing;
+    const startX = -lineWidth / 2 + charSpacing * 0.15;
+
+    chars.forEach((ch, charIdx) => {
+      const d = GLYPH_PATHS[ch];
+      if (d) {
+        const xOffset = startX + charIdx * charSpacing;
+        const p = document.createElementNS("http://www.w3.org/2000/svg", "path");
+        const transformedD = d.replace(/([0-9\.\-]+)\s+([0-9\.\-]+)/g, (_, x, y) => {
+          const nx = (parseFloat(x) + xOffset).toFixed(3);
+          const ny = (parseFloat(y) + yOffset).toFixed(3);
+          return `${nx} ${ny}`;
+        });
+        p.setAttribute("d", transformedD);
+        const len = p.getTotalLength();
+        if (len > 0) {
+          paths.push({ path: p, len });
+          totalLength += len;
+        }
+      }
+    });
+  });
+
+  if (paths.length === 0) return;
+
+  // Clamped arc-length stepping prevents float inaccuracies from clipping the final 'N'
+  for (let i = 0; i < count; i++) {
+    const targetDist = THREE.MathUtils.clamp((i / (count - 1)) * (totalLength - 0.001), 0, totalLength);
+    let accum = 0;
+    let selected = paths[paths.length - 1];
+    let distOnPath = selected.len;
+
+    for (const p of paths) {
+      if (accum + p.len >= targetDist) {
+        selected = p;
+        distOnPath = Math.max(0, Math.min(p.len, targetDist - accum));
+        break;
+      }
+      accum += p.len;
+    }
+
+    const pt = selected.path.getPointAtLength(distOnPath);
+    out[i * 3]     = pt.x * (scale * 6.5);
+    out[i * 3 + 1] = altitude + pt.y * (scale * 6.5);
+    out[i * 3 + 2] = 0.0;
+  }
+}
+
 // Master Shape Directory prioritizing Tiles 16–34
 const TILE_ORDER = [
   16, 25, 28, 26, 20, 27, 18, 24, 21, 23, 22, 19, 32, 29, 30, 31, 33, 34, 17,
@@ -311,7 +473,7 @@ export const SHAPE_PAGES = [
       },
       gen: async (out, n, swatchOut) => {
         const img = await loadTileImage(filename);
-        if (img) sampleImageToDrones(img, out, n, swatchOut, 0.048, 16);
+        if (img) sampleImageToDrones(img, out, n, swatchOut, 0.048, 16, tileNum);
       }
     };
   })
