@@ -342,7 +342,7 @@ body.dragging #drop-overlay { display: flex; }
   </div>
 
   <div id="hint">
-    <b>All Specific Tiles Animated:</b> Wheat (16) & Leaf (28) sway, Scythe (25) pivots, Candle (24) drips wax, Cauldron (21) steams, Key (32) turns lock, Symbol (31) rotates, and Ghost (19) has clear eyes.
+    <b>All Specific Tiles Animated:</b> Wheat (16) & Leaf (28) sway, Scythe (25) cuts, Candle (24) drips wax, Cauldron (21) steams, Key (32) turns lock, Symbol (31) rotates, and Ghost (19) has clear eyes.
   </div>
 </div>
 <div id="vr-tip">In VR: Press Left X for HUD · Trigger paints drones with active swatch</div>
@@ -354,9 +354,10 @@ import { VRButton } from "three/addons/webxr/VRButton.js";
 import {
   SHAPE_PAGES,
   findShapeById,
+  generateTextDrones,
   sampleImageToDrones,
   GOLDEN
-} from "./shapes.js?v=samhain_all_animated_v1";
+} from "./shapes.js?v=samhain_polish_v10";
 
 function formatTime(s) {
   if (isNaN(s) || s === undefined || s === null) return "00:00";
@@ -373,7 +374,7 @@ const BASE_DRONE_SIZE = 0.48;
 const Y_AXIS = new THREE.Vector3(0, 1, 0);
 
 let takeoffConfig = { dur: 10.0, style: "celtic_whirl" };
-let landingConfig = { dur: 20.0, style: "climactic_helix" }; // Extended climactic landing
+let landingConfig = { dur: 24.0, style: "climactic_helix" }; // Extended climactic swarm & helix landing
 
 let precipConfig = {
   enabled: true,
@@ -536,38 +537,39 @@ function assignMinimalPaths(currentPos, rawTargets, count) {
   return assigned;
 }
 
-// Master Sequence Definitions with User-Requested Custom Colors & Snappy 5.0s Durations
+// Logical Color Palettes Matching User Narrative Requirements
 const SHOW_SCENES = [
-  { tNum: 16, palette: ["#ffd54f", "#ffb300"], motion: "vortex", colorFX: "sparkle" },           // Wheat
-  { tNum: 25, palette: ["#cfd8dc", "#8d6e63"], motion: "celtic_swirl", colorFX: "fire_burst" },    // Scythe (grey blade)
-  { tNum: 28, palette: ["#ff1744", "#d50000"], motion: "vortex", colorFX: "mystic_aurora" },       // Red Leaf
-  { tNum: 26, palette: ["#8d6e63", "#a1887f"], motion: "explosion", colorFX: "beacon" },          // Tree
-  { tNum: 20, palette: ["#40c4ff", "#8d6e63"], motion: "helix", colorFX: "sparkle" },             // Raven (blueish) on brown branch
-  { tNum: 27, palette: ["#ffffff", "#ffb300"], motion: "vortex", colorFX: "fire_burst" },         // Owl (beak & amber eyes)
-  { tNum: 18, palette: ["#ff6d00", "#ff3d00"], motion: "celtic_swirl", colorFX: "sparkle" },      // Orange Pumpkin
-  { tNum: 24, palette: ["#ffffff", "#ff3d00"], motion: "explosion", colorFX: "fire_burst" },       // Candle (white wax, orange/red flame)
-  { tNum: 21, palette: ["#00e5ff", "#40c4ff"], motion: "vortex", colorFX: "mystic_aurora" },       // Cauldron (visible bright blue)
-  { tNum: 23, palette: ["#00e676", "#1de9b6"], motion: "helix", colorFX: "beacon" },             // Witch cloak (unexpected green)
-  { tNum: 22, palette: ["#ffffff", "#00e676"], motion: "celtic_swirl", colorFX: "sparkle" },      // Skull (white skull, green leaves)
-  { tNum: 19, palette: ["#ffffff", "#e0f7fa"], motion: "vortex", colorFX: "mystic_aurora" },       // Ghost (very white with visible eyes)
-  { tNum: 32, palette: ["#ffd700", "#ffb300"], motion: "explosion", colorFX: "sparkle" },         // Key (holes intact, lock twist)
-  { tNum: 29, palette: ["#00e676", "#69f0ae"], motion: "celtic_swirl", colorFX: "beacon" },      // Celtic knot (green)
-  { tNum: 30, palette: ["#ff1744", "#d50000"], motion: "helix", colorFX: "fire_burst" },          // Symbol (red)
-  { tNum: 31, palette: ["#ffd54f", "#00e5ff"], motion: "vortex", colorFX: "sparkle" },            // Symbol (rotates 360°)
-  { tNum: 33, palette: ["#ffffff", "#ffd54f"], motion: "explosion", colorFX: "beacon" },          // Talisman
-  { tNum: 34, palette: ["#e040fb", "#7c4dff"], motion: "celtic_swirl", colorFX: "mystic_aurora" },// Portal
-  { tNum: 17, palette: ["#ffffff", "#ffd54f", "#ff9100", "#d50000"], motion: "vortex", colorFX: "fire_burst", isLast: true } // Finale
+  { tNum: 16, palette: ["#ffd54f", "#ff9800"], motion: "vortex", colorFX: "sparkle" },                      // Wheat
+  { tNum: 25, palette: ["#cfd8dc", "#8d6e63"], motion: "celtic_swirl", colorFX: "fire_burst" },               // Scythe (steel blade, wood handle)
+  { tNum: 28, palette: ["#ff1744", "#ffab00"], motion: "vortex", colorFX: "mystic_aurora" },                  // Leaf (red blade, gold stem)
+  { tNum: 26, palette: ["#8d6e63", "#ff9100"], motion: "explosion", colorFX: "beacon" },                     // Tree (brown trunk, amber canopy)
+  { tNum: 20, palette: ["#40c4ff", "#8d6e63", "#ffc107"], motion: "helix", colorFX: "sparkle" },             // Raven (electric blue bird, brown branch, amber eye)
+  { tNum: 27, palette: ["#ffffff", "#ffb300", "#8d6e63"], motion: "vortex", colorFX: "fire_burst" },            // Owl (white feathers, amber beak/eyes, brown perch)
+  { tNum: 18, palette: ["#ff6d00", "#76ff03"], motion: "celtic_swirl", colorFX: "sparkle" },                 // Pumpkin (deep orange, green stem)
+  { tNum: 24, palette: ["#ffffff", "#ff3d00", "#ffa000"], motion: "explosion", colorFX: "fire_burst" },          // Candle (white wax, red flame, brass holder)
+  { tNum: 21, palette: ["#ff3d00", "#b0bec5", "#00e5ff"], motion: "vortex", colorFX: "mystic_aurora" },          // Cauldron (red fire underneath, slate pot, blue potion/steam)
+  { tNum: 23, palette: ["#fff9c4", "#ffb74d", "#00e676"], motion: "helix", colorFX: "beacon" },                // Witch (pale moon, straw broom, emerald cloak)
+  { tNum: 22, palette: ["#ffffff", "#00e676"], motion: "celtic_swirl", colorFX: "sparkle", isStill: true },  // Skull (bone white skull, green leafy crown - STATIONARY)
+  { tNum: 19, palette: ["#ffffff", "#80d8ff"], motion: "vortex", colorFX: "mystic_aurora" },                  // Ghost (pure white body, cyan eye voids)
+  { tNum: 32, palette: ["#ffd700", "#ffb300"], motion: "explosion", colorFX: "sparkle" },                    // Key (gold shaft, brass ring)
+  { tNum: 29, palette: ["#00e676", "#00c853"], motion: "celtic_swirl", colorFX: "beacon" },                 // Celtic knot (green)
+  { tNum: 30, palette: ["#ff1744", "#d50000"], motion: "helix", colorFX: "fire_burst" },                     // Sigil (red)
+  { tNum: 31, palette: ["#ffd600", "#00e5ff"], motion: "vortex", colorFX: "sparkle" },                       // Mystic Symbol (rotates 360°)
+  { tNum: 33, palette: ["#e040fb", "#ffd600"], motion: "explosion", colorFX: "beacon" },                     // Talisman
+  { tNum: 34, palette: ["#7c4dff", "#00e5ff"], motion: "celtic_swirl", colorFX: "mystic_aurora" },           // Portal
+  { tNum: 17, palette: ["#ffffff", "#ffd54f", "#ff6d00", "#d50000"], motion: "vortex", colorFX: "fire_burst" } // Titan / Bonfire Finale
 ];
 
 const timelineData = {
-  formationBlocks: SHOW_SCENES.map((sc, idx) => {
-    return {
+  formationBlocks: [
+    ...SHOW_SCENES.map((sc, idx) => ({
       id: `s_${idx}`,
       shapeId: `samhainTile${sc.tNum}`,
       tileNum: sc.tNum,
       isText: false,
-      dur: sc.isLast ? 10.0 : 5.0, // Snappy 5 seconds on each formation
-      transDur: sc.isLast ? 0.0 : 4.0,
+      isStill: sc.isStill || false,
+      dur: 5.0, // Snappy 5 seconds on every shape
+      transDur: 4.0,
       transMotion: sc.motion,
       transColorFX: sc.colorFX,
       altitude: 16.0,
@@ -583,8 +585,28 @@ const timelineData = {
       blinkSpeed: 3.0,
       sparkle: true,
       sparkleDensity: 0.35
-    };
-  })
+    })),
+    // Final Celebration Message leading into the Landing
+    {
+      id: "s_finale_text",
+      isText: true,
+      text: "BLESSED SAMHAIN",
+      font: "Impact",
+      dur: 6.0,
+      transDur: 0.0,
+      altitude: 18.0,
+      scale: 1.0,
+      palette: ["#ffab00", "#ffffff"],
+      activeSwatchIdx: 0,
+      cycleSpeed: 0.5,
+      run: false,
+      runSpeed: 3.0,
+      blink: false,
+      blinkSpeed: 3.0,
+      sparkle: true,
+      sparkleDensity: 0.3
+    }
+  ]
 };
 
 let selectedInspectorType = "formation";
@@ -609,6 +631,9 @@ async function buildShowTrajectoryData() {
     if (b.customPoints) {
       raw.set(b.customPoints.subarray(0, formationCount * 3));
       if (b.customSwatches) swatches.set(b.customSwatches.subarray(0, formationCount));
+    } else if (b.isText) {
+      generateTextDrones(raw, b.text || "SAMHAIN", formationCount, b.font || "Impact", 0.28, 16);
+      for (let s = 0; s < formationCount; s++) swatches[s] = s % (b.palette?.length || 2);
     } else {
       const shape = findShapeById(b.shapeId);
       if (shape) await shape.gen(raw, formationCount, swatches);
@@ -802,7 +827,7 @@ function evaluateTimeline(t) {
       const v0y = THREE.MathUtils.degToRad(b.rotStartY || 0);
       const v1y = THREE.MathUtils.degToRad(b.rotEndY || 0);
 
-      // Steady Scene Playback with Per-Tile Bespoke Animations
+      // Steady Scene Playback with Per-Tile Logical Animations
       if (showT >= formStart && showT < formEnd) {
         const uBlock = (showT - formStart) / b.dur;
         const curRotY = v0y + (v1y - v0y) * uBlock;
@@ -810,8 +835,12 @@ function evaluateTimeline(t) {
 
         localScratchPoints.set(currTargets.subarray(0, formationCount * 3));
 
+        // Skip animation for Skull (stationary stillness of death)
+        if (b.isStill) {
+          // Stationary
+        }
         // Tile 16: Harvest Wheat Wind Sway
-        if (b.shapeId === "samhainTile16") {
+        else if (b.tileNum === 16) {
           for (let j = 0; j < formationCount; j++) {
             const py = localScratchPoints[j * 3 + 1];
             const px = localScratchPoints[j * 3];
@@ -821,19 +850,22 @@ function evaluateTimeline(t) {
             localScratchPoints[j * 3 + 1] -= Math.abs(sway) * 0.12 * yNorm;
           }
         }
-        // Tile 25: Scythe Door-Hinge Pivot
-        else if (b.shapeId === "samhainTile25") {
-          const hingeAngle = Math.sin(tScene * 2.5) * 0.32; // Pivots like a door on a hinge
-          const cosH = Math.cos(hingeAngle), sinH = Math.sin(hingeAngle);
+        // Tile 25: Scythe Cutting Swing
+        else if (b.tileNum === 25) {
+          // Swift cutting slash forward across ~65°, followed by smooth recovery
+          const swingPhase = (tScene * 1.6) % (Math.PI * 2);
+          const cutMotion = Math.sin(swingPhase) > 0 ? Math.pow(Math.sin(swingPhase), 2.5) * 0.95 : -Math.pow(Math.abs(Math.sin(swingPhase)), 1.5) * 0.35;
+          const cosCut = Math.cos(cutMotion), sinCut = Math.sin(cutMotion);
+
           for (let j = 0; j < formationCount; j++) {
             const lx = localScratchPoints[j * 3];
-            const lz = localScratchPoints[j * 3 + 2];
-            localScratchPoints[j * 3]     = lx * cosH - lz * sinH;
-            localScratchPoints[j * 3 + 2] = lx * sinH + lz * cosH;
+            const ly = localScratchPoints[j * 3 + 1] - 8.0; // Pivot at handle base
+            localScratchPoints[j * 3]     = lx * cosCut - ly * sinCut;
+            localScratchPoints[j * 3 + 1] = 8.0 + (lx * sinCut + ly * cosCut);
           }
         }
         // Tile 28: Red Leaf Flutter
-        else if (b.shapeId === "samhainTile28") {
+        else if (b.tileNum === 28) {
           for (let j = 0; j < formationCount; j++) {
             const py = localScratchPoints[j * 3 + 1];
             const flutter = Math.sin(tScene * 3.5 + py * 0.4) * 0.8;
@@ -842,49 +874,99 @@ function evaluateTimeline(t) {
           }
         }
         // Tile 26: Ancient Tree Branch Sway
-        else if (b.shapeId === "samhainTile26") {
+        else if (b.tileNum === 26) {
           for (let j = 0; j < formationCount; j++) {
             const py = localScratchPoints[j * 3 + 1];
             const yNorm = Math.max(0, (py - 12) / 14);
             localScratchPoints[j * 3] += Math.sin(tScene * 1.8 + py * 0.2) * (yNorm * 0.9);
           }
         }
-        // Tile 24: Candle Flame Waver + Dripping Wax
-        else if (b.shapeId === "samhainTile24") {
+        // Tile 20: Raven Perch Breathing & Fidget
+        else if (b.tileNum === 20) {
+          const breath = Math.sin(tScene * 2.8) * 0.35;
           for (let j = 0; j < formationCount; j++) {
             const py = localScratchPoints[j * 3 + 1];
-            if (py > 17.5) { // Upper Flame
+            if (py > 15.0) localScratchPoints[j * 3 + 1] += breath;
+          }
+        }
+        // Tile 27: Owl Head Tilt
+        else if (b.tileNum === 27) {
+          const tilt = Math.sin(tScene * 1.5) * 0.12;
+          const cosT = Math.cos(tilt), sinT = Math.sin(tilt);
+          for (let j = 0; j < formationCount; j++) {
+            const py = localScratchPoints[j * 3 + 1];
+            if (py > 16.0) {
+              const lx = localScratchPoints[j * 3];
+              const ly = localScratchPoints[j * 3 + 1] - 18.0;
+              localScratchPoints[j * 3]     = lx * cosT - ly * sinT;
+              localScratchPoints[j * 3 + 1] = 18.0 + (lx * sinT + ly * cosT);
+            }
+          }
+        }
+        // Tile 18: Pumpkin Wobble / Squash & Stretch
+        else if (b.tileNum === 18) {
+          const wobbleX = 1.0 + Math.sin(tScene * 3.2) * 0.055;
+          const wobbleY = 1.0 - Math.sin(tScene * 3.2) * 0.055;
+          for (let j = 0; j < formationCount; j++) {
+            localScratchPoints[j * 3]     *= wobbleX;
+            localScratchPoints[j * 3 + 1] = alt + (localScratchPoints[j * 3 + 1] - alt) * wobbleY;
+          }
+        }
+        // Tile 24: Candle Flame Waver + Dripping Wax
+        else if (b.tileNum === 24) {
+          for (let j = 0; j < formationCount; j++) {
+            const py = localScratchPoints[j * 3 + 1];
+            if (py > 17.5) {
               localScratchPoints[j * 3] += Math.sin(tScene * 6.0 + py) * 0.65;
-            } else if (j % 18 === 0 && py > 10.0 && py <= 16.0) { // Dripping wax droplets
+            } else if (j % 18 === 0 && py > 10.0 && py <= 16.0) {
               const dripOffset = ((tScene * 2.5 + j) % 4.0);
               localScratchPoints[j * 3 + 1] -= dripOffset * 0.8;
             }
           }
         }
         // Tile 21: Cauldron Bubbling Steam Rise
-        else if (b.shapeId === "samhainTile21") {
+        else if (b.tileNum === 21) {
           for (let j = 0; j < formationCount; j++) {
             const py = localScratchPoints[j * 3 + 1];
-            if (py > 16.5) { // Steam above cauldron rim
+            if (py > 16.5) {
               const steamWave = Math.sin(tScene * 3.0 + py * 0.5) * 0.7;
               localScratchPoints[j * 3] += steamWave;
               localScratchPoints[j * 3 + 1] += Math.sin(tScene * 2.0 + j * 0.1) * 0.4;
             }
           }
         }
+        // Tile 23: Witch Cloak Billow
+        else if (b.tileNum === 23) {
+          for (let j = 0; j < formationCount; j++) {
+            const px = localScratchPoints[j * 3];
+            const py = localScratchPoints[j * 3 + 1];
+            localScratchPoints[j * 3] += Math.sin(tScene * 3.2 + py * 0.4) * 0.6;
+          }
+        }
         // Tile 19: Ghost Ethereal Float & Waver
-        else if (b.shapeId === "samhainTile19") {
+        else if (b.tileNum === 19) {
           const floatY = Math.sin(tScene * 2.0) * 0.8;
           for (let j = 0; j < formationCount; j++) {
             const py = localScratchPoints[j * 3 + 1];
-            const px = localScratchPoints[j * 3];
             localScratchPoints[j * 3 + 1] += floatY;
             localScratchPoints[j * 3] += Math.sin(tScene * 2.5 + py * 0.3) * 0.5;
           }
         }
-        // Tile 31: 360° Rotating Symbol
-        else if (b.shapeId === "samhainTile31") {
-          const spinA = tScene * 0.65;
+        // Tile 32: Skeleton Key Lock-Turning Rotation
+        else if (b.tileNum === 32) {
+          const keyTurnAngle = Math.sin(tScene * 2.2) * (Math.PI / 2.2); // Rotates 90° clockwise to lock and back
+          const cosK = Math.cos(keyTurnAngle), sinK = Math.sin(keyTurnAngle);
+          for (let j = 0; j < formationCount; j++) {
+            const lx = localScratchPoints[j * 3];
+            const ly = localScratchPoints[j * 3 + 1] - alt;
+            localScratchPoints[j * 3]     = lx * cosK - ly * sinK;
+            localScratchPoints[j * 3 + 1] = alt + (lx * sinK + ly * cosK);
+          }
+        }
+        // Tile 29 & 30: Celtic Symbols Continuous Rotation
+        else if (b.tileNum === 29 || b.tileNum === 30) {
+          const dir = b.tileNum === 29 ? 1 : -1;
+          const spinA = tScene * 0.45 * dir;
           const cosS = Math.cos(spinA), sinS = Math.sin(spinA);
           for (let j = 0; j < formationCount; j++) {
             const lx = localScratchPoints[j * 3];
@@ -893,15 +975,22 @@ function evaluateTimeline(t) {
             localScratchPoints[j * 3 + 1] = alt + (lx * sinS + ly * cosS);
           }
         }
-        // Tile 32: Skeleton Key Axial Lock-Turning Twist
-        else if (b.shapeId === "samhainTile32") {
-          const twistAngle = Math.sin(tScene * 2.0) * 1.2; // Smooth 3D roll turning the key
-          const cosT = Math.cos(twistAngle), sinT = Math.sin(twistAngle);
+        // Tile 31: Solar Mystic Symbol 360° Celestial Rotation
+        else if (b.tileNum === 31) {
+          const spinA = tScene * 0.7;
+          const cosS = Math.cos(spinA), sinS = Math.sin(spinA);
           for (let j = 0; j < formationCount; j++) {
             const lx = localScratchPoints[j * 3];
-            const lz = localScratchPoints[j * 3 + 2];
-            localScratchPoints[j * 3]     = lx * cosT - lz * sinT;
-            localScratchPoints[j * 3 + 2] = lx * sinT + lz * cosT;
+            const ly = localScratchPoints[j * 3 + 1] - alt;
+            localScratchPoints[j * 3]     = lx * cosS - ly * sinS;
+            localScratchPoints[j * 3 + 1] = alt + (lx * sinS + ly * cosS);
+          }
+        }
+        // Finale Text: Blessed Samhain Wave
+        else if (b.isText) {
+          for (let j = 0; j < formationCount; j++) {
+            const px = localScratchPoints[j * 3];
+            localScratchPoints[j * 3 + 1] += Math.sin(tScene * 3.5 + px * 0.28) * 1.5;
           }
         }
 
@@ -997,10 +1086,8 @@ function evaluateTimeline(t) {
           prevBlockColor.set(cA);
           nextBlockColor.set(cB);
 
-          // Smooth RGB interpolation from shape A to shape B
           tempColor.lerpColors(prevBlockColor, nextBlockColor, ease);
 
-          // Dynamic accent flash at peak arc
           if (b.transColorFX === "sparkle") {
             const sparkle = Math.sin(t * 22.0 + j * 9.0) > 0.2 ? 1.0 : 0.15;
             tempColor.r = THREE.MathUtils.lerp(tempColor.r, sparkle, arc * 0.6);
@@ -1027,7 +1114,7 @@ function evaluateTimeline(t) {
     }
   }
 
-  // 3. Extended Climactic Aerial Swarm -> Cascading Helix -> Circular Hearth Landing
+  // 3. Extended Climactic Aerial Swarm -> Cascading Helix -> Circular Hearth Landing (Y >= 0.12m)
   else {
     const landT = t - showBodyEnd;
     const u = THREE.MathUtils.clamp(landT / landingConfig.dur, 0, 1);
@@ -1039,38 +1126,36 @@ function evaluateTimeline(t) {
 
     for (let i = 0; i < formationCount; i++) {
       const gx = groundPositions[i * 3];
-      const gy = groundPositions[i * 3 + 1]; // Exactly 0.12m ground pad
+      const gy = groundPositions[i * 3 + 1]; // Exactly 0.12m
       const gz = groundPositions[i * 3 + 2];
 
       transformToSky(lastTargets[i * 3], lastTargets[i * 3 + 1], lastTargets[i * 3 + 2], alt, scl, v1y, skyPosA);
 
       let curX, curY, curZ;
 
-      // Phase 1 (0 to 40% of landing duration): Climactic Aerial Sky Swarm
-      if (u < 0.40) {
-        const uSwarm = u / 0.40;
+      // Phase 1 (0 to 45% of landing duration): Climactic Aerial Sky Swarm
+      if (u < 0.45) {
+        const uSwarm = u / 0.45;
         const swarmArc = Math.sin(Math.PI * uSwarm);
         const theta = (i / formationCount) * Math.PI * 6.0 + landT * 1.5;
-        const swarmR = THREE.MathUtils.lerp(Math.sqrt(skyPosA.x * skyPosA.x + skyPosA.z * skyPosA.z), 24.0, swarmArc);
+        const swarmR = THREE.MathUtils.lerp(Math.sqrt(skyPosA.x * skyPosA.x + skyPosA.z * skyPosA.z), 25.0, swarmArc);
 
         curX = Math.cos(theta) * swarmR;
-        curY = skyPosA.y + Math.sin(uSwarm * Math.PI) * 6.0 + Math.sin(landT * 4.0 + i) * 1.2;
+        curY = skyPosA.y + Math.sin(uSwarm * Math.PI) * 7.0 + Math.sin(landT * 4.0 + i) * 1.2;
         curZ = Math.sin(theta) * swarmR;
 
-        // Radiant pulsing fire burst
         const pulse = (Math.sin(landT * 8.0 + i * 0.1) > 0.2) ? 1.0 : 0.3;
         targetColors[i * 3]     = 1.0;
         targetColors[i * 3 + 1] = 0.55 * pulse + 0.3;
         targetColors[i * 3 + 2] = 0.15;
       }
-      // Phase 2 (40% to 100%): Triple-Helix Spiral Descent directly to circular pad
+      // Phase 2 (45% to 100%): Triple-Helix Spiral Descent directly to circular pad
       else {
-        const uDesc = (u - 0.40) / 0.60;
+        const uDesc = (u - 0.45) / 0.55;
         const easeDesc = uDesc * uDesc * (3 - 2 * uDesc);
 
-        // Funnel spiral down to launch coordinates
         const funnelAngle = (1.0 - easeDesc) * Math.PI * 6.0 + (i % 3) * (Math.PI * 2 / 3);
-        const startR = 24.0 * (1.0 - easeDesc * 0.35);
+        const startR = 25.0 * (1.0 - easeDesc * 0.35);
         const targetR = Math.sqrt(gx * gx + gz * gz);
         const curR = THREE.MathUtils.lerp(startR, targetR, easeDesc);
 
@@ -1078,11 +1163,10 @@ function evaluateTimeline(t) {
         const curAngle = baseAngle + funnelAngle;
 
         curX = Math.cos(curAngle) * curR;
-        // Strictly interpolates above ground down to exactly gy = 0.12m
+        // Guaranteed strictly above ground down to exactly gy = 0.12m
         curY = THREE.MathUtils.lerp(22.0, gy, easeDesc);
         curZ = Math.sin(curAngle) * curR;
 
-        // Settles into gentle hearth ember glow
         const emberPulse = Math.sin(t * 6.0 + i) > 0.4 ? 1.0 : 0.3;
         targetColors[i * 3]     = emberPulse * (1 - easeDesc * 0.65);
         targetColors[i * 3 + 1] = (emberPulse * 0.45) * (1 - easeDesc * 0.85);
@@ -1090,7 +1174,7 @@ function evaluateTimeline(t) {
       }
 
       targetPositions[i * 3]     = curX;
-      targetPositions[i * 3 + 1] = Math.max(0.12, curY); // Guaranteed above ground
+      targetPositions[i * 3 + 1] = Math.max(0.12, curY); // Absolute floor clamp
       targetPositions[i * 3 + 2] = curZ;
     }
   }
@@ -1241,7 +1325,7 @@ onEvent("btn-export-unity", () => {
 
       return {
         sceneId: b.id,
-        name: b.shapeId,
+        name: b.isText ? b.text : b.shapeId,
         duration: b.dur,
         transDuration: b.transDur,
         transMotion: b.transMotion || "vortex",
@@ -1316,7 +1400,7 @@ function updateContextPanels() {
     const b = timelineData.formationBlocks.find(x => x.id === selectedFormationBlockId);
     if (!b) return;
 
-    $("inspector-shape-name").textContent = b.shapeId;
+    $("inspector-shape-name").textContent = b.isText ? b.text : b.shapeId;
     $("slider-block-alt").value = b.altitude || 16.0;
     $("val-block-alt").textContent = `${b.altitude || 16.0}m`;
     $("slider-block-scale").value = b.scale || 1.0;
@@ -1385,7 +1469,7 @@ function buildDesktopTimeline() {
     fBlock.className = "block-element" + (isSelected ? " active-block" : "");
     fBlock.style.width = (b.dur / TOTAL_DURATION) * 100 + "%";
     fBlock.style.background = "#192231";
-    fBlock.innerHTML = `<span style="color:#ffab00; padding:0 4px;">${b.shapeId}</span>`;
+    fBlock.innerHTML = `<span style="color:#ffab00; padding:0 4px;">${b.isText ? b.text : b.shapeId}</span>`;
 
     fBlock.onclick = (e) => {
       e.stopPropagation();
