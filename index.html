@@ -232,7 +232,7 @@ body.dragging #drop-overlay { display: flex; }
       <button class="toolbar-btn" id="btn-undo" title="Revert last action (Ctrl+Z)">↶ Undo</button>
     </div>
   </div>
-  <div id="status">Candle Color Zones Active: Red/Orange Flame, White Wax, Yellow Base</div>
+  <div id="status">Synchronized Color Mapping Active: Candle Flame Waver & Palette Mapped Accurately</div>
 
   <!-- Samhain Tiles Selector Bar -->
   <div class="section-label" style="margin-top:6px;">
@@ -342,8 +342,8 @@ body.dragging #drop-overlay { display: flex; }
   </div>
 
   <div id="hint">
-    <b>Candle Fixed:</b> Height limits strictly assign the flame to red/orange, the wax to white, and the holder to yellow. Only the flame wavers.<br>
-    <b>Show Flow:</b> Raven and cauldron deleted. Skull is bone white and stationary. Key turns smoothly.
+    <b>Candle Physics Verified:</b> Top 25% is red/orange flame that wavers, middle is pure white wax, bottom is yellow candlestick base.<br>
+    <b>Synchronized Swatches:</b> Drones carry their assigned feature colors accurately through all movements.
   </div>
 </div>
 <div id="vr-tip">In VR: Press Left X for HUD · Trigger paints drones with active swatch</div>
@@ -357,7 +357,7 @@ import {
   findShapeById,
   sampleImageToDrones,
   GOLDEN
-} from "./shapes.js?v=samhain_candle_fix_v12";
+} from "./shapes.js?v=samhain_candle_fix_v13";
 
 function formatTime(s) {
   if (isNaN(s) || s === undefined || s === null) return "00:00";
@@ -516,8 +516,10 @@ const dronePoints = new THREE.Points(
 );
 stageGroup.add(dronePoints);
 
-function assignMinimalPaths(currentPos, rawTargets, count) {
+// Reorders positions AND swatches simultaneously so colors remain locked to physical shape coordinates
+function assignMinimalPaths(currentPos, rawTargets, rawSwatches, count) {
   const assigned = new Float32Array(count * 3);
+  const assignedSwatches = new Uint8Array(count);
   const unassigned = new Set();
   for (let i = 0; i < count; i++) unassigned.add(i);
 
@@ -533,11 +535,14 @@ function assignMinimalPaths(currentPos, rawTargets, count) {
     assigned[i * 3]     = rawTargets[closest * 3];
     assigned[i * 3 + 1] = rawTargets[closest * 3 + 1];
     assigned[i * 3 + 2] = rawTargets[closest * 3 + 2];
+    if (rawSwatches) {
+      assignedSwatches[i] = rawSwatches[closest];
+    }
   }
-  return assigned;
+  return { positions: assigned, swatches: assignedSwatches };
 }
 
-// Master Sequence Definitions (Raven and Cauldron removed)
+// Master Scene Sequence: Raven and Cauldron removed
 const SHOW_SCENES = [
   { tNum: 16, palette: ["#ffd54f", "#8d4e28"], motion: "vortex", colorFX: "sparkle" },                                // Wheat
   { tNum: 25, palette: ["#cfd8dc", "#5d4037"], motion: "celtic_swirl", colorFX: "fire_burst" },                         // Scythe
@@ -613,10 +618,11 @@ async function buildShowTrajectoryData() {
       if (shape) await shape.gen(raw, formationCount, swatches);
     }
 
-    const assigned = assignMinimalPaths(prevSlots, raw, formationCount);
-    formationTrajectories.push(assigned);
-    formationSwatchStore.push(swatches);
-    prevSlots = assigned;
+    // Simultaneously reorders positions and swatches
+    const result = assignMinimalPaths(prevSlots, raw, swatches, formationCount);
+    formationTrajectories.push(result.positions);
+    formationSwatchStore.push(result.swatches);
+    prevSlots = result.positions;
   }
 }
 
@@ -884,11 +890,13 @@ function evaluateTimeline(t) {
             localScratchPoints[j * 3 + 1] = alt + (localScratchPoints[j * 3 + 1] - alt) * wobbleY;
           }
         }
-        // Tile 24: Candle Flame Waver ONLY (Wax and base remain rock-solid stationary)
+        // Tile 24: Candle Flame Waver ONLY (Wax and base remain completely motionless)
         else if (b.tileNum === 24) {
           for (let j = 0; j < formationCount; j++) {
-            if (droneSwatchIndices[j] === 1) { // Only the top flame drones waver
-              localScratchPoints[j * 3] += Math.sin(tScene * 5.5 + localScratchPoints[j * 3 + 1] * 2.0) * 0.45;
+            // Strictly target the flame drones at the top (Swatch 1)
+            if (currSwatches && currSwatches[j] === 1) {
+              const py = localScratchPoints[j * 3 + 1];
+              localScratchPoints[j * 3] += Math.sin(tScene * 5.5 + py * 1.5) * 0.45;
             }
           }
         }
@@ -1029,15 +1037,15 @@ function evaluateTimeline(t) {
           else if (currSwatches) droneSwatchIndices[j] = currSwatches[j];
         }
 
-        // Smooth Color Palette Transition with Festive Midpoint Accent
+        // Smooth Color Palette Transition directly across synchronized swatches
         const palA = b.palette || ["#ffffff"];
         const palB = nextB.palette || ["#ffffff"];
 
         for (let j = 0; j < formationCount; j++) {
-          const cA = palA[j % palA.length];
-          const cB = palB[j % palB.length];
-          prevBlockColor.set(cA);
-          nextBlockColor.set(cB);
+          const swatchA = currSwatches ? (currSwatches[j] % palA.length) : 0;
+          const swatchB = nextSwatches ? (nextSwatches[j] % palB.length) : 0;
+          prevBlockColor.set(palA[swatchA]);
+          nextBlockColor.set(palB[swatchB]);
 
           tempColor.lerpColors(prevBlockColor, nextBlockColor, ease);
 
@@ -1097,7 +1105,6 @@ function evaluateTimeline(t) {
         curY = skyPosA.y + Math.sin(uSwarm * Math.PI) * 7.0 + Math.sin(landT * 4.0 + i) * 1.2;
         curZ = Math.sin(theta) * swarmR;
 
-        // Dynamic multi-color strobe during finale swarm
         const strobe = (Math.sin(landT * 12.0 + i * 0.2) > 0.25) ? 1.0 : 0.25;
         const hueShift = ((i / formationCount) * 0.8 + landT * 0.3) % 1.0;
         tempColor.setHSL(hueShift, 1.0, 0.55);
@@ -1120,11 +1127,9 @@ function evaluateTimeline(t) {
         const curAngle = baseAngle + funnelAngle;
 
         curX = THREE.MathUtils.lerp(Math.cos(curAngle) * curR, gx, Math.pow(easeDesc, 2.0));
-        // Strictly clamped above ground down to exactly gy = 0.12m
         curY = THREE.MathUtils.lerp(22.0, gy, easeDesc);
         curZ = THREE.MathUtils.lerp(Math.sin(curAngle) * curR, gz, Math.pow(easeDesc, 2.0));
 
-        // Settles into launch ring colors
         const emberPulse = Math.sin(t * 6.0 + i) > 0.4 ? 1.0 : 0.3;
         targetColors[i * 3]     = emberPulse * (1 - easeDesc * 0.65);
         targetColors[i * 3 + 1] = (emberPulse * 0.45) * (1 - easeDesc * 0.85);
