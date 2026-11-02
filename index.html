@@ -232,11 +232,11 @@ body.dragging #drop-overlay { display: flex; }
       <button class="toolbar-btn" id="btn-undo" title="Revert last action (Ctrl+Z)">↶ Undo</button>
     </div>
   </div>
-  <div id="status">Logical Colors Applied · Red Branch Raven · Rocking Motion · Seamless Loop Landing</div>
+  <div id="status">Candle Color Zones Active: Red/Orange Flame, White Wax, Yellow Base</div>
 
   <!-- Samhain Tiles Selector Bar -->
   <div class="section-label" style="margin-top:6px;">
-    <span>Samhain Tiles (Narrative Order: Wheat -> Scythe -> Leaf -> Tree -> Raven -> Owl -> ... -> 17 Finale)</span>
+    <span>Samhain Tiles (Narrative Order: Wheat -> Scythe -> Leaf -> Tree -> Owl -> Pumpkin -> Candle...)</span>
   </div>
   <div class="tiles-scroll-bar" id="tiles-strip"></div>
 
@@ -336,14 +336,14 @@ body.dragging #drop-overlay { display: flex; }
 
     <div class="timeline-bottom-row">
       <button id="btn-play" style="padding:4px 14px; font-size:11px; background:#2e1d0c; border:1px solid #ffab00; color:#ffab00; border-radius:4px; cursor:pointer;">Play</button>
-      <span id="time-display" style="font-size:11px; font-variant-numeric:tabular-nums; min-width:85px;">00:00 / 02:45</span>
-      <span style="font-size:10px; color:#a08a75; flex:1; text-align:right;">Seamless Loop: Drones land exactly at start coordinates</span>
+      <span id="time-display" style="font-size:11px; font-variant-numeric:tabular-nums; min-width:85px;">00:00 / 02:35</span>
+      <span style="font-size:10px; color:#a08a75; flex:1; text-align:right;">Seamless Loop: Drones land at start positions</span>
     </div>
   </div>
 
   <div id="hint">
-    <b>Raven Rocking Motion:</b> Raven balances and rocks back and forth on a bright red branch with distinct yellow beak and feet.<br>
-    <b>Palette:</b> High-luminance colors ensure all shapes stand out clearly against the dark sky.
+    <b>Candle Fixed:</b> Height limits strictly assign the flame to red/orange, the wax to white, and the holder to yellow. Only the flame wavers.<br>
+    <b>Show Flow:</b> Raven and cauldron deleted. Skull is bone white and stationary. Key turns smoothly.
   </div>
 </div>
 <div id="vr-tip">In VR: Press Left X for HUD · Trigger paints drones with active swatch</div>
@@ -357,7 +357,7 @@ import {
   findShapeById,
   sampleImageToDrones,
   GOLDEN
-} from "./shapes.js?v=samhain_raven_fix_v1";
+} from "./shapes.js?v=samhain_candle_fix_v12";
 
 function formatTime(s) {
   if (isNaN(s) || s === undefined || s === null) return "00:00";
@@ -368,7 +368,7 @@ function formatTime(s) {
 
 const MAX_DRONES = 2000;
 let activeDroneCount = 800;
-let TOTAL_DURATION = 175.0;
+let TOTAL_DURATION = 165.0;
 let panSensitivity = 5.0;
 const BASE_DRONE_SIZE = 0.48;
 const Y_AXIS = new THREE.Vector3(0, 1, 0);
@@ -537,27 +537,26 @@ function assignMinimalPaths(currentPos, rawTargets, count) {
   return assigned;
 }
 
-// Logical Color Palettes matching User Specifications
+// Master Sequence Definitions (Raven and Cauldron removed)
 const SHOW_SCENES = [
-  { tNum: 16, palette: ["#ffd54f", "#8d4e28"], motion: "vortex", colorFX: "sparkle" },                                // Wheat (gold grain, wood stalk)
-  { tNum: 25, palette: ["#cfd8dc", "#5d4037"], motion: "celtic_swirl", colorFX: "fire_burst" },                         // Scythe (steel grey blade, wood handle)
-  { tNum: 28, palette: ["#d50000", "#8d4e28"], motion: "vortex", colorFX: "mystic_aurora" },                            // Leaf (crimson red, wood stem)
-  { tNum: 26, palette: ["#388e3c", "#8d4e28", "#ffd54f"], motion: "explosion", colorFX: "beacon" },                   // Oak branch (green leaves, wood brown branch, gold acorn)
-  // Raven: Electric blue body (#00b0ff), bright red branch (#d50000), yellow beak/feet (#ffd600), white accents (#ffffff)
-  { tNum: 20, palette: ["#00b0ff", "#d50000", "#ffd600", "#ffffff"], motion: "helix", colorFX: "sparkle" },
-  { tNum: 27, palette: ["#ffffff", "#ffab00", "#5d4037"], motion: "vortex", colorFX: "fire_burst" },                     // Owl (white feathers, amber eyes/beak, wood branch)
-  { tNum: 18, palette: ["#ff6d00", "#43a047"], motion: "celtic_swirl", colorFX: "sparkle" },                            // Pumpkin (deep saturated orange body, green stem ONLY)
-  { tNum: 24, palette: ["#ffffff", "#ff3d00", "#d4af37"], motion: "explosion", colorFX: "fire_burst" },                   // Candle (white wax, red/orange flame, bronze holder)
-  { tNum: 23, palette: ["#ffffff", "#6d4c41", "#00c853", "#ffffff"], motion: "helix", colorFX: "beacon" },               // Witch (white moon/face, wood broom, green cloak with white highlights)
-  { tNum: 22, palette: ["#ffffff"], motion: "celtic_swirl", colorFX: "sparkle", isStill: true },                         // Skull (100% bone white, motionless stillness of death)
-  { tNum: 19, palette: ["#ffffff", "#00e5ff"], motion: "vortex", colorFX: "mystic_aurora" },                            // Ghost (pure white body, cyan eye voids)
-  { tNum: 32, palette: ["#ffd700", "#ffb300"], motion: "explosion", colorFX: "sparkle" },                              // Key (gold & brass)
-  { tNum: 29, palette: ["#00e676", "#00b0ff"], motion: "celtic_swirl", colorFX: "beacon" },                            // Celtic Knot (emerald green)
-  { tNum: 30, palette: ["#ff1744", "#d50000"], motion: "helix", colorFX: "fire_burst" },                               // Sigil (red)
-  { tNum: 31, palette: ["#ffd54f", "#ff9100"], motion: "vortex", colorFX: "sparkle" },                                 // Rotating Symbol (golden solar)
+  { tNum: 16, palette: ["#ffd54f", "#8d4e28"], motion: "vortex", colorFX: "sparkle" },                                // Wheat
+  { tNum: 25, palette: ["#cfd8dc", "#5d4037"], motion: "celtic_swirl", colorFX: "fire_burst" },                         // Scythe
+  { tNum: 28, palette: ["#d50000", "#8d4e28"], motion: "vortex", colorFX: "mystic_aurora" },                            // Leaf
+  { tNum: 26, palette: ["#388e3c", "#8d4e28", "#ffd54f"], motion: "explosion", colorFX: "beacon" },                   // Oak branch
+  { tNum: 27, palette: ["#ffffff", "#ffab00", "#5d4037"], motion: "vortex", colorFX: "fire_burst" },                     // Owl
+  { tNum: 18, palette: ["#ff6d00", "#43a047"], motion: "celtic_swirl", colorFX: "sparkle" },                            // Pumpkin
+  // Candle: Wax (0: #ffffff), Flame (1: #ff3d00), Base (2: #ffd600)
+  { tNum: 24, palette: ["#ffffff", "#ff3d00", "#ffd600"], motion: "explosion", colorFX: "fire_burst" },                   
+  { tNum: 23, palette: ["#ffffff", "#6d4c41", "#00c853", "#ffffff"], motion: "helix", colorFX: "beacon" },               // Witch
+  { tNum: 22, palette: ["#ffffff"], motion: "celtic_swirl", colorFX: "sparkle", isStill: true },                         // Skull (stationary)
+  { tNum: 19, palette: ["#ffffff", "#00e5ff"], motion: "vortex", colorFX: "mystic_aurora" },                            // Ghost
+  { tNum: 32, palette: ["#ffd700", "#ffb300"], motion: "explosion", colorFX: "sparkle" },                              // Key
+  { tNum: 29, palette: ["#00e676", "#00b0ff"], motion: "celtic_swirl", colorFX: "beacon" },                            // Celtic Knot
+  { tNum: 30, palette: ["#ff1744", "#d50000"], motion: "helix", colorFX: "fire_burst" },                               // Sigil
+  { tNum: 31, palette: ["#ffd54f", "#ff9100"], motion: "vortex", colorFX: "sparkle" },                                 // Rotating Symbol
   { tNum: 33, palette: ["#e040fb", "#ffd54f"], motion: "explosion", colorFX: "beacon" },                               // Talisman
-  { tNum: 34, palette: ["#7c4dff", "#00e5ff"], motion: "celtic_swirl", colorFX: "mystic_aurora" },                     // Cross (rotating in place)
-  { tNum: 17, palette: ["#ffffff", "#ffd54f", "#ff6d00", "#d50000"], motion: "vortex", colorFX: "fire_burst", isLast: true } // Tile 17 Finale (Bonfire & Blessed Samhain)
+  { tNum: 34, palette: ["#7c4dff", "#00e5ff"], motion: "celtic_swirl", colorFX: "mystic_aurora" },                     // Cross
+  { tNum: 17, palette: ["#ffffff", "#ffd54f", "#ff6d00", "#d50000"], motion: "vortex", colorFX: "fire_burst", isLast: true } // Tile 17 Finale
 ];
 
 const timelineData = {
@@ -567,7 +566,7 @@ const timelineData = {
     tileNum: sc.tNum,
     isText: false,
     isStill: sc.isStill || false,
-    dur: sc.isLast ? 10.0 : 5.0, // Snappy 5 seconds on every shape
+    dur: sc.isLast ? 10.0 : 5.0,
     transDur: sc.isLast ? 0.0 : 4.0,
     transMotion: sc.motion,
     transColorFX: sc.colorFX,
@@ -859,18 +858,6 @@ function evaluateTimeline(t) {
             }
           }
         }
-        // Tile 20: Raven Natural Rocking Back and Forth
-        else if (b.tileNum === 20) {
-          const rockAngle = Math.sin(tScene * 2.5) * 0.12; // Natural tilt balancing on perch
-          const cosR = Math.cos(rockAngle), sinR = Math.sin(rockAngle);
-          const pivotY = alt - 4.0; // Branch perch level
-          for (let j = 0; j < formationCount; j++) {
-            const lx = localScratchPoints[j * 3];
-            const ly = localScratchPoints[j * 3 + 1] - pivotY;
-            localScratchPoints[j * 3]     = lx * cosR - ly * sinR;
-            localScratchPoints[j * 3 + 1] = pivotY + (lx * sinR + ly * cosR);
-          }
-        }
         // Tile 27: Owl Head & Body Smooth Rocking
         else if (b.tileNum === 27) {
           const rockAngle = Math.sin(tScene * 2.2) * 0.14;
@@ -897,15 +884,11 @@ function evaluateTimeline(t) {
             localScratchPoints[j * 3 + 1] = alt + (localScratchPoints[j * 3 + 1] - alt) * wobbleY;
           }
         }
-        // Tile 24: Candle Flame Waver + Dripping Wax
+        // Tile 24: Candle Flame Waver ONLY (Wax and base remain rock-solid stationary)
         else if (b.tileNum === 24) {
           for (let j = 0; j < formationCount; j++) {
-            const py = localScratchPoints[j * 3 + 1];
-            if (py > 17.5) { // Only flame wavers
-              localScratchPoints[j * 3] += Math.sin(tScene * 6.0 + py) * 0.65;
-            } else if (j % 18 === 0 && py > 10.0 && py <= 16.0) {
-              const dripOffset = ((tScene * 2.5 + j) % 4.0);
-              localScratchPoints[j * 3 + 1] -= dripOffset * 0.8;
+            if (droneSwatchIndices[j] === 1) { // Only the top flame drones waver
+              localScratchPoints[j * 3] += Math.sin(tScene * 5.5 + localScratchPoints[j * 3 + 1] * 2.0) * 0.45;
             }
           }
         }
@@ -1217,7 +1200,7 @@ function populateTilesStrip() {
   strip.innerHTML = "";
 
   const tileOrder = [
-    16, 25, 28, 26, 20, 27, 18, 24, 23, 22, 19, 32, 29, 30, 31, 33, 34, 17,
+    16, 25, 28, 26, 27, 18, 24, 23, 22, 19, 32, 29, 30, 31, 33, 34, 17,
     1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15
   ];
   tileOrder.forEach((tileNum) => {
@@ -1577,9 +1560,8 @@ renderer.setAnimationLoop(now => {
 
   if (isPlaying) {
     playheadTime += dt;
-    // Seamless show loop: resets to 0.0 to smoothly repeat
     if (playheadTime >= TOTAL_DURATION) {
-      playheadTime = 0.0;
+      playheadTime = 0.0; // Seamless show loop
     }
     evaluateTimeline(playheadTime);
     syncDesktopTimeline();
