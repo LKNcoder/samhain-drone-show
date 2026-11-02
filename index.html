@@ -232,7 +232,7 @@ body.dragging #drop-overlay { display: flex; }
       <button class="toolbar-btn" id="btn-undo" title="Revert last action (Ctrl+Z)">↶ Undo</button>
     </div>
   </div>
-  <div id="status">Logical Colors Applied · Natural Cutting Scythe & Key Rotation · Seamless Loop Landing</div>
+  <div id="status">Logical Colors Applied · Red Branch Raven · Rocking Motion · Seamless Loop Landing</div>
 
   <!-- Samhain Tiles Selector Bar -->
   <div class="section-label" style="margin-top:6px;">
@@ -336,14 +336,14 @@ body.dragging #drop-overlay { display: flex; }
 
     <div class="timeline-bottom-row">
       <button id="btn-play" style="padding:4px 14px; font-size:11px; background:#2e1d0c; border:1px solid #ffab00; color:#ffab00; border-radius:4px; cursor:pointer;">Play</button>
-      <span id="time-display" style="font-size:11px; font-variant-numeric:tabular-nums; min-width:85px;">00:00 / 03:00</span>
+      <span id="time-display" style="font-size:11px; font-variant-numeric:tabular-nums; min-width:85px;">00:00 / 02:45</span>
       <span style="font-size:10px; color:#a08a75; flex:1; text-align:right;">Seamless Loop: Drones land exactly at start coordinates</span>
     </div>
   </div>
 
   <div id="hint">
-    <b>Sensible Color Physics:</b> Wood is warm brown, skulls and candle wax are white, flames are red/orange, pumpkin body is deep orange.<br>
-    <b>Motions:</b> Scythe cutting slash, key lock rotation, stationary deathly skull, and an owl with zero seam gaps.
+    <b>Raven Rocking Motion:</b> Raven balances and rocks back and forth on a bright red branch with distinct yellow beak and feet.<br>
+    <b>Palette:</b> High-luminance colors ensure all shapes stand out clearly against the dark sky.
   </div>
 </div>
 <div id="vr-tip">In VR: Press Left X for HUD · Trigger paints drones with active swatch</div>
@@ -357,7 +357,7 @@ import {
   findShapeById,
   sampleImageToDrones,
   GOLDEN
-} from "./shapes.js?v=samhain_polish_v11";
+} from "./shapes.js?v=samhain_raven_fix_v1";
 
 function formatTime(s) {
   if (isNaN(s) || s === undefined || s === null) return "00:00";
@@ -368,7 +368,7 @@ function formatTime(s) {
 
 const MAX_DRONES = 2000;
 let activeDroneCount = 800;
-let TOTAL_DURATION = 185.0;
+let TOTAL_DURATION = 175.0;
 let panSensitivity = 5.0;
 const BASE_DRONE_SIZE = 0.48;
 const Y_AXIS = new THREE.Vector3(0, 1, 0);
@@ -537,13 +537,14 @@ function assignMinimalPaths(currentPos, rawTargets, count) {
   return assigned;
 }
 
-// Logical Color Palettes matching Real-World Object Physics
+// Logical Color Palettes matching User Specifications
 const SHOW_SCENES = [
   { tNum: 16, palette: ["#ffd54f", "#8d4e28"], motion: "vortex", colorFX: "sparkle" },                                // Wheat (gold grain, wood stalk)
   { tNum: 25, palette: ["#cfd8dc", "#5d4037"], motion: "celtic_swirl", colorFX: "fire_burst" },                         // Scythe (steel grey blade, wood handle)
   { tNum: 28, palette: ["#d50000", "#8d4e28"], motion: "vortex", colorFX: "mystic_aurora" },                            // Leaf (crimson red, wood stem)
   { tNum: 26, palette: ["#388e3c", "#8d4e28", "#ffd54f"], motion: "explosion", colorFX: "beacon" },                   // Oak branch (green leaves, wood brown branch, gold acorn)
-  { tNum: 20, palette: ["#00b0ff", "#6d4c41", "#ffab00", "#ffffff"], motion: "helix", colorFX: "sparkle" },             // Raven (bright blue bird, wood branch, gold beak/feet, white accents)
+  // Raven: Electric blue body (#00b0ff), bright red branch (#d50000), yellow beak/feet (#ffd600), white accents (#ffffff)
+  { tNum: 20, palette: ["#00b0ff", "#d50000", "#ffd600", "#ffffff"], motion: "helix", colorFX: "sparkle" },
   { tNum: 27, palette: ["#ffffff", "#ffab00", "#5d4037"], motion: "vortex", colorFX: "fire_burst" },                     // Owl (white feathers, amber eyes/beak, wood branch)
   { tNum: 18, palette: ["#ff6d00", "#43a047"], motion: "celtic_swirl", colorFX: "sparkle" },                            // Pumpkin (deep saturated orange body, green stem ONLY)
   { tNum: 24, palette: ["#ffffff", "#ff3d00", "#d4af37"], motion: "explosion", colorFX: "fire_burst" },                   // Candle (white wax, red/orange flame, bronze holder)
@@ -826,7 +827,6 @@ function evaluateTimeline(t) {
         }
         // Tile 25: Scythe Cutting Swing
         else if (b.tileNum === 25) {
-          // Swift agricultural cutting slash across ~65°, followed by smooth recovery
           const swingPhase = (tScene * 1.6) % (Math.PI * 2);
           const cutMotion = Math.sin(swingPhase) > 0 
             ? Math.pow(Math.sin(swingPhase), 2.2) * 0.95 
@@ -835,7 +835,7 @@ function evaluateTimeline(t) {
 
           for (let j = 0; j < formationCount; j++) {
             const lx = localScratchPoints[j * 3];
-            const ly = localScratchPoints[j * 3 + 1] - 8.0; // Pivot at snath base
+            const ly = localScratchPoints[j * 3 + 1] - 8.0;
             localScratchPoints[j * 3]     = lx * cosCut - ly * sinCut;
             localScratchPoints[j * 3 + 1] = 8.0 + (lx * sinCut + ly * cosCut);
           }
@@ -853,40 +853,32 @@ function evaluateTimeline(t) {
         else if (b.tileNum === 26) {
           for (let j = 0; j < formationCount; j++) {
             const py = localScratchPoints[j * 3 + 1];
-            // Only leaves (upper regions) waver; wood branch remains solid
             if (py > 15.5) {
               const yNorm = Math.max(0, (py - 15.5) / 10.0);
               localScratchPoints[j * 3] += Math.sin(tScene * 2.6 + py * 0.3) * (yNorm * 0.85);
             }
           }
         }
-        // Tile 20: Raven Caw & Wing Flap
+        // Tile 20: Raven Natural Rocking Back and Forth
         else if (b.tileNum === 20) {
-          const flap = Math.sin(tScene * 4.5);
-          const caw = Math.sin(tScene * 2.2);
+          const rockAngle = Math.sin(tScene * 2.5) * 0.12; // Natural tilt balancing on perch
+          const cosR = Math.cos(rockAngle), sinR = Math.sin(rockAngle);
+          const pivotY = alt - 4.0; // Branch perch level
           for (let j = 0; j < formationCount; j++) {
-            const py = localScratchPoints[j * 3 + 1];
-            const px = localScratchPoints[j * 3];
-            // Wings flap
-            if (Math.abs(px) > 3.0 && py > 13.0) {
-              localScratchPoints[j * 3 + 1] += flap * 0.75 * (Math.abs(px) / 8.0);
-              localScratchPoints[j * 3 + 2] += Math.cos(tScene * 4.5) * 1.2;
-            }
-            // Head/beak caws forward
-            if (py > 18.0) {
-              localScratchPoints[j * 3] += (caw > 0.4 ? 0.6 : 0);
-              localScratchPoints[j * 3 + 1] += (caw > 0.4 ? 0.3 : 0);
-            }
+            const lx = localScratchPoints[j * 3];
+            const ly = localScratchPoints[j * 3 + 1] - pivotY;
+            localScratchPoints[j * 3]     = lx * cosR - ly * sinR;
+            localScratchPoints[j * 3 + 1] = pivotY + (lx * sinR + ly * cosR);
           }
         }
-        // Tile 27: Owl Head & Body Smooth Rocking (Zero seam gap)
+        // Tile 27: Owl Head & Body Smooth Rocking
         else if (b.tileNum === 27) {
           const rockAngle = Math.sin(tScene * 2.2) * 0.14;
           const pivotY = 10.0;
           for (let j = 0; j < formationCount; j++) {
             const py = localScratchPoints[j * 3 + 1];
             if (py > 10.5) {
-              const factor = Math.min(1.0, (py - 10.5) / 10.0); // Continuous deformation across entire body
+              const factor = Math.min(1.0, (py - 10.5) / 10.0);
               const angle = rockAngle * factor;
               const ca = Math.cos(angle), sa = Math.sin(angle);
               const lx = localScratchPoints[j * 3];
@@ -911,13 +903,13 @@ function evaluateTimeline(t) {
             const py = localScratchPoints[j * 3 + 1];
             if (py > 17.5) { // Only flame wavers
               localScratchPoints[j * 3] += Math.sin(tScene * 6.0 + py) * 0.65;
-            } else if (j % 18 === 0 && py > 10.0 && py <= 16.0) { // Dripping wax droplets
+            } else if (j % 18 === 0 && py > 10.0 && py <= 16.0) {
               const dripOffset = ((tScene * 2.5 + j) % 4.0);
               localScratchPoints[j * 3 + 1] -= dripOffset * 0.8;
             }
           }
         }
-        // Tile 23: Witch Bobbing (Moon stays stationary!)
+        // Tile 23: Witch Bobbing (Moon stays stationary)
         else if (b.tileNum === 23) {
           const bob = Math.sin(tScene * 2.8) * 0.85;
           for (let j = 0; j < formationCount; j++) {
@@ -940,7 +932,7 @@ function evaluateTimeline(t) {
         }
         // Tile 32: Skeleton Key Lock-Turning Rotation
         else if (b.tileNum === 32) {
-          const turn = Math.sin(tScene * 2.4) * (Math.PI / 2.0); // Exact 90° clockwise/counter-clockwise lock turn
+          const turn = Math.sin(tScene * 2.4) * (Math.PI / 2.0);
           const cosK = Math.cos(turn), sinK = Math.sin(turn);
           for (let j = 0; j < formationCount; j++) {
             const lx = localScratchPoints[j * 3];
@@ -1015,7 +1007,6 @@ function evaluateTimeline(t) {
           let midZ = skyPosA.z + (skyPosB.z - skyPosA.z) * ease;
 
           if (motionStyle === "vortex") {
-            // One continuous forward 400-degree rotation (no backward unwinding)
             const distFromCenter = Math.sqrt(midX * midX + (midY - interpAlt) * (midY - interpAlt));
             const baseAngle = Math.atan2(midY - interpAlt, midX);
             const spinAngle = baseAngle + progress * (Math.PI * 2.22);
@@ -1123,7 +1114,7 @@ function evaluateTimeline(t) {
         curY = skyPosA.y + Math.sin(uSwarm * Math.PI) * 7.0 + Math.sin(landT * 4.0 + i) * 1.2;
         curZ = Math.sin(theta) * swarmR;
 
-        // Multi-color blinking and strobe effects during finale swarm
+        // Dynamic multi-color strobe during finale swarm
         const strobe = (Math.sin(landT * 12.0 + i * 0.2) > 0.25) ? 1.0 : 0.25;
         const hueShift = ((i / formationCount) * 0.8 + landT * 0.3) % 1.0;
         tempColor.setHSL(hueShift, 1.0, 0.55);
@@ -1157,7 +1148,7 @@ function evaluateTimeline(t) {
         targetColors[i * 3 + 2] = 0.05;
       }
 
-      // At exactly u=1.0, coordinates snap 100% to groundPositions for seamless looping
+      // Exact snap at completion to enable seamless looping
       if (u >= 0.999) {
         curX = gx;
         curY = gy;
@@ -1165,7 +1156,7 @@ function evaluateTimeline(t) {
       }
 
       targetPositions[i * 3]     = curX;
-      targetPositions[i * 3 + 1] = Math.max(0.12, curY); // Absolute floor clamp
+      targetPositions[i * 3 + 1] = Math.max(0.12, curY);
       targetPositions[i * 3 + 2] = curZ;
     }
   }
@@ -1391,7 +1382,7 @@ function updateContextPanels() {
     const b = timelineData.formationBlocks.find(x => x.id === selectedFormationBlockId);
     if (!b) return;
 
-    $("inspector-shape-name").textContent = b.isText ? b.text : b.shapeId;
+    $("inspector-shape-name").textContent = b.shapeId;
     $("slider-block-alt").value = b.altitude || 16.0;
     $("val-block-alt").textContent = `${b.altitude || 16.0}m`;
     $("slider-block-scale").value = b.scale || 1.0;
@@ -1460,7 +1451,7 @@ function buildDesktopTimeline() {
     fBlock.className = "block-element" + (isSelected ? " active-block" : "");
     fBlock.style.width = (b.dur / TOTAL_DURATION) * 100 + "%";
     fBlock.style.background = "#192231";
-    fBlock.innerHTML = `<span style="color:#ffab00; padding:0 4px;">${b.isText ? b.text : b.shapeId}</span>`;
+    fBlock.innerHTML = `<span style="color:#ffab00; padding:0 4px;">${b.shapeId}</span>`;
 
     fBlock.onclick = (e) => {
       e.stopPropagation();
@@ -1586,7 +1577,7 @@ renderer.setAnimationLoop(now => {
 
   if (isPlaying) {
     playheadTime += dt;
-    // Seamless show loop: resets to 0.0 to seamlessly repeat
+    // Seamless show loop: resets to 0.0 to smoothly repeat
     if (playheadTime >= TOTAL_DURATION) {
       playheadTime = 0.0;
     }
