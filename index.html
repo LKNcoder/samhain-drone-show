@@ -232,11 +232,11 @@ body.dragging #drop-overlay { display: flex; }
       <button class="toolbar-btn" id="btn-undo" title="Revert last action (Ctrl+Z)">↶ Undo</button>
     </div>
   </div>
-  <div id="status">Tile 17 'N' Boldly Allocated · Candle Flame & Wax Color Bounds Perfected</div>
+  <div id="status">Tile 17 'N' Boldly Allocated · Unified Kaleidoscopic Sparkle Landing Active</div>
 
   <!-- Samhain Tiles Selector Bar -->
   <div class="section-label" style="margin-top:6px;">
-    <span>Samhain Tiles (Narrative Order: Wheat -> Scythe -> Leaf -> Tree -> Owl -> Pumpkin -> Candle...)</span>
+    <span>Samhain Tiles (Wheat -> Scythe -> Leaf -> Tree -> Owl -> Pumpkin -> Candle -> Witch -> Ghost -> Key...)</span>
   </div>
   <div class="tiles-scroll-bar" id="tiles-strip"></div>
 
@@ -336,14 +336,13 @@ body.dragging #drop-overlay { display: flex; }
 
     <div class="timeline-bottom-row">
       <button id="btn-play" style="padding:4px 14px; font-size:11px; background:#2e1d0c; border:1px solid #ffab00; color:#ffab00; border-radius:4px; cursor:pointer;">Play</button>
-      <span id="time-display" style="font-size:11px; font-variant-numeric:tabular-nums; min-width:85px;">00:00 / 02:25</span>
+      <span id="time-display" style="font-size:11px; font-variant-numeric:tabular-nums; min-width:85px;">00:00 / 02:35</span>
       <span style="font-size:10px; color:#a08a75; flex:1; text-align:right;">Seamless Loop: Drones land at start positions</span>
     </div>
   </div>
 
   <div id="hint">
-    <b>Color Rules Enforced:</b> Candle flame is top 35% red/orange, wax is middle 51% white, base is bottom 14% yellow.<br>
-    <b>Motions:</b> Key wobbles gently without 3D twisting. Ghost is 100% pure white.
+    <b>Spectacular Finale & Landing:</b> Continuous vortex expansion into a swirling kaleidoscope dome with strobing white sparkles, cascading down into the launch pads.
   </div>
 </div>
 <div id="vr-tip">In VR: Press Left X for HUD · Trigger paints drones with active swatch</div>
@@ -357,7 +356,7 @@ import {
   findShapeById,
   sampleImageToDrones,
   GOLDEN
-} from "./shapes.js?v=samhain_final_polish_v15";
+} from "./shapes.js?v=samhain_final_polish_v16";
 
 function formatTime(s) {
   if (isNaN(s) || s === undefined || s === null) return "00:00";
@@ -374,7 +373,7 @@ const BASE_DRONE_SIZE = 0.48;
 const Y_AXIS = new THREE.Vector3(0, 1, 0);
 
 let takeoffConfig = { dur: 10.0, style: "celtic_whirl" };
-let landingConfig = { dur: 24.0, style: "climactic_helix" };
+let landingConfig = { dur: 22.0, style: "climactic_helix" };
 
 let precipConfig = {
   enabled: true,
@@ -542,16 +541,16 @@ function assignMinimalPaths(currentPos, rawTargets, rawSwatches, count) {
   return { positions: assigned, swatches: assignedSwatches };
 }
 
-// Master Scene Sequence: Raven, Cauldron, and Skull removed
+// Master Scene Sequence: Raven, Cauldron, and Skull removed; sensible colors throughout
 const SHOW_SCENES = [
   { tNum: 16, palette: ["#ffd54f", "#8d4e28"], motion: "vortex", colorFX: "sparkle" },                                // Wheat
   { tNum: 25, palette: ["#cfd8dc", "#5d4037"], motion: "celtic_swirl", colorFX: "fire_burst" },                         // Scythe
   { tNum: 28, palette: ["#d50000", "#8d4e28"], motion: "vortex", colorFX: "mystic_aurora" },                            // Leaf
   { tNum: 26, palette: ["#5d4037", "#8d6e63"], motion: "explosion", colorFX: "beacon" },                                // Bare tree (NO green)
   { tNum: 27, palette: ["#ffffff", "#ffab00", "#5d4037"], motion: "vortex", colorFX: "fire_burst" },                     // Owl
-  { tNum: 18, palette: ["#ff6d00", "#43a047"], motion: "celtic_swirl", colorFX: "sparkle" },                            // Pumpkin
-  { tNum: 24, palette: ["#ffffff", "#ff3d00", "#ffd600"], motion: "explosion", colorFX: "fire_burst" },                   // Candle
-  { tNum: 23, palette: ["#ffffff", "#6d4c41", "#00c853", "#ffffff"], motion: "helix", colorFX: "beacon" },               // Witch
+  { tNum: 18, palette: ["#ff6d00"], motion: "celtic_swirl", colorFX: "sparkle" },                                       // Pumpkin (100% deep orange)
+  { tNum: 24, palette: ["#ffffff", "#ff3d00", "#ffd600"], motion: "explosion", colorFX: "fire_burst" },                   // Candle (white wax, red/orange flame, yellow base)
+  { tNum: 23, palette: ["#00e676", "#5d4037", "#ffffff"], motion: "helix", colorFX: "beacon" },                         // Witch (green cloak, brown broom, white face)
   { tNum: 19, palette: ["#ffffff"], motion: "vortex", colorFX: "mystic_aurora" },                                        // Ghost (100% white)
   { tNum: 32, palette: ["#ffd700", "#ffb300"], motion: "explosion", colorFX: "sparkle" },                              // Key
   { tNum: 29, palette: ["#00e676", "#00b0ff"], motion: "celtic_swirl", colorFX: "beacon" },                            // Celtic Knot
@@ -568,6 +567,7 @@ const timelineData = {
     shapeId: `samhainTile${sc.tNum}`,
     tileNum: sc.tNum,
     isText: false,
+    isStill: sc.isStill || false,
     dur: sc.isLast ? 10.0 : 5.0,
     transDur: sc.isLast ? 0.0 : 4.0,
     transMotion: sc.motion,
@@ -882,25 +882,20 @@ function evaluateTimeline(t) {
             localScratchPoints[j * 3 + 1] = alt + (localScratchPoints[j * 3 + 1] - alt) * wobbleY;
           }
         }
-        // Tile 24: Candle Flame Waver ONLY (Wax and base are strictly stationary)
+        // Tile 24: Candle Flame Waver ONLY (Wax and base remain completely motionless)
         else if (b.tileNum === 24) {
           for (let j = 0; j < formationCount; j++) {
-            if (currSwatches && currSwatches[j] === 1) { // Flame drones (Swatch 1)
+            if (currSwatches && currSwatches[j] === 1) { // Strictly flame drones (Swatch 1)
               const py = localScratchPoints[j * 3 + 1];
               localScratchPoints[j * 3] += Math.sin(tScene * 5.5 + py * 1.5) * 0.45;
             }
           }
         }
-        // Tile 23: Witch Bobbing (Moon stays stationary)
+        // Tile 23: Witch Bobbing (Entire figure bobs together without tearing)
         else if (b.tileNum === 23) {
           const bob = Math.sin(tScene * 2.8) * 0.85;
           for (let j = 0; j < formationCount; j++) {
-            const px = localScratchPoints[j * 3];
-            const py = localScratchPoints[j * 3 + 1];
-            const isMoon = (py > 17.5 && Math.abs(px) > 6.0);
-            if (!isMoon) {
-              localScratchPoints[j * 3 + 1] += bob;
-            }
+            localScratchPoints[j * 3 + 1] += bob;
           }
         }
         // Tile 19: Ghost Ethereal Float & Waver (100% white body)
@@ -1066,7 +1061,7 @@ function evaluateTimeline(t) {
     }
   }
 
-  // 3. Extended Climactic Aerial Swarm -> Cascading Helix -> Seamless Circular Landing (Y >= 0.12m)
+  // 3. Spectacular Continuous Finale Swirl -> Cascading Helix -> Seamless Circular Landing
   else {
     const landT = t - showBodyEnd;
     const u = THREE.MathUtils.clamp(landT / landingConfig.dur, 0, 1);
@@ -1078,56 +1073,84 @@ function evaluateTimeline(t) {
 
     for (let i = 0; i < formationCount; i++) {
       const gx = groundPositions[i * 3];
-      const gy = groundPositions[i * 3 + 1]; // Exactly 0.12m
+      const gy = groundPositions[i * 3 + 1]; // Exactly 0.12m ground pad
       const gz = groundPositions[i * 3 + 2];
 
       transformToSky(lastTargets[i * 3], lastTargets[i * 3 + 1], lastTargets[i * 3 + 2], alt, scl, v1y, skyPosA);
 
       let curX, curY, curZ;
 
-      // Phase 1 (0 to 45% of landing duration): Grand Climactic Aerial Sky Swarm
+      // Phase 1 (0 to 45% of landing duration): Grand Celestial Vortex Expansion (No contraction jerk)
       if (u < 0.45) {
         const uSwarm = u / 0.45;
-        const swarmArc = Math.sin(Math.PI * uSwarm);
-        const theta = (i / formationCount) * Math.PI * 6.0 + landT * 1.5;
-        const swarmR = THREE.MathUtils.lerp(Math.sqrt(skyPosA.x * skyPosA.x + skyPosA.z * skyPosA.z), 25.0, swarmArc);
+        const easeSwarm = uSwarm * uSwarm * (3 - 2 * uSwarm);
 
-        curX = Math.cos(theta) * swarmR;
-        curY = skyPosA.y + Math.sin(uSwarm * Math.PI) * 7.0 + Math.sin(landT * 4.0 + i) * 1.2;
-        curZ = Math.sin(theta) * swarmR;
+        // Continuous outward swirling motion directly from shape positions
+        const targetRadius = 26.0;
+        const initialR = Math.sqrt(skyPosA.x * skyPosA.x + skyPosA.z * skyPosA.z);
+        const curR = THREE.MathUtils.lerp(initialR, targetRadius, easeSwarm);
 
-        const strobe = (Math.sin(landT * 12.0 + i * 0.2) > 0.25) ? 1.0 : 0.25;
-        const hueShift = ((i / formationCount) * 0.8 + landT * 0.3) % 1.0;
-        tempColor.setHSL(hueShift, 1.0, 0.55);
+        const initialAngle = Math.atan2(skyPosA.z, skyPosA.x);
+        const curAngle = initialAngle + uSwarm * Math.PI * 3.0 + landT * 0.6;
 
-        targetColors[i * 3]     = tempColor.r * strobe;
-        targetColors[i * 3 + 1] = tempColor.g * strobe;
-        targetColors[i * 3 + 2] = tempColor.b * strobe;
+        curX = Math.cos(curAngle) * curR;
+        curY = skyPosA.y + Math.sin(uSwarm * Math.PI * 0.5) * 8.0 + Math.sin(landT * 3.5 + i * 0.1) * 1.2;
+        curZ = Math.sin(curAngle) * curR;
+
+        // Rich Multi-Color Kaleidoscope Waves + Strobing White Sparkle Stars
+        const hueShift = ((i / formationCount) * 1.2 + landT * 0.45) % 1.0;
+        tempColor.setHSL(hueShift, 1.0, 0.58);
+
+        // Strobing Diamond Sparkles across 20% of the fleet
+        const isSparkleStar = (Math.sin(landT * 16.0 + i * 17.3) > 0.65);
+        if (isSparkleStar) {
+          targetColors[i * 3]     = 1.0;
+          targetColors[i * 3 + 1] = 1.0;
+          targetColors[i * 3 + 2] = 1.0;
+        } else {
+          targetColors[i * 3]     = tempColor.r;
+          targetColors[i * 3 + 1] = tempColor.g;
+          targetColors[i * 3 + 2] = tempColor.b;
+        }
       }
-      // Phase 2 (45% to 100%): Triple-Helix Spiral Descent directly to circular pad
+      // Phase 2 (45% to 100%): Triple-Helix Spiral Descent directly to circular ground pad
       else {
         const uDesc = (u - 0.45) / 0.55;
         const easeDesc = uDesc * uDesc * (3 - 2 * uDesc);
 
-        const funnelAngle = (1.0 - easeDesc) * Math.PI * 6.0 + (i % 3) * (Math.PI * 2 / 3);
-        const startR = 25.0 * (1.0 - easeDesc * 0.35);
+        // Smooth helical funnel winding downwards
+        const funnelAngle = (1.0 - easeDesc) * Math.PI * 5.0 + (i % 3) * (Math.PI * 2 / 3);
+        const startR = 26.0 * (1.0 - easeDesc * 0.35);
         const targetR = Math.sqrt(gx * gx + gz * gz);
         const curR = THREE.MathUtils.lerp(startR, targetR, easeDesc);
 
         const baseAngle = Math.atan2(gz, gx);
         const curAngle = baseAngle + funnelAngle;
 
-        curX = THREE.MathUtils.lerp(Math.cos(curAngle) * curR, gx, Math.pow(easeDesc, 2.0));
-        curY = THREE.MathUtils.lerp(22.0, gy, easeDesc);
-        curZ = THREE.MathUtils.lerp(Math.sin(curAngle) * curR, gz, Math.pow(easeDesc, 2.0));
+        curX = THREE.MathUtils.lerp(Math.cos(curAngle) * curR, gx, Math.pow(easeDesc, 2.2));
+        curY = THREE.MathUtils.lerp(24.0, gy, easeDesc);
+        curZ = THREE.MathUtils.lerp(Math.sin(curAngle) * curR, gz, Math.pow(easeDesc, 2.2));
 
-        const emberPulse = Math.sin(t * 6.0 + i) > 0.4 ? 1.0 : 0.3;
-        targetColors[i * 3]     = emberPulse * (1 - easeDesc * 0.65);
-        targetColors[i * 3 + 1] = (emberPulse * 0.45) * (1 - easeDesc * 0.85);
-        targetColors[i * 3 + 2] = 0.05;
+        // Gradients gently transition into resting embers as drones approach the ground
+        const hueShift = ((i / formationCount) * 0.8 + landT * 0.2) % 1.0;
+        tempColor.setHSL(hueShift, 1.0, 0.55);
+
+        const emberPulse = Math.sin(t * 6.0 + i) > 0.4 ? 1.0 : 0.4;
+        const fadeToAmber = easeDesc;
+
+        const isSparkleStar = (Math.sin(landT * 14.0 + i * 11.7) > 0.75) && (easeDesc < 0.7);
+        if (isSparkleStar) {
+          targetColors[i * 3]     = 1.0;
+          targetColors[i * 3 + 1] = 1.0;
+          targetColors[i * 3 + 2] = 1.0;
+        } else {
+          targetColors[i * 3]     = THREE.MathUtils.lerp(tempColor.r, emberPulse, fadeToAmber);
+          targetColors[i * 3 + 1] = THREE.MathUtils.lerp(tempColor.g, emberPulse * 0.5, fadeToAmber);
+          targetColors[i * 3 + 2] = THREE.MathUtils.lerp(tempColor.b, 0.05, fadeToAmber);
+        }
       }
 
-      // Exact snap at completion to enable seamless looping
+      // Exact snap at completion to guarantee seamless loop replay
       if (u >= 0.999) {
         curX = gx;
         curY = gy;
