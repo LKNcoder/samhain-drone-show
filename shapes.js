@@ -5,7 +5,7 @@ export const GOLDEN = Math.PI * (3 - Math.sqrt(5));
 
 const ASSET_BASE_URL = "https://lkncoder.github.io/tacocat/";
 
-// Traces ALL closed boundary loops (both outer silhouettes AND interior holes like eyes, beaks, and key rings)
+// Traces ALL closed boundary loops (both outer silhouettes AND interior cutouts like eyes, beaks, and key rings)
 function traceAllBoundaryLoops(edgePixels) {
   if (edgePixels.length === 0) return [];
   const edgeSet = new Set(edgePixels.map(p => (p.y << 10) | p.x));
@@ -47,7 +47,6 @@ function traceAllBoundaryLoops(edgePixels) {
       }
 
       if (!found) {
-        // Connect across anti-aliasing gaps to nearest unvisited pixel
         let nearest = null;
         let minD = Infinity;
         for (const p of edgePixels) {
@@ -190,7 +189,18 @@ export function sampleImageToDrones(imgElement, out, count, swatchOut, scale = 0
           let totalLoopLen = 0;
           for (const loop of allLoops) totalLoopLen += loop.length;
 
-          const weight = totalLoopLen * 2.2 + Math.sqrt(islandPixels.length) * 4.0;
+          let weight = totalLoopLen * 2.2 + Math.sqrt(islandPixels.length) * 4.0;
+
+          // Extra weight dedicated to the bottom text of Tile 17 (specifically boosting the letter 'N')
+          if (tileNum === 17) {
+            const avgY = islandPixels.reduce((acc, p) => acc + p.y, 0) / islandPixels.length;
+            const avgX = islandPixels.reduce((acc, p) => acc + p.x, 0) / islandPixels.length;
+            if (avgY > 360) {
+              weight *= 2.6;
+              if (avgX > 320) weight *= 3.4; // Extra boost to the letter 'N' on the far right
+            }
+          }
+
           islands.push({ pixels: islandPixels, loops: allLoops, totalLoopLen, weight });
         }
       }
@@ -259,58 +269,68 @@ export function sampleImageToDrones(imgElement, out, count, swatchOut, scale = 0
 // Logical Semantic Color Classifier based on Shape Physics and Icon Features
 function getSemanticSwatch(px, py, tileNum) {
   switch (tileNum) {
-    case 21: // Cauldron: Fire underneath (0), Pot Iron Slate (1), Bubbling Steam/Potion (2)
-      if (py > 370) return 0; // Fire underneath (Bright Orange/Red)
-      if (py >= 220) return 1; // Cauldron Pot Body (Visible Slate/Iron)
-      return 2; // Steam curls & bubbling brew (Electric Blue)
-
-    case 23: // Witch: Pale Moon (0), Straw/Wood Broom (1), Emerald Witch Cloak (2)
-      if (py < 160 && (px < 180 || px > 330)) return 0; // Pale Moon
-      if (py > 350 || (px > 310 && py > 280)) return 1; // Broom Handle & Straw
-      return 2; // Witch Cloak & Hat (Vibrant Emerald Green)
-
-    case 22: // Skull & Leaves: Bone White Skull (0), Forest Green Wreath (1)
-      if (Math.abs(px - 256) < 115 && py > 110 && py < 365) return 0; // Skull (White)
-      return 1; // Surrounding Leaves/Branches (Foliage Green)
-
-    case 18: // Pumpkin: Ribs/Body (0: Saturated Orange), Stem (1: Fresh Green)
-      if (py < 165 && Math.abs(px - 256) < 48) return 1; // Pumpkin Stem (Green)
-      return 0; // Pumpkin Ribs & Body (Deep Saturated Orange)
-
-    case 20: // Crow/Raven: Bird Body (0: Electric Blue), Perch Branch (1: Warm Wood Brown), Eye/Beak (2: Gold)
-      if (py > 365) return 1; // Branch (Wood Brown)
-      if (py < 210 && Math.abs(px - 256) < 55) return 2; // Eye & Beak (Amber Gold)
-      return 0; // Raven Feathers (Luminous Twilight Blue)
-
-    case 24: // Candle: Wax Body (0: Ivory White), Flame (1: Fiery Red/Orange), Base (2: Brass)
-      if (py < 185) return 1; // Flame Tip (Red/Orange)
-      if (py >= 395) return 2; // Brass Holder (Dark Gold)
-      return 0; // Candle Wax & Dripping Droplets (Pure White)
+    case 16: // Wheat: Grain Head (0: Golden Grain), Stalk/Wood (1: Warm Wood Brown)
+      if (py > 290) return 1; // Lower Stalk / Wood
+      return 0; // Golden Grain Head
 
     case 25: // Scythe: Blade (0: Steel Grey), Handle Snath (1: Hardwood Brown)
-      if (py < 240 && px > 160) return 0; // Curved Cutting Blade (Silver Steel Grey)
-      return 1; // Long Wooden Handle (Timber Brown)
+      if (py < 240 && px > 160) return 0; // Cutting Blade (Steel Grey)
+      return 1; // Wooden Handle (Hardwood Brown)
 
-    case 27: // Owl: Feathers (0: Soft White/Cream), Beak & Eyes (1: Glowing Amber Gold), Perch (2: Brown)
-      if (py > 390) return 2; // Branch (Forest Brown)
-      if (py >= 160 && py <= 260 && Math.abs(px - 256) < 65) return 1; // Beak & Eyes (Amber Gold)
-      return 0; // Body Feathers (Crisp White)
+    case 26: // Oak/Acorn Branch: Leaf (0: Autumn Green/Amber), Branch Wood (1: Rich Wood Brown), Acorn (2: Gold)
+      if (py > 280) return 1; // Wood Branch (Brown/Orange)
+      if (py > 210 && Math.abs(px - 256) < 45) return 2; // Acorn
+      return 0; // Oak Leaf
 
-    case 28: // Autumn Leaf: Blade (0: Crimson Red), Stem & Veins (1: Amber Gold)
-      if (py > 380 || (Math.abs(px - 256) < 15 && py > 200)) return 1; // Stem (Amber Gold)
-      return 0; // Leaf Blade (Vibrant Autumn Red)
+    case 20: // Raven: Bird Feathers (0: Luminous Electric Cyan-Blue), Wood Perch (1: Warm Wood Brown), Beak & Feet (2: Amber Gold), White Feather Accents (3: Crisp White)
+      if (py > 380) return 1; // Branch (Wood Brown)
+      if (py >= 350 && Math.abs(px - 256) < 45) return 2; // Feet (Amber Gold)
+      if (py < 185 && px < 245) return 2; // Beak (Amber Gold)
+      if (Math.abs(px - 256) > 45 && py > 200 && py < 340) return 3; // Wing Outline Accents (Pure White)
+      return 0; // Bird Body (Electric Cyan-Blue)
 
-    case 32: // Skeleton Key: Shaft & Teeth (0: Polished Gold), Handle Ring Bow (1: Warm Brass)
-      if (py < 230) return 1; // Handle Bow & Ring (Brass)
-      return 0; // Shaft & Key Bits (Gold)
+    case 27: // Owl: Body Feathers (0: Soft White), Beak & Eyes (1: Glowing Amber Gold), Perch (2: Forest Wood Brown)
+      if (py > 405) return 2; // Perch Branch (Wood Brown)
+      if (py >= 155 && py <= 245 && Math.abs(px - 256) < 55) return 1; // Beak & Eyes (Amber Gold)
+      return 0; // Feathers (White)
 
-    case 19: // Ghost: Spectral Body (0: Brilliant White), Eyes/Mouth (1: Luminous Spectral Cyan)
-      if (py >= 160 && py <= 240 && Math.abs(px - 256) < 70) return 1; // Eyes / Mouth cutouts (Cyan)
-      return 0; // Flowing Sheet Body (Pure White)
+    case 18: // Pumpkin: Body & Ribs (0: Vibrant Deep Orange), Stem ONLY (1: Leaf Green)
+      if (py < 120 && Math.abs(px - 256) < 28) return 1; // Stem ONLY (Green)
+      return 0; // Entire Pumpkin Body & Ribs (100% Deep Saturated Orange)
 
-    case 26: // Ancient Tree: Trunk & Roots (0: Bark Brown), Canopy (1: Autumn Amber)
-      if (py > 310 && Math.abs(px - 256) < 65) return 0; // Trunk (Bark Brown)
-      return 1; // Canopy Foliage (Autumn Gold/Amber)
+    case 24: // Candle: Candle Wax (0: Pure White), Flame (1: Red/Orange Flame), Candlestick Base (2: Bronze Gold)
+      if (py < 170) return 1; // Flame (Red/Orange)
+      if (py >= 390) return 2; // Holder (Bronze/Brass)
+      return 0; // Wax column & dripping droplets (Pure White)
+
+    case 23: // Witch: Pale Moon (0: Pure White), Broom Wood & Straw (1: Wood Brown), Witch Cloak (2: Emerald Green), Cloak Trim (3: White Accents)
+      if (py < 155 && (px < 175 || px > 335)) return 0; // Moon (White)
+      if (py > 375 || (px > 310 && py > 280)) return 1; // Broom (Wood Brown)
+      if (py >= 165 && py <= 225 && Math.abs(px - 256) < 32) return 0; // Witch Face/Skin (White)
+      if (Math.abs(px - 256) > 55) return 3; // Cloak Highlights (White)
+      return 2; // Witch Cloak (Emerald Green)
+
+    case 22: // Skull: 100% Bone White (all extraneous green removed)
+      return 0; // Bone White
+
+    case 19: // Ghost: Spectral Body (0: Pure White), Eyes/Mouth Cutouts (1: Spectral Cyan)
+      if (py >= 150 && py <= 240 && Math.abs(px - 256) < 65) return 1; // Eyes / Mouth (Cyan)
+      return 0; // Body (Pure White)
+
+    case 28: // Autumn Leaf: Leaf Blade (0: Crimson Red), Stem (1: Warm Wood Brown)
+      if (py > 380) return 1; // Stem (Wood Brown)
+      return 0; // Leaf (Crimson Red)
+
+    case 32: // Skeleton Key: Shaft & Teeth (0: Polished Gold), Bow/Handle (1: Warm Brass)
+      if (py < 230) return 1; // Handle Bow (Brass)
+      return 0; // Shaft (Gold)
+
+    case 17: // Finale Bonfire & Blessed Samhain: White (0), Gold (1), Orange (2), Crimson (3)
+      if (py > 370) return 1; // Bottom text banner (Blessed Samhain) in Radiant Gold
+      if (py < 160 && (Math.abs(px - 256) > 85 || py < 95)) return 0; // Celestial Moon/Stars (White)
+      if (py >= 70 && py < 250) return 1; // Fire Column (Gold)
+      if (py >= 250 && py <= 370) return 2; // Fire Midsection (Orange)
+      return 3; // Hearth (Crimson)
 
     default:
       return 0;
@@ -353,7 +373,7 @@ export function loadTileImage(filename) {
   });
 }
 
-// Robust Vector Typography Engine with Precision Path Bounds (Guarantees 'N' has full drone allotment)
+// Robust Vector Typography Engine with Precision Path Bounds
 const GLYPH_PATHS = {
   'A': "M 0 0 L 0.5 1.4 L 1 0 M 0.2 0.55 L 0.8 0.55",
   'B': "M 0 0 L 0 1.4 L 0.55 1.4 C 0.9 1.4 0.9 0.72 0.55 0.72 L 0 0.72 M 0.55 0.72 C 0.95 0.72 0.95 0 0.55 0 L 0 0",
@@ -368,7 +388,7 @@ const GLYPH_PATHS = {
   'K': "M 0 0 L 0 1.4 M 0.9 1.4 L 0 0.6 L 0.9 0",
   'L': "M 0 1.4 L 0 0 L 0.8 0",
   'M': "M 0 0 L 0 1.4 L 0.5 0.5 L 1.0 1.4 L 1.0 0",
-  'N': "M 0 0 L 0 1.4 L 0.9 0 L 0.9 1.4", // Perfect symmetry N with full height
+  'N': "M 0 0 L 0 1.4 L 0.9 0 L 0.9 1.4",
   'O': "M 0.5 0 C 1.0 0 1.0 1.4 0.5 1.4 C 0 1.4 0 0 0.5 0 Z",
   'P': "M 0 0 L 0 1.4 L 0.55 1.4 C 0.95 1.4 0.95 0.7 0.55 0.7 L 0 0.7",
   'Q': "M 0.5 0 C 1.0 0 1.0 1.4 0.5 1.4 C 0 1.4 0 0 0.5 0 Z M 0.6 0.3 L 0.95 -0.15",
@@ -427,7 +447,6 @@ export function generateTextDrones(out, text, count, font = "Impact", scale = 0.
 
   if (paths.length === 0) return;
 
-  // Clamped arc-length stepping prevents float inaccuracies from clipping the final 'N'
   for (let i = 0; i < count; i++) {
     const targetDist = THREE.MathUtils.clamp((i / (count - 1)) * (totalLength - 0.001), 0, totalLength);
     let accum = 0;
@@ -450,9 +469,9 @@ export function generateTextDrones(out, text, count, font = "Impact", scale = 0.
   }
 }
 
-// Master Shape Directory prioritizing Tiles 16–34
+// Master Shape Directory in logical narrative order
 const TILE_ORDER = [
-  16, 25, 28, 26, 20, 27, 18, 24, 21, 23, 22, 19, 32, 29, 30, 31, 33, 34, 17,
+  16, 25, 28, 26, 20, 27, 18, 24, 23, 22, 19, 32, 29, 30, 31, 33, 34, 17,
   1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15
 ];
 
