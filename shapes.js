@@ -5,7 +5,7 @@ export const GOLDEN = Math.PI * (3 - Math.sqrt(5));
 
 const ASSET_BASE_URL = "https://lkncoder.github.io/tacocat/";
 
-// Traces ALL closed boundary loops (both outer silhouettes AND interior cutouts)
+// Traces ALL closed boundary loops (outer silhouettes and interior cutouts)
 function traceAllBoundaryLoops(edgePixels) {
   if (edgePixels.length === 0) return [];
   const edgeSet = new Set(edgePixels.map(p => (p.y << 10) | p.x));
@@ -113,7 +113,7 @@ function resampleEquidistant(orderedPts, targetCount) {
   return resampled;
 }
 
-// Multi-Loop Arc-Length Density Sampler with Quota Balancing and Zero Truncation
+// Multi-Loop Arc-Length Density Sampler with Protected Quota Allocation
 export function sampleImageToDrones(imgElement, out, count, swatchOut, scale = 0.048, altitude = 16, tileNum = 16) {
   const canvas = document.createElement("canvas");
   canvas.width = 512;
@@ -136,11 +136,6 @@ export function sampleImageToDrones(imgElement, out, count, swatchOut, scale = 0
       const lum = imgData[idx] * 0.299 + imgData[idx + 1] * 0.587 + imgData[idx + 2] * 0.114;
 
       if (lum > 110) {
-        // Tile 23 Moon Removal: completely ignore background moon pixels in the upper corners
-        if (tileNum === 23 && y < 195 && (x < 190 || x > 325)) {
-          continue;
-        }
-
         binary[y * 512 + x] = 1;
         if (x < minX) minX = x; if (x > maxX) maxX = x;
         if (y < minY) minY = y; if (y > maxY) maxY = y;
@@ -196,13 +191,13 @@ export function sampleImageToDrones(imgElement, out, count, swatchOut, scale = 0
 
           let weight = totalLoopLen * 2.2 + Math.sqrt(islandPixels.length) * 4.0;
 
-          // Dedicated priority weighting for Tile 17's bottom text and the letter 'N'
+          // Protected high priority for the letter 'N' and bottom banner in Tile 17
           if (tileNum === 17) {
             const avgY = islandPixels.reduce((acc, p) => acc + p.y, 0) / islandPixels.length;
             const avgX = islandPixels.reduce((acc, p) => acc + p.x, 0) / islandPixels.length;
             if (avgY > 350) {
-              weight *= 4.5; // Boost entire text banner
-              if (avgX > 310) weight *= 8.0; // Dedicated boost ensuring 'N' gets full allotment
+              weight *= 4.5;
+              if (avgX > 310) weight *= 8.0; // Guaranteed full quota for 'N'
             }
           }
 
@@ -214,7 +209,7 @@ export function sampleImageToDrones(imgElement, out, count, swatchOut, scale = 0
 
   if (islands.length === 0) return;
 
-  // For Tile 17: sort islands so the text banner and letter 'N' are allocated first
+  // In Tile 17, allocate text banner islands first
   if (tileNum === 17) {
     islands.sort((a, b) => {
       const aY = a.pixels[0].y, bY = b.pixels[0].y;
@@ -233,7 +228,7 @@ export function sampleImageToDrones(imgElement, out, count, swatchOut, scale = 0
   const cy = (minY + maxY) / 2;
   const totalWeight = islands.reduce((acc, isl) => acc + isl.weight, 0);
 
-  // 3. Exact Hamilton/Largest-Remainder Quota Allocation (Eliminates truncation starvation)
+  // 3. Hamilton Largest-Remainder Quota Allocation
   const quotas = [];
   let allocatedSum = 0;
 
@@ -308,25 +303,19 @@ export function sampleImageToDrones(imgElement, out, count, swatchOut, scale = 0
 // Logical Color Classification with Normalized Vertical Zonation
 function getSemanticSwatch(px, py, tileNum, minY = 0, maxY = 512, minX = 0, maxX = 512) {
   const normY = (py - minY) / Math.max(1, maxY - minY);
-  const cx = (minX + maxX) / 2;
 
   switch (tileNum) {
-    case 24: // Candle: Red flame down to 38%, white wax down to 88%, yellow holder at base
-      if (normY < 0.38) return 1; // Top 38%: Entire flame (Red/Orange)
-      if (normY > 0.88) return 2; // Bottom 12%: Candlestick holder base (Yellow/Bronze)
-      return 0;                   // Middle 50%: Candle wax column (Pure White)
+    case 24: // Candle: Top 38% flame, middle 50% wax, bottom 12% base
+      if (normY < 0.38) return 1; // Top 38%: Red/Orange flame
+      if (normY > 0.88) return 2; // Bottom 12%: Yellow candlestick base
+      return 0;                   // Middle 50%: Pure white wax
 
-    case 18: // Pumpkin: 100% Deep Saturated Orange
+    case 18: // Pumpkin: 100% deep saturated orange
       return 0;
 
     case 25: // Scythe: Top ~70% blade (Steel Grey), bottom ~30% handle (Wood Brown)
       if (normY > 0.70) return 1; // Bottom 30%: Wood handle
       return 0;                   // Top 70%: Steel blade
-
-    case 23: // Witch: Cloak (0: Emerald Green), Broom (1: Wood Brown), Face (2: White)
-      if (normY > 0.75 || (px > cx + 55 && normY > 0.58)) return 1; // Broom handle & straw
-      if (normY >= 0.28 && normY <= 0.44 && Math.abs(px - cx) < 28) return 2; // Face / skin
-      return 0; // Entire cloak (including billowing rear tail and legs) is Emerald Green
 
     case 26: // Bare Leafless Tree: 100% Wood Brown Tones, ZERO Green
       if (normY > 0.65) return 0; // Trunk and roots
@@ -341,7 +330,7 @@ function getSemanticSwatch(px, py, tileNum, minY = 0, maxY = 512, minX = 0, maxX
 
     case 27: // Owl: Body Feathers (0: Soft White), Beak & Eyes (1: Amber Gold), Perch (2: Wood Brown)
       if (normY > 0.78) return 2;
-      if (normY >= 0.28 && normY <= 0.52 && Math.abs(px - cx) < 55) return 1;
+      if (normY >= 0.28 && normY <= 0.52 && Math.abs(px - ((minX + maxX) / 2)) < 55) return 1;
       return 0;
 
     case 28: // Autumn Leaf: Leaf Blade (0: Crimson Red), Stem (1: Wood Brown)
@@ -354,7 +343,7 @@ function getSemanticSwatch(px, py, tileNum, minY = 0, maxY = 512, minX = 0, maxX
 
     case 17: // Finale Bonfire & Banner: White (0), Gold (1), Orange (2), Crimson (3)
       if (normY > 0.74) return 1; // "Blessed Samhain" Banner (Radiant Gold)
-      if (normY < 0.30 && (Math.abs(px - cx) > 85 || normY < 0.18)) return 0; // Stars (White)
+      if (normY < 0.30 && (Math.abs(px - ((minX + maxX) / 2)) > 85 || normY < 0.18)) return 0; // Stars (White)
       if (normY >= 0.14 && normY < 0.48) return 1; // Upper Fire (Gold)
       if (normY >= 0.48 && normY <= 0.74) return 2; // Lower Fire (Orange)
       return 3; // Hearth Base (Crimson)
@@ -400,9 +389,9 @@ export function loadTileImage(filename) {
   });
 }
 
-// Master Shape Directory in logical narrative order (Raven, Cauldron, and Skull excluded)
+// Master Shape Directory in clean narrative order (Raven, Cauldron, Skull, and Witch excluded)
 const TILE_ORDER = [
-  16, 25, 28, 26, 27, 18, 24, 23, 19, 32, 29, 30, 31, 33, 34, 17,
+  16, 25, 28, 26, 27, 18, 24, 19, 32, 29, 30, 31, 33, 34, 17,
   1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15
 ];
 
