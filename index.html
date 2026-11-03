@@ -16,7 +16,21 @@ body {
   font: 14px/1.4 system-ui, sans-serif;
   user-select: none;
 }
-canvas { display: block; }
+html, body {
+  margin: 0;
+  padding: 0;
+  width: 100vw;
+  height: 100vh;
+  min-width: 800px;
+  min-height: 600px;
+  overflow: hidden;
+  background: transparent;
+}
+canvas {
+  display: block;
+  width: 100% !important;
+  height: 100% !important;
+}
 
 #panel {
   position: fixed;
@@ -366,6 +380,7 @@ import {
   sampleImageToDrones,
   GOLDEN
 } from "./shapes.js?v=samhain_final_suite_v18";
+  import { GLTFExporter } from "three/addons/exporters/GLTFExporter.js";
 
 function formatTime(s) {
   if (isNaN(s) || s === undefined || s === null) return "00:00";
@@ -663,6 +678,58 @@ function updateUndoButton() {
   const btn = document.getElementById("btn-undo");
   if (btn) btn.disabled = (undoStack.length === 0);
 }
+
+  window.bakeAndDownloadGLB = function() {
+  console.log("Sampling 800 drones over timeline... please wait.");
+  const root = new THREE.Group();
+  root.name = "SamhainDroneFleet";
+
+  const geom = new THREE.SphereGeometry(0.25, 8, 6);
+  const mat = new THREE.MeshBasicMaterial({ color: 0xffffff });
+
+  for (let i = 0; i < activeDroneCount; i++) {
+    const drone = new THREE.Mesh(geom, mat);
+    drone.name = `Drone_${i}`;
+    root.add(drone);
+  }
+
+  const fps = 10;
+  const totalFrames = Math.floor(TOTAL_DURATION * fps);
+  const times = new Float32Array(totalFrames);
+  for (let f = 0; f < totalFrames; f++) times[f] = f / fps;
+
+  const positions = Array.from({ length: activeDroneCount }, () => new Float32Array(totalFrames * 3));
+
+  for (let f = 0; f < totalFrames; f++) {
+    evaluateTimeline(times[f]);
+    for (let i = 0; i < activeDroneCount; i++) {
+      positions[i][f * 3]     = targetPositions[i * 3];
+      positions[i][f * 3 + 1] = targetPositions[i * 3 + 1];
+      positions[i][f * 3 + 2] = targetPositions[i * 3 + 2];
+    }
+  }
+
+  const tracks = [];
+  for (let i = 0; i < activeDroneCount; i++) {
+    tracks.push(new THREE.VectorKeyframeTrack(`Drone_${i}.position`, times, positions[i], THREE.InterpolateLinear));
+  }
+
+  const clip = new THREE.AnimationClip("DroneShowFlight", TOTAL_DURATION, tracks);
+
+  new GLTFExporter().parse(
+    root,
+    (buffer) => {
+      const blob = new Blob([buffer], { type: "application/octet-stream" });
+      const link = document.createElement("a");
+      link.href = URL.createObjectURL(blob);
+      link.download = "Samhain_Drone_Show.glb";
+      link.click();
+      console.log("GLB exported successfully!");
+    },
+    (err) => console.error("Export error:", err),
+    { binary: true, animations: [clip] }
+  );
+};
 
 async function performUndo() {
   if (undoStack.length === 0) return;
