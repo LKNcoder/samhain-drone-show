@@ -4,6 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Samhain XR Drone Show Designer</title>
+  <script src="https://sdk.altvr.com/libs/altspace.js/latest/altspace.min.js"></script>
 <style>
 :root { color-scheme: dark; }
 * { box-sizing: border-box; }
@@ -397,12 +398,20 @@ camera.position.set(0, 16, 52);
 
 const renderer = new THREE.WebGLRenderer({ antialias: true });
 renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
-renderer.setSize(innerWidth, innerHeight);
-renderer.outputColorSpace = THREE.SRGBColorSpace;
-renderer.xr.enabled = true;
-renderer.xr.setFoveation(0.0);
 
-document.body.appendChild(renderer.domElement);
+const inAltVR = Boolean(window.altspace && altspace.inClient);
+
+if (inAltVR) {
+  // Altspace provides the active WebGL context and enclosure
+  altspace.getEnclosure().then((enc) => {
+    // Center the show coordinates inside the room's allocated box
+    stageGroup.position.set(0, -enc.innerHeight / 2, 0);
+  });
+} else {
+  // Standard browser / WebXR fallback
+  renderer.setSize(innerWidth, innerHeight);
+  document.body.appendChild(renderer.domElement);
+}
 document.body.appendChild(VRButton.createButton(renderer));
 
 const xrRig = new THREE.Group();
