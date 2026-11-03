@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Samhain XR Drone Show Designer</title>
-  <script src="https://sdk.altvr.com/libs/altspace.js/latest/altspace.min.js"></script>
+  
 <style>
 :root { color-scheme: dark; }
 * { box-sizing: border-box; }
@@ -694,7 +694,10 @@ window.addEventListener("keydown", (e) => {
 });
 
 let playheadTime = 0.0;
-let isPlaying = false;
+const PRE_SHOW_DELAY = 10.0;   // 10s pause before launch for avatars to spawn
+const POST_SHOW_DELAY = 10.0;  // 10s pause on the ground before repeating
+let showState = "PRE_SHOW";    // "PRE_SHOW" -> "RUNNING" -> "POST_SHOW"
+let pauseCountdown = PRE_SHOW_DELAY;
 const tempColor = new THREE.Color();
 const prevBlockColor = new THREE.Color();
 const nextBlockColor = new THREE.Color();
@@ -1634,13 +1637,32 @@ renderer.setAnimationLoop(now => {
   const dt = Math.min(0.05, (now - prevTime) / 1000);
   prevTime = now;
 
-  if (isPlaying) {
+ // Automatic Show State Sequencer
+  if (showState === "PRE_SHOW") {
+    pauseCountdown -= dt;
+    evaluateTimeline(0.0); // Drones hold formation on the launchpad
+    if (pauseCountdown <= 0) {
+      showState = "RUNNING";
+      playheadTime = 0.0;
+    }
+  } else if (showState === "RUNNING") {
     playheadTime += dt;
     if (playheadTime >= TOTAL_DURATION) {
-      playheadTime = 0.0; // Seamless show loop
+      playheadTime = TOTAL_DURATION;
+      evaluateTimeline(TOTAL_DURATION); // Clamp drones to the circular ground pad
+      showState = "POST_SHOW";
+      pauseCountdown = POST_SHOW_DELAY;
+    } else {
+      evaluateTimeline(playheadTime);
     }
-    evaluateTimeline(playheadTime);
     syncDesktopTimeline();
+  } else if (showState === "POST_SHOW") {
+    pauseCountdown -= dt;
+    evaluateTimeline(TOTAL_DURATION); // Hold resting position on the ground
+    if (pauseCountdown <= 0) {
+      showState = "RUNNING";
+      playheadTime = 0.0; // Reset playhead for seamless takeoff
+    }
   }
 
   dronePoints.material.size = Math.max(0.02, BASE_DRONE_SIZE * stageGroup.scale.x);
