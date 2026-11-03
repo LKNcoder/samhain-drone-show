@@ -3,7 +3,7 @@ import { SVGLoader } from "three/addons/loaders/SVGLoader.js";
 
 export const GOLDEN = Math.PI * (3 - Math.sqrt(5));
 
-const ASSET_BASE_URL = "https://lkncoder.github.io/tacocat/";
+const ASSET_BASE_URL = "https://lkncoder.github.io/samhain-drone-show/";
 
 // Traces ALL closed boundary loops (outer silhouettes and interior cutouts)
 function traceAllBoundaryLoops(edgePixels) {
