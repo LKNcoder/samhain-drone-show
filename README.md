@@ -45,12 +45,9 @@ Select M_SamhainDroneColor to view its Inspector settings. You will see sliders 
 
 to batch assign the material
 In your Hierarchy window, select the parent Samhain_Drone_Show GameObject.
-In the Hierarchy search bar (top of the Hierarchy panel), type:
-t:MeshRenderer
-(This filters the list to show every single drone mesh renderer in your scene).
+Expand it to view the entire fleet.  
 Click the first Drone_0 in the list, hold Shift, and scroll down to click the last Drone_799 to select all 800 simultaneously.
 With all 800 drones highlighted, look at the Inspector on the right. You will see a shared Materials slot labeled Element 0.
 Drag M_SamhainDroneColor directly into the Element 0 field.
-Clear the Hierarchy search bar.
 
 press play to test
