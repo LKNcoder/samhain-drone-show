@@ -51,7 +51,7 @@ import {
   findShapeById,
   sampleImageToDrones,
   GOLDEN
-} from "./shapes.js?v=samhain_final_suite_v20";
+} from "./shapes.js?v=samhain_final_suite_v21";
 
 function formatTime(s) {
   if (isNaN(s) || s === undefined || s === null) return "00:00";
@@ -62,7 +62,7 @@ function formatTime(s) {
 
 const MAX_DRONES = 2000;
 let activeDroneCount = 800;
-let TOTAL_DURATION = 160.0;
+let TOTAL_DURATION = 125.0;
 const BASE_DRONE_SIZE = 0.48;
 
 let takeoffConfig = { dur: 10.0, style: "celtic_whirl" };
@@ -213,22 +213,18 @@ function assignMinimalPaths(currentPos, rawTargets, rawSwatches, count) {
   return { positions: assigned, swatches: assignedSwatches };
 }
 
+// 10 Genuine Narrative Formations across 8 Non-Repeating Transitions
 const SHOW_SCENES = [
-  { tNum: 16, palette: ["#ffd54f", "#8d4e28"], motion: "vortex", colorFX: "sparkle" },
-  { tNum: 25, palette: ["#cfd8dc", "#5d4037"], motion: "cascade_wave", colorFX: "fire_burst" },
-  { tNum: 28, palette: ["#d50000", "#8d4e28"], motion: "torus_warp", colorFX: "mystic_aurora" },
-  { tNum: 26, palette: ["#5d4037", "#8d6e63"], motion: "explosion", colorFX: "beacon" },
-  { tNum: 27, palette: ["#ffffff", "#ffab00", "#5d4037"], motion: "hourglass_twist", colorFX: "fire_burst" },
-  { tNum: 18, palette: ["#ff6d00"], motion: "celtic_swirl", colorFX: "sparkle" },
-  { tNum: 24, palette: ["#ffffff", "#ff3d00", "#ffd600"], motion: "quantum_scatter", colorFX: "fire_burst" },
-  { tNum: 19, palette: ["#ffffff"], motion: "helix", colorFX: "mystic_aurora" },
-  { tNum: 32, palette: ["#ffd700", "#ffb300"], motion: "vortex", colorFX: "sparkle" },
-  { tNum: 29, palette: ["#00e676", "#00b0ff"], motion: "torus_warp", colorFX: "beacon" },
-  { tNum: 30, palette: ["#ff1744", "#d50000"], motion: "cascade_wave", colorFX: "fire_burst" },
-  { tNum: 31, palette: ["#ffd54f", "#ff9100"], motion: "hourglass_twist", colorFX: "sparkle" },
-  { tNum: 33, palette: ["#e040fb", "#ffd54f"], motion: "explosion", colorFX: "beacon" },
-  { tNum: 34, palette: ["#7c4dff", "#00e5ff"], motion: "quantum_scatter", colorFX: "mystic_aurora" },
-  { tNum: 17, palette: ["#ffffff", "#ffd54f", "#ff6d00", "#d50000"], motion: "vortex", colorFX: "fire_burst", isLast: true }
+  { tNum: 16, palette: ["#ffd54f", "#8d4e28"], motion: "vortex", colorFX: "sparkle" },           // 1. Wheat
+  { tNum: 25, palette: ["#cfd8dc", "#5d4037"], motion: "cascade_wave", colorFX: "fire_burst" },  // 2. Scythe
+  { tNum: 28, palette: ["#d50000", "#8d4e28"], motion: "torus_warp", colorFX: "mystic_aurora" },   // 3. Leaf
+  { tNum: 26, palette: ["#5d4037", "#8d6e63"], motion: "explosion", colorFX: "beacon" },           // 4. Bare Tree
+  { tNum: 27, palette: ["#ffffff", "#ffab00", "#5d4037"], motion: "hourglass_twist", colorFX: "fire_burst" }, // 5. Owl
+  { tNum: 18, palette: ["#ff6d00"], motion: "celtic_swirl", colorFX: "sparkle" },                  // 6. Pumpkin
+  { tNum: 24, palette: ["#ffffff", "#ff3d00", "#ffd600"], motion: "quantum_scatter", colorFX: "fire_burst" }, // 7. Candle
+  { tNum: 19, palette: ["#ffffff"], motion: "helix", colorFX: "mystic_aurora" },                   // 8. Ghost
+  { tNum: 32, palette: ["#ffd700", "#ffb300"], motion: "vortex", colorFX: "sparkle" },             // 9. Key
+  { tNum: 17, palette: ["#ffffff", "#ffd54f", "#ff6d00", "#d50000"], motion: "vortex", colorFX: "fire_burst", isLast: true } // 10. Finale Bonfire
 ];
 
 const timelineData = {
@@ -410,7 +406,7 @@ function evaluateTimeline(t) {
         const uBlock = (showT - formStart) / b.dur;
         const curRotY = v0y + (v1y - v0y) * uBlock;
         const tScene = showT - formStart;
-        const env = Math.sin(Math.PI * uBlock); // Smooth envelope: guarantees 0 at start and end of scene
+        const env = Math.sin(Math.PI * uBlock);
 
         localScratchPoints.set(currTargets.subarray(0, formationCount * 3));
 
@@ -424,7 +420,7 @@ function evaluateTimeline(t) {
             localScratchPoints[j * 3 + 1] -= Math.abs(sway) * 0.12 * yNorm * env;
           }
         } else if (b.tileNum === 25) {
-          const swingPhase = uBlock * Math.PI * 4.0; // Exactly 2 complete cutting strokes
+          const swingPhase = uBlock * Math.PI * 4.0;
           const cutMotion = Math.sin(swingPhase) * 0.65;
           const cosCut = Math.cos(cutMotion), sinCut = Math.sin(cutMotion);
 
@@ -450,7 +446,7 @@ function evaluateTimeline(t) {
             }
           }
         } else if (b.tileNum === 27) {
-          const rockAngle = Math.sin(uBlock * Math.PI * 4.0) * 0.14; // Exactly 2 complete rocks
+          const rockAngle = Math.sin(uBlock * Math.PI * 4.0) * 0.14;
           const pivotY = 10.0;
           for (let j = 0; j < formationCount; j++) {
             const py = localScratchPoints[j * 3 + 1];
@@ -465,7 +461,7 @@ function evaluateTimeline(t) {
             }
           }
         } else if (b.tileNum === 18) {
-          const wobblePulse = Math.sin(uBlock * Math.PI * 4.0) * 0.055; // 2 complete pulses
+          const wobblePulse = Math.sin(uBlock * Math.PI * 4.0) * 0.055;
           const wobbleX = 1.0 + wobblePulse;
           const wobbleY = 1.0 - wobblePulse;
           for (let j = 0; j < formationCount; j++) {
@@ -494,25 +490,6 @@ function evaluateTimeline(t) {
             const ly = localScratchPoints[j * 3 + 1] - alt;
             localScratchPoints[j * 3]     = lx * cosW - ly * sinW;
             localScratchPoints[j * 3 + 1] = alt + (lx * sinW + ly * cosW);
-          }
-        } else if (b.tileNum === 29 || b.tileNum === 30) {
-          const dir = b.tileNum === 29 ? 1 : -1;
-          const spinA = uBlock * Math.PI * 2.0 * dir; // Exactly 1 full 360-degree rotation
-          const cosS = Math.cos(spinA), sinS = Math.sin(spinA);
-          for (let j = 0; j < formationCount; j++) {
-            const lx = localScratchPoints[j * 3];
-            const ly = localScratchPoints[j * 3 + 1] - alt;
-            localScratchPoints[j * 3]     = lx * cosS - ly * sinS;
-            localScratchPoints[j * 3 + 1] = alt + (lx * sinS + ly * cosS);
-          }
-        } else if (b.tileNum === 31 || b.tileNum === 34) {
-          const spinA = uBlock * Math.PI * 2.0; // Exactly 1 full 360-degree rotation
-          const cosS = Math.cos(spinA), sinS = Math.sin(spinA);
-          for (let j = 0; j < formationCount; j++) {
-            const lx = localScratchPoints[j * 3];
-            const ly = localScratchPoints[j * 3 + 1] - alt;
-            localScratchPoints[j * 3]     = lx * cosS - ly * sinS;
-            localScratchPoints[j * 3 + 1] = alt + (lx * sinS + ly * cosS);
           }
         }
 
@@ -659,7 +636,7 @@ function evaluateTimeline(t) {
       curT = transEnd;
     }
   }
-  // 3. Finale Undulating Swarm & Helix Landing (Unified continuous curve - zero jumps)
+  // 3. Finale Undulating Swarm & Helix Landing
   else {
     const landT = t - showBodyEnd;
     const u = THREE.MathUtils.clamp(landT / landingConfig.dur, 0, 1);
@@ -669,11 +646,9 @@ function evaluateTimeline(t) {
     const scl = lastB.scale || 1.0;
     const v1y = THREE.MathUtils.degToRad(lastB.rotEndY || 0);
 
-    // Expand into swarm during 0 <= u <= 0.35
     const uExpand = Math.min(1.0, u / 0.35);
     const easeExpand = uExpand * uExpand * (3 - 2 * uExpand);
 
-    // Descend to pad during 0.35 <= u <= 1.0
     const uDesc = Math.max(0.0, (u - 0.35) / 0.65);
     const easeDesc = uDesc * uDesc * (3 - 2 * uDesc);
 
@@ -684,7 +659,6 @@ function evaluateTimeline(t) {
 
       transformToSky(lastTargets[i * 3], lastTargets[i * 3 + 1], lastTargets[i * 3 + 2], alt, scl, v1y, skyPosA);
 
-      // Spherical harmonic swarm
       const phi = Math.acos(1.0 - 2.0 * ((i + 0.5) / formationCount));
       const theta = i * GOLDEN + landT * 1.6;
       const rSwarm = 22.0 + Math.sin(landT * 3.0 + i * 0.15) * 5.0 + Math.sin(landT * 6.0 + theta * 2.0) * 3.0;
@@ -693,12 +667,10 @@ function evaluateTimeline(t) {
       const swarmY = alt + Math.cos(phi) * (rSwarm * 0.72) + Math.sin(landT * 4.0 + theta) * 2.2;
       const swarmZ = Math.sin(phi) * Math.sin(theta) * rSwarm;
 
-      // Active swarm coordinate expanding from resting shape
       const curSwarmX = THREE.MathUtils.lerp(skyPosA.x, swarmX, easeExpand);
       const curSwarmY = THREE.MathUtils.lerp(skyPosA.y, swarmY, easeExpand);
       const curSwarmZ = THREE.MathUtils.lerp(skyPosA.z, swarmZ, easeExpand);
 
-      // Helical funnel offset that gracefully vanishes as drones land
       const spiralAngle = (1.0 - easeDesc) * Math.PI * 4.0 + (i % 3) * (Math.PI * 2 / 3);
       const spiralRadius = Math.sin(Math.PI * easeDesc) * 8.0;
 
@@ -771,7 +743,7 @@ function evaluateTimeline(t) {
 }
 
 // -------------------------------------------------------------
-// PHYSICS-BASED GLB EXPORTER (ZERO TELEPORTS / PERFECT CONTINUITY)
+// PHYSICS-BASED GLB EXPORTER WITH 10s DELAYS & ZERO TELEPORT GLITCHES
 // -------------------------------------------------------------
 window.bakeAndDownloadGLB = function() {
   console.log("Simulating 60Hz physics with 10s pre/post delays... please wait.");
@@ -797,14 +769,14 @@ window.bakeAndDownloadGLB = function() {
   simPositions.set(groundPositions.subarray(0, activeDroneCount * 3));
 
   const sampleFPS = 15;
-  const BAKE_TOTAL_DURATION = PRE_SHOW_DELAY + TOTAL_DURATION + POST_SHOW_DELAY; // 10s + 160s + 10s = 180s
+  const BAKE_TOTAL_DURATION = PRE_SHOW_DELAY + TOTAL_DURATION + POST_SHOW_DELAY; // 10s + 125s + 10s = 145s
   const totalFrames = Math.floor(BAKE_TOTAL_DURATION * sampleFPS);
   const times = new Float32Array(totalFrames);
   for (let f = 0; f < totalFrames; f++) times[f] = f / sampleFPS;
 
   const positions = Array.from({ length: activeDroneCount }, () => new Float32Array(totalFrames * 3));
 
-  const physicsSubsteps = 4; // 15 FPS * 4 = 60 Hz physics
+  const physicsSubsteps = 4;
   const dt = (1 / sampleFPS) / physicsSubsteps;
   const totalSubsteps = totalFrames * physicsSubsteps;
   let frameIdx = 0;
@@ -812,7 +784,6 @@ window.bakeAndDownloadGLB = function() {
   for (let s = 0; s < totalSubsteps; s++) {
     const simTime = s * dt;
 
-    // Timeline mapping: 10s rest at start -> show flight -> 10s rest at end
     if (simTime < PRE_SHOW_DELAY) {
       evaluateTimeline(0.0);
     } else if (simTime < PRE_SHOW_DELAY + TOTAL_DURATION) {
@@ -850,7 +821,6 @@ window.bakeAndDownloadGLB = function() {
 
     if (s % physicsSubsteps === 0 && frameIdx < totalFrames) {
       for (let i = 0; i < activeDroneCount; i++) {
-        // Convert to Unity left-handed space: [X, Y, -Z]
         positions[i][frameIdx * 3]     = simPositions[i * 3];
         positions[i][frameIdx * 3 + 1] = simPositions[i * 3 + 1];
         positions[i][frameIdx * 3 + 2] = -simPositions[i * 3 + 2];
