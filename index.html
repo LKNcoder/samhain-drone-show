@@ -212,6 +212,10 @@ body.xr-active #panel, body.xr-active #vr-tip, body.xr-active #VRButton { displa
   border: 4px dashed #ffab00; z-index: 100; pointer-events: none;
   align-items: center; justify-content: center; font-size: 24px; font-weight: bold; color: #ffab00;
 }
+
+  #panel, #vr-tip {
+  display: none !important;
+}
 body.dragging #drop-overlay { display: flex; }
 </style>
 <script type="importmap">
@@ -391,7 +395,7 @@ let precipConfig = {
 };
 
 const scene = new THREE.Scene();
-scene.background = new THREE.Color(0x02040a);
+scene.background = null;
 
 const camera = new THREE.PerspectiveCamera(55, innerWidth / innerHeight, 0.1, 500);
 camera.position.set(0, 16, 52);
