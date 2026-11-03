@@ -774,7 +774,7 @@ function evaluateTimeline(t) {
 // PHYSICS-BASED GLB EXPORTER (ZERO TELEPORTS / PERFECT CONTINUITY)
 // -------------------------------------------------------------
 window.bakeAndDownloadGLB = function() {
-  console.log("Simulating 60Hz physics and baking GLB... please wait.");
+  console.log("Simulating 60Hz physics with 10s pre/post delays... please wait.");
 
   const root = new THREE.Group();
   root.name = "SamhainDroneFleet";
@@ -797,7 +797,8 @@ window.bakeAndDownloadGLB = function() {
   simPositions.set(groundPositions.subarray(0, activeDroneCount * 3));
 
   const sampleFPS = 15;
-  const totalFrames = Math.floor(TOTAL_DURATION * sampleFPS);
+  const BAKE_TOTAL_DURATION = PRE_SHOW_DELAY + TOTAL_DURATION + POST_SHOW_DELAY; // 10s + 160s + 10s = 180s
+  const totalFrames = Math.floor(BAKE_TOTAL_DURATION * sampleFPS);
   const times = new Float32Array(totalFrames);
   for (let f = 0; f < totalFrames; f++) times[f] = f / sampleFPS;
 
@@ -810,7 +811,15 @@ window.bakeAndDownloadGLB = function() {
 
   for (let s = 0; s < totalSubsteps; s++) {
     const simTime = s * dt;
-    evaluateTimeline(simTime);
+
+    // Timeline mapping: 10s rest at start -> show flight -> 10s rest at end
+    if (simTime < PRE_SHOW_DELAY) {
+      evaluateTimeline(0.0);
+    } else if (simTime < PRE_SHOW_DELAY + TOTAL_DURATION) {
+      evaluateTimeline(simTime - PRE_SHOW_DELAY);
+    } else {
+      evaluateTimeline(TOTAL_DURATION);
+    }
 
     for (let i = 0; i < activeDroneCount; i++) {
       const idx = i * 3;
@@ -841,7 +850,7 @@ window.bakeAndDownloadGLB = function() {
 
     if (s % physicsSubsteps === 0 && frameIdx < totalFrames) {
       for (let i = 0; i < activeDroneCount; i++) {
-        // Negate Z to convert from Three.js right-handed to Unity left-handed space
+        // Convert to Unity left-handed space: [X, Y, -Z]
         positions[i][frameIdx * 3]     = simPositions[i * 3];
         positions[i][frameIdx * 3 + 1] = simPositions[i * 3 + 1];
         positions[i][frameIdx * 3 + 2] = -simPositions[i * 3 + 2];
@@ -862,7 +871,7 @@ window.bakeAndDownloadGLB = function() {
     );
   }
 
-  const clip = new THREE.AnimationClip("DroneShowFlight", TOTAL_DURATION, tracks);
+  const clip = new THREE.AnimationClip("DroneShowFlight", BAKE_TOTAL_DURATION, tracks);
 
   new GLTFExporter().parse(
     root,
@@ -872,7 +881,7 @@ window.bakeAndDownloadGLB = function() {
       link.href = URL.createObjectURL(blob);
       link.download = "Samhain_Drone_Show.glb";
       link.click();
-      console.log("GLB baked and exported with full physics continuity!");
+      console.log("GLB baked with 10s pre/post delays and continuous physics!");
     },
     (err) => console.error("Export error:", err),
     { binary: true, animations: [clip] }
