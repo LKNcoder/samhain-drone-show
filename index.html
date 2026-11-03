@@ -232,11 +232,11 @@ body.dragging #drop-overlay { display: flex; }
       <button class="toolbar-btn" id="btn-undo" title="Revert last action (Ctrl+Z)">↶ Undo</button>
     </div>
   </div>
-  <div id="status">Tile 17 'N' Fully Allocated · Continuous Volumetric Finale & Sparkle Swarm Active</div>
+  <div id="status">Tile 17 Steady (No Waver) · 8 Transition Styles · Spectacular Undulating Finale Swarm Active</div>
 
   <!-- Samhain Tiles Selector Bar -->
   <div class="section-label" style="margin-top:6px;">
-    <span>Samhain Tiles (Narrative Order: Wheat -> Scythe -> Leaf -> Tree -> Owl -> Pumpkin -> Candle -> Ghost -> Key...)</span>
+    <span>Samhain Tiles (Wheat -> Scythe -> Leaf -> Tree -> Owl -> Pumpkin -> Candle -> Ghost -> Key...)</span>
   </div>
   <div class="tiles-scroll-bar" id="tiles-strip"></div>
 
@@ -300,10 +300,14 @@ body.dragging #drop-overlay { display: flex; }
     <div class="ctrl-row" style="margin-top:4px;">
       <span style="min-width:75px;">Kinematic FX:</span>
       <select id="sel-trans-motion">
-        <option value="vortex" selected>Single Grand Spiral Sweep</option>
+        <option value="vortex">Single Grand Spiral Sweep</option>
         <option value="explosion">Supernova Starburst Shockwave</option>
         <option value="celtic_swirl">Celtic Wind Ribbon Waves</option>
         <option value="helix">Double-Helix Cyclonic Lift</option>
+        <option value="torus_warp">Revolving 3D Torus Vortex</option>
+        <option value="hourglass_twist">Hourglass Pinch & Flare</option>
+        <option value="quantum_scatter">Quantum Cluster Dispersion</option>
+        <option value="cascade_wave">Harmonic Cascade Ocean Breaker</option>
       </select>
     </div>
     <div class="ctrl-row">
@@ -336,13 +340,13 @@ body.dragging #drop-overlay { display: flex; }
 
     <div class="timeline-bottom-row">
       <button id="btn-play" style="padding:4px 14px; font-size:11px; background:#2e1d0c; border:1px solid #ffab00; color:#ffab00; border-radius:4px; cursor:pointer;">Play</button>
-      <span id="time-display" style="font-size:11px; font-variant-numeric:tabular-nums; min-width:85px;">00:00 / 02:25</span>
+      <span id="time-display" style="font-size:11px; font-variant-numeric:tabular-nums; min-width:85px;">00:00 / 02:40</span>
       <span style="font-size:10px; color:#a08a75; flex:1; text-align:right;">Seamless Loop: Drones land at start positions</span>
     </div>
   </div>
 
   <div id="hint">
-    <b>Spectacular Finale & Landing:</b> Continuous vortex expansion into a swirling kaleidoscope dome with strobing white sparkles, cascading down into the launch pads.
+    <b>Spectacular Finale Swarm:</b> Breathing 3D harmonic sphere with multi-color waves and white diamond sparkle strobes, descending smoothly into the launch ring.
   </div>
 </div>
 <div id="vr-tip">In VR: Press Left X for HUD · Trigger paints drones with active swatch</div>
@@ -356,7 +360,7 @@ import {
   findShapeById,
   sampleImageToDrones,
   GOLDEN
-} from "./shapes.js?v=samhain_final_polish_v17";
+} from "./shapes.js?v=samhain_final_suite_v18";
 
 function formatTime(s) {
   if (isNaN(s) || s === undefined || s === null) return "00:00";
@@ -367,13 +371,13 @@ function formatTime(s) {
 
 const MAX_DRONES = 2000;
 let activeDroneCount = 800;
-let TOTAL_DURATION = 145.0;
+let TOTAL_DURATION = 160.0;
 let panSensitivity = 5.0;
 const BASE_DRONE_SIZE = 0.48;
 const Y_AXIS = new THREE.Vector3(0, 1, 0);
 
 let takeoffConfig = { dur: 10.0, style: "celtic_whirl" };
-let landingConfig = { dur: 22.0, style: "climactic_helix" };
+let landingConfig = { dur: 24.0, style: "climactic_helix" };
 
 let precipConfig = {
   enabled: true,
@@ -541,23 +545,23 @@ function assignMinimalPaths(currentPos, rawTargets, rawSwatches, count) {
   return { positions: assigned, swatches: assignedSwatches };
 }
 
-// Master Scene Sequence: Raven, Cauldron, Skull, and Witch removed
+// 15 Distinct Narrative Scenes with 8 Dynamic Non-Repeating Transition Styles
 const SHOW_SCENES = [
-  { tNum: 16, palette: ["#ffd54f", "#8d4e28"], motion: "vortex", colorFX: "sparkle" },                                // Wheat
-  { tNum: 25, palette: ["#cfd8dc", "#5d4037"], motion: "celtic_swirl", colorFX: "fire_burst" },                         // Scythe
-  { tNum: 28, palette: ["#d50000", "#8d4e28"], motion: "vortex", colorFX: "mystic_aurora" },                            // Leaf
-  { tNum: 26, palette: ["#5d4037", "#8d6e63"], motion: "explosion", colorFX: "beacon" },                                // Bare tree (NO green)
-  { tNum: 27, palette: ["#ffffff", "#ffab00", "#5d4037"], motion: "vortex", colorFX: "fire_burst" },                     // Owl
-  { tNum: 18, palette: ["#ff6d00"], motion: "celtic_swirl", colorFX: "sparkle" },                                       // Pumpkin (100% deep orange)
-  { tNum: 24, palette: ["#ffffff", "#ff3d00", "#ffd600"], motion: "explosion", colorFX: "fire_burst" },                   // Candle
-  { tNum: 19, palette: ["#ffffff"], motion: "vortex", colorFX: "mystic_aurora" },                                        // Ghost (100% white)
-  { tNum: 32, palette: ["#ffd700", "#ffb300"], motion: "explosion", colorFX: "sparkle" },                              // Key
-  { tNum: 29, palette: ["#00e676", "#00b0ff"], motion: "celtic_swirl", colorFX: "beacon" },                            // Celtic Knot
-  { tNum: 30, palette: ["#ff1744", "#d50000"], motion: "helix", colorFX: "fire_burst" },                               // Sigil
-  { tNum: 31, palette: ["#ffd54f", "#ff9100"], motion: "vortex", colorFX: "sparkle" },                                 // Rotating Symbol
-  { tNum: 33, palette: ["#e040fb", "#ffd54f"], motion: "explosion", colorFX: "beacon" },                               // Talisman
-  { tNum: 34, palette: ["#7c4dff", "#00e5ff"], motion: "celtic_swirl", colorFX: "mystic_aurora" },                     // Cross
-  { tNum: 17, palette: ["#ffffff", "#ffd54f", "#ff6d00", "#d50000"], motion: "vortex", colorFX: "fire_burst", isLast: true } // Tile 17 Finale
+  { tNum: 16, palette: ["#ffd54f", "#8d4e28"], motion: "vortex", colorFX: "sparkle" },                                // 1. Wheat
+  { tNum: 25, palette: ["#cfd8dc", "#5d4037"], motion: "cascade_wave", colorFX: "fire_burst" },                       // 2. Scythe
+  { tNum: 28, palette: ["#d50000", "#8d4e28"], motion: "torus_warp", colorFX: "mystic_aurora" },                        // 3. Leaf
+  { tNum: 26, palette: ["#5d4037", "#8d6e63"], motion: "explosion", colorFX: "beacon" },                                // 4. Bare Tree
+  { tNum: 27, palette: ["#ffffff", "#ffab00", "#5d4037"], motion: "hourglass_twist", colorFX: "fire_burst" },            // 5. Owl
+  { tNum: 18, palette: ["#ff6d00"], motion: "celtic_swirl", colorFX: "sparkle" },                                       // 6. Pumpkin
+  { tNum: 24, palette: ["#ffffff", "#ff3d00", "#ffd600"], motion: "quantum_scatter", colorFX: "fire_burst" },             // 7. Candle
+  { tNum: 19, palette: ["#ffffff"], motion: "helix", colorFX: "mystic_aurora" },                                        // 8. Ghost
+  { tNum: 32, palette: ["#ffd700", "#ffb300"], motion: "vortex", colorFX: "sparkle" },                                  // 9. Key
+  { tNum: 29, palette: ["#00e676", "#00b0ff"], motion: "torus_warp", colorFX: "beacon" },                               // 10. Celtic Knot
+  { tNum: 30, palette: ["#ff1744", "#d50000"], motion: "cascade_wave", colorFX: "fire_burst" },                         // 11. Sigil
+  { tNum: 31, palette: ["#ffd54f", "#ff9100"], motion: "hourglass_twist", colorFX: "sparkle" },                         // 12. Rotating Symbol
+  { tNum: 33, palette: ["#e040fb", "#ffd54f"], motion: "explosion", colorFX: "beacon" },                               // 13. Talisman
+  { tNum: 34, palette: ["#7c4dff", "#00e5ff"], motion: "quantum_scatter", colorFX: "mystic_aurora" },                   // 14. Cross
+  { tNum: 17, palette: ["#ffffff", "#ffd54f", "#ff6d00", "#d50000"], motion: "vortex", colorFX: "fire_burst", isLast: true } // 15. Finale Bonfire
 ];
 
 const timelineData = {
@@ -566,7 +570,6 @@ const timelineData = {
     shapeId: `samhainTile${sc.tNum}`,
     tileNum: sc.tNum,
     isText: false,
-    isStill: sc.isStill || false,
     dur: sc.isLast ? 10.0 : 5.0,
     transDur: sc.isLast ? 0.0 : 4.0,
     transMotion: sc.motion,
@@ -881,10 +884,10 @@ function evaluateTimeline(t) {
             localScratchPoints[j * 3 + 1] = alt + (localScratchPoints[j * 3 + 1] - alt) * wobbleY;
           }
         }
-        // Tile 24: Candle Flame Waver ONLY (Wax and base are strictly stationary)
+        // Tile 24: Candle Flame Waver ONLY (Wax and base remain strictly stationary)
         else if (b.tileNum === 24) {
           for (let j = 0; j < formationCount; j++) {
-            if (currSwatches && currSwatches[j] === 1) { // Flame drones (Swatch 1)
+            if (currSwatches && currSwatches[j] === 1) { // Flame drones
               const py = localScratchPoints[j * 3 + 1];
               localScratchPoints[j * 3] += Math.sin(tScene * 5.5 + py * 1.5) * 0.45;
             }
@@ -933,16 +936,9 @@ function evaluateTimeline(t) {
             localScratchPoints[j * 3 + 1] = alt + (lx * sinS + ly * cosS);
           }
         }
-        // Tile 17: Finale Bonfire Active Vortex Roar
+        // Tile 17: Finale Bonfire (Completely stationary, crisp, no wavering)
         else if (b.tileNum === 17) {
-          for (let j = 0; j < formationCount; j++) {
-            const py = localScratchPoints[j * 3 + 1];
-            if (py > 13.0) { // Flames swirling upwards
-              const swirl = Math.sin(tScene * 4.0 + py * 0.6) * 0.65;
-              localScratchPoints[j * 3] += swirl;
-              localScratchPoints[j * 3 + 2] += Math.cos(tScene * 3.5 + py * 0.5) * 0.85;
-            }
-          }
+          // No wavering
         }
 
         for (let j = 0; j < formationCount; j++) {
@@ -956,7 +952,7 @@ function evaluateTimeline(t) {
         applyLightingFX(b, t);
         break;
       }
-      // Single Grand Spiral / Transition Period
+      // Multi-Style Cinematic Transition Period (8 Varied Non-Repeating Motions)
       else if (showT >= formEnd && showT < transEnd) {
         const nextIdx = (i + 1 < timelineData.formationBlocks.length) ? i + 1 : 0;
         const nextB = timelineData.formationBlocks[nextIdx];
@@ -986,6 +982,7 @@ function evaluateTimeline(t) {
           let midY = skyPosA.y + (skyPosB.y - skyPosA.y) * ease;
           let midZ = skyPosA.z + (skyPosB.z - skyPosA.z) * ease;
 
+          // 1. Single Grand Spiral Vortex
           if (motionStyle === "vortex") {
             const distFromCenter = Math.sqrt(midX * midX + (midY - interpAlt) * (midY - interpAlt));
             const baseAngle = Math.atan2(midY - interpAlt, midX);
@@ -995,7 +992,9 @@ function evaluateTimeline(t) {
             midX = Math.cos(spinAngle) * expandRadius;
             midY = interpAlt + Math.sin(spinAngle) * expandRadius;
             midZ += Math.sin(j * 0.15 + progress * Math.PI * 2.0) * (arc * 4.5);
-          } else if (motionStyle === "explosion") {
+          }
+          // 2. Supernova Starburst Explosion
+          else if (motionStyle === "explosion") {
             const dirX = midX;
             const dirY = midY - interpAlt;
             const len = Math.max(0.1, Math.sqrt(dirX * dirX + dirY * dirY));
@@ -1004,18 +1003,58 @@ function evaluateTimeline(t) {
             midX += (dirX / len) * blast;
             midY += (dirY / len) * blast;
             midZ += (Math.sin(j * 37.1) * 2.0 - 1.0) * (arc * 7.5);
-          } else if (motionStyle === "celtic_swirl") {
+          }
+          // 3. Celtic Wind Ribbon Waves
+          else if (motionStyle === "celtic_swirl") {
             const ribbonPhase = (j / formationCount) * Math.PI * 4.0;
             const wave = Math.sin(progress * Math.PI * 2.0 + ribbonPhase);
             midX += Math.cos(ribbonPhase + progress * Math.PI) * (arc * 8.5);
             midY += wave * (arc * 5.0);
             midZ += Math.sin(progress * Math.PI * 3.0 + (j % 5)) * (arc * 7.0);
-          } else if (motionStyle === "helix") {
+          }
+          // 4. Double-Helix Cyclonic Lift
+          else if (motionStyle === "helix") {
             const helixAngle = progress * Math.PI * 2.4 + (j % 24) * (Math.PI / 12);
             const r = 9.5 * arc;
             midX += Math.cos(helixAngle) * r;
             midY += Math.sin(helixAngle) * (arc * 4.0);
             midZ += Math.sin(helixAngle) * r;
+          }
+          // 5. Revolving 3D Torus Vortex
+          else if (motionStyle === "torus_warp") {
+            const uTorus = (j / formationCount) * Math.PI * 2.0 + progress * Math.PI * 2.0;
+            const vTorus = progress * Math.PI * 3.0 + (j % 10) * 0.6;
+            const R = 12.0 * arc;
+            const r = 4.5 * arc;
+            midX += (R + r * Math.cos(vTorus)) * Math.cos(uTorus) * 0.65;
+            midY += r * Math.sin(vTorus) * 0.65;
+            midZ += (R + r * Math.cos(vTorus)) * Math.sin(uTorus) * 0.65;
+          }
+          // 6. Hourglass Pinch & Flare
+          else if (motionStyle === "hourglass_twist") {
+            const pinchFactor = 1.0 - arc * 0.82;
+            const twistAngle = (midY - interpAlt) * 0.15 * arc * Math.PI;
+            const cosT = Math.cos(twistAngle), sinT = Math.sin(twistAngle);
+            const px = midX * pinchFactor;
+            const pz = midZ * pinchFactor;
+            midX = px * cosT - pz * sinT;
+            midZ = px * sinT + pz * cosT;
+          }
+          // 7. Quantum Cluster Dispersion
+          else if (motionStyle === "quantum_scatter") {
+            const scatterSeed = j * 41.7 + progress * 8.0;
+            const scatterDist = arc * 11.5;
+            midX += Math.sin(scatterSeed) * scatterDist;
+            midY += Math.cos(scatterSeed * 1.3) * (scatterDist * 0.7);
+            midZ += Math.sin(scatterSeed * 1.7) * scatterDist;
+          }
+          // 8. Harmonic Cascade Ocean Breaker
+          else if (motionStyle === "cascade_wave") {
+            const waveX = (midX + 20.0) / 40.0;
+            const wavePhase = progress * Math.PI * 2.5 - waveX * Math.PI * 2.0;
+            const crest = Math.sin(wavePhase);
+            midY += crest * (arc * 7.5);
+            midZ += Math.cos(wavePhase) * (arc * 6.0);
           }
 
           targetPositions[j * 3]     = midX;
@@ -1064,7 +1103,7 @@ function evaluateTimeline(t) {
     }
   }
 
-  // 3. Spectacular Continuous Finale Swirl -> Cascading Helix -> Seamless Circular Landing
+  // 3. Spectacular Continuous Finale Swarm -> Cascading Helix -> Seamless Circular Landing
   else {
     const landT = t - showBodyEnd;
     const u = THREE.MathUtils.clamp(landT / landingConfig.dur, 0, 1);
@@ -1083,29 +1122,32 @@ function evaluateTimeline(t) {
 
       let curX, curY, curZ;
 
-      // Phase 1 (0 to 45% of landing duration): Grand Celestial Vortex Expansion (No contraction jerk)
+      // Phase 1 (0 to 45% of landing duration): Grand Celestial Volumetric Swarm (No contraction jerk)
       if (u < 0.45) {
         const uSwarm = u / 0.45;
         const easeSwarm = uSwarm * uSwarm * (3 - 2 * uSwarm);
 
-        // Continuous outward swirling motion directly from shape positions
-        const targetRadius = 26.0;
-        const initialR = Math.sqrt(skyPosA.x * skyPosA.x + skyPosA.z * skyPosA.z);
-        const curR = THREE.MathUtils.lerp(initialR, targetRadius, easeSwarm);
+        // Volumetric 3D spherical shell with multi-frequency undulating ripples
+        const phi = Math.acos(1.0 - 2.0 * ((i + 0.5) / formationCount));
+        const theta = i * GOLDEN + landT * 1.6;
 
-        const initialAngle = Math.atan2(skyPosA.z, skyPosA.x);
-        const curAngle = initialAngle + uSwarm * Math.PI * 3.0 + landT * 0.6;
+        // Radius breathes dynamically with multi-octave harmonic waves
+        const rSwarm = 22.0 + Math.sin(landT * 3.0 + i * 0.15) * 5.0 + Math.sin(landT * 6.0 + theta * 2.0) * 3.0;
 
-        curX = Math.cos(curAngle) * curR;
-        curY = skyPosA.y + Math.sin(uSwarm * Math.PI * 0.5) * 8.0 + Math.sin(landT * 3.5 + i * 0.1) * 1.2;
-        curZ = Math.sin(curAngle) * curR;
+        const swarmX = Math.sin(phi) * Math.cos(theta) * rSwarm;
+        const swarmY = alt + Math.cos(phi) * (rSwarm * 0.72) + Math.sin(landT * 4.0 + theta) * 2.2;
+        const swarmZ = Math.sin(phi) * Math.sin(theta) * rSwarm;
+
+        curX = THREE.MathUtils.lerp(skyPosA.x, swarmX, easeSwarm);
+        curY = THREE.MathUtils.lerp(skyPosA.y, swarmY, easeSwarm);
+        curZ = THREE.MathUtils.lerp(skyPosA.z, swarmZ, easeSwarm);
 
         // Rich Multi-Color Kaleidoscope Waves + Strobing White Sparkle Stars
-        const hueShift = ((i / formationCount) * 1.2 + landT * 0.45) % 1.0;
+        const hueShift = (landT * 0.5 + Math.sin(phi * 2.0) * 0.3 + (i / formationCount) * 0.5) % 1.0;
         tempColor.setHSL(hueShift, 1.0, 0.58);
 
         // Strobing Diamond Sparkles across 20% of the fleet
-        const isSparkleStar = (Math.sin(landT * 16.0 + i * 17.3) > 0.65);
+        const isSparkleStar = (Math.sin(landT * 18.0 + i * 13.7) > 0.60);
         if (isSparkleStar) {
           targetColors[i * 3]     = 1.0;
           targetColors[i * 3 + 1] = 1.0;
@@ -1121,7 +1163,7 @@ function evaluateTimeline(t) {
         const uDesc = (u - 0.45) / 0.55;
         const easeDesc = uDesc * uDesc * (3 - 2 * uDesc);
 
-        // Smooth helical funnel winding downwards
+        // Helical funnel winding downwards
         const funnelAngle = (1.0 - easeDesc) * Math.PI * 5.0 + (i % 3) * (Math.PI * 2 / 3);
         const startR = 26.0 * (1.0 - easeDesc * 0.35);
         const targetR = Math.sqrt(gx * gx + gz * gz);
@@ -1134,7 +1176,6 @@ function evaluateTimeline(t) {
         curY = THREE.MathUtils.lerp(24.0, gy, easeDesc);
         curZ = THREE.MathUtils.lerp(Math.sin(curAngle) * curR, gz, Math.pow(easeDesc, 2.2));
 
-        // Gradients gently transition into resting embers as drones approach the ground
         const hueShift = ((i / formationCount) * 0.8 + landT * 0.2) % 1.0;
         tempColor.setHSL(hueShift, 1.0, 0.55);
 
