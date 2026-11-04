@@ -51,7 +51,7 @@ import {
   findShapeById,
   sampleImageToDrones,
   GOLDEN
-} from "./shapes.js?v=samhain_final_suite_v22";
+} from "./shapes.js?v=samhain_final_suite_v23";
 
 function formatTime(s) {
   if (isNaN(s) || s === undefined || s === null) return "00:00";
@@ -212,23 +212,23 @@ function assignMinimalPaths(currentPos, rawTargets, rawSwatches, count) {
   return { positions: assigned, swatches: assignedSwatches };
 }
 
-// All 15 authentic Samhain formations with expansive non-repeating transitions
+// 15 Formations with accurate semantic color swatches
 const SHOW_SCENES = [
-  { tNum: 16, palette: ["#ffd54f", "#8d4e28"], motion: "vortex", colorFX: "sparkle" },           // 1. Wheat
-  { tNum: 25, palette: ["#cfd8dc", "#5d4037"], motion: "cascade_wave", colorFX: "fire_burst" },  // 2. Scythe
-  { tNum: 28, palette: ["#d50000", "#8d4e28"], motion: "celtic_swirl", colorFX: "mystic_aurora" },// 3. Leaf
-  { tNum: 26, palette: ["#5d4037", "#8d6e63"], motion: "explosion", colorFX: "beacon" },          // 4. Tree
-  { tNum: 27, palette: ["#ffffff", "#ffab00", "#5d4037"], motion: "helix", colorFX: "fire_burst" },// 5. Owl
-  { tNum: 18, palette: ["#ff6d00"], motion: "vortex", colorFX: "sparkle" },                       // 6. Pumpkin
-  { tNum: 24, palette: ["#ffffff", "#ff3d00", "#ffd600"], motion: "explosion", colorFX: "fire_burst" }, // 7. Candle
-  { tNum: 19, palette: ["#ffffff"], motion: "celtic_swirl", colorFX: "mystic_aurora" },            // 8. Ghost
-  { tNum: 32, palette: ["#ffd700", "#ffb300"], motion: "helix", colorFX: "sparkle" },             // 9. Key
-  { tNum: 29, palette: ["#00e676", "#00b0ff"], motion: "cascade_wave", colorFX: "beacon" },       // 10. Celtic Knot
-  { tNum: 30, palette: ["#ff1744", "#d50000"], motion: "vortex", colorFX: "fire_burst" },         // 11. Sigil
-  { tNum: 31, palette: ["#ffd54f", "#ff9100"], motion: "celtic_swirl", colorFX: "sparkle" },      // 12. Solar Symbol
-  { tNum: 33, palette: ["#e040fb", "#ffd54f"], motion: "explosion", colorFX: "beacon" },          // 13. Talisman
-  { tNum: 34, palette: ["#7c4dff", "#00e5ff"], motion: "helix", colorFX: "mystic_aurora" },       // 14. Cross
-  { tNum: 17, palette: ["#ffffff", "#ffd54f", "#ff6d00", "#d50000"], motion: "vortex", colorFX: "fire_burst", isLast: true } // 15. Finale
+  { tNum: 16, palette: ["#ffd54f", "#8d4e28"], motion: "vortex", colorFX: "sparkle" },
+  { tNum: 25, palette: ["#cfd8dc", "#5d4037"], motion: "cascade_wave", colorFX: "fire_burst" },
+  { tNum: 28, palette: ["#d50000", "#8d4e28"], motion: "celtic_swirl", colorFX: "mystic_aurora" },
+  { tNum: 26, palette: ["#5d4037", "#8d6e63"], motion: "explosion", colorFX: "beacon" },
+  { tNum: 27, palette: ["#ffffff", "#ffab00", "#5d4037"], motion: "helix", colorFX: "fire_burst" },
+  { tNum: 18, palette: ["#ff6d00"], motion: "vortex", colorFX: "sparkle" },
+  { tNum: 24, palette: ["#ffffff", "#ff3d00", "#ffd600"], motion: "explosion", colorFX: "fire_burst" },
+  { tNum: 19, palette: ["#ffffff"], motion: "celtic_swirl", colorFX: "mystic_aurora" },
+  { tNum: 32, palette: ["#ffd700", "#ffb300"], motion: "helix", colorFX: "sparkle" },
+  { tNum: 29, palette: ["#00e676", "#00b0ff"], motion: "cascade_wave", colorFX: "beacon" },
+  { tNum: 30, palette: ["#ff1744", "#d50000"], motion: "vortex", colorFX: "fire_burst" },
+  { tNum: 31, palette: ["#ffd54f", "#ff9100"], motion: "celtic_swirl", colorFX: "sparkle" },
+  { tNum: 33, palette: ["#e040fb", "#ffd54f"], motion: "explosion", colorFX: "beacon" },
+  { tNum: 34, palette: ["#7c4dff", "#00e5ff"], motion: "helix", colorFX: "mystic_aurora" },
+  { tNum: 17, palette: ["#ffffff", "#ffd54f", "#ff6d00", "#d50000"], motion: "vortex", colorFX: "fire_burst", isLast: true }
 ];
 
 const timelineData = {
@@ -496,12 +496,17 @@ function evaluateTimeline(t) {
             localScratchPoints[j * 3]     = lx * cosW - ly * sinW;
             localScratchPoints[j * 3 + 1] = alt + (lx * sinW + ly * cosW);
           }
-        } else if (b.tileNum === 29 || b.tileNum === 30 || b.tileNum === 31 || b.tileNum === 33 || b.tileNum === 34) {
-          // Gentle breathing hover to keep the symbols crisp without distortion
-          const pulse = 1.0 + Math.sin(uBlock * Math.PI * 2.0) * 0.03;
+        } 
+        // Tiles 29, 30, 31, 33, 34: Exact 360-degree rotation (zero snap at boundaries)
+        else if (b.tileNum === 29 || b.tileNum === 30 || b.tileNum === 31 || b.tileNum === 33 || b.tileNum === 34) {
+          const dir = (b.tileNum === 30 || b.tileNum === 34) ? -1 : 1;
+          const spinA = uBlock * Math.PI * 2.0 * dir;
+          const cosS = Math.cos(spinA), sinS = Math.sin(spinA);
           for (let j = 0; j < formationCount; j++) {
-            localScratchPoints[j * 3]     *= pulse;
-            localScratchPoints[j * 3 + 1] = alt + (localScratchPoints[j * 3 + 1] - alt) * pulse;
+            const lx = localScratchPoints[j * 3];
+            const ly = localScratchPoints[j * 3 + 1] - alt;
+            localScratchPoints[j * 3]     = lx * cosS - ly * sinS;
+            localScratchPoints[j * 3 + 1] = alt + (lx * sinS + ly * cosS);
           }
         }
 
@@ -689,41 +694,51 @@ function evaluateTimeline(t) {
     }
   }
 
-  // 4. Atmospheric Particles
+  // 4. Deterministic Falling Leaves Precipitation (Bakes into GLB automatically)
   if (precipConfig.enabled) {
     const precipHex = new THREE.Color(precipConfig.color);
+    const fallSpeed = precipConfig.speed;
+    const fallHeight = 30.0;
+    const windRad = THREE.MathUtils.degToRad(precipConfig.angle);
+    const windDrift = Math.sin(windRad) * Math.abs(fallSpeed);
 
     for (let i = formationCount; i < activeDroneCount; i++) {
       const gx = groundPositions[i * 3];
       const gy = groundPositions[i * 3 + 1];
       const gz = groundPositions[i * 3 + 2];
-      const px = precipPositions[i * 3];
-      const py = precipPositions[i * 3 + 1];
-      const pz = precipPositions[i * 3 + 2];
+      const x0 = precipPositions[i * 3];
+      const y0 = precipPositions[i * 3 + 1];
+      const z0 = precipPositions[i * 3 + 2];
+      const seed = precipDriftSeeds[i];
+
+      // Continual falling equation
+      const currentY = 1.5 + ((y0 - 1.5 - fallSpeed * t) % fallHeight + fallHeight) % fallHeight;
+      const currentX = x0 + Math.sin(t * 1.8 + seed * 6.28) * 0.8 + ((windDrift * t + seed * 10) % 36.0) - 18.0;
+      const currentZ = z0 + Math.cos(t * 1.5 + seed * 6.28) * 0.8;
 
       if (t <= takeoffConfig.dur) {
         const u = Math.max(0, t / takeoffConfig.dur);
         const ease = u * u * (3 - 2 * u);
-        targetPositions[i * 3]     = gx + (px - gx) * ease;
-        targetPositions[i * 3 + 1] = gy + (py - gy) * ease;
-        targetPositions[i * 3 + 2] = gz + (pz - gz) * ease;
+        targetPositions[i * 3]     = gx + (currentX - gx) * ease;
+        targetPositions[i * 3 + 1] = gy + (currentY - gy) * ease;
+        targetPositions[i * 3 + 2] = gz + (currentZ - gz) * ease;
         targetColors[i * 3]     = precipHex.r * 0.4 * ease;
         targetColors[i * 3 + 1] = precipHex.g * 0.4 * ease;
         targetColors[i * 3 + 2] = precipHex.b * 0.4 * ease;
       } else if (t > takeoffConfig.dur && t < showBodyEnd) {
-        targetPositions[i * 3]     = px;
-        targetPositions[i * 3 + 1] = py;
-        targetPositions[i * 3 + 2] = pz;
-        const brightness = Math.sin(t * 8.0 + precipDriftSeeds[i] * 5.0) > 0.4 ? 1.0 : 0.65;
+        targetPositions[i * 3]     = currentX;
+        targetPositions[i * 3 + 1] = currentY;
+        targetPositions[i * 3 + 2] = currentZ;
+        const brightness = Math.sin(t * 8.0 + seed * 5.0) > 0.4 ? 1.0 : 0.65;
         targetColors[i * 3]     = precipHex.r * brightness;
         targetColors[i * 3 + 1] = precipHex.g * brightness;
         targetColors[i * 3 + 2] = precipHex.b * brightness;
       } else {
         const u = THREE.MathUtils.clamp((t - showBodyEnd) / landingConfig.dur, 0, 1);
         const ease = u * u * (3 - 2 * u);
-        targetPositions[i * 3]     = px + (gx - px) * ease;
-        targetPositions[i * 3 + 1] = py + (gy - py) * ease;
-        targetPositions[i * 3 + 2] = pz + (gz - pz) * ease;
+        targetPositions[i * 3]     = currentX + (gx - currentX) * ease;
+        targetPositions[i * 3 + 1] = currentY + (gy - currentY) * ease;
+        targetPositions[i * 3 + 2] = currentZ + (gz - currentZ) * ease;
         targetColors[i * 3]     = precipHex.r * (1 - ease * 0.8);
         targetColors[i * 3 + 1] = precipHex.g * (1 - ease * 0.8);
         targetColors[i * 3 + 2] = 0.05;
@@ -733,10 +748,10 @@ function evaluateTimeline(t) {
 }
 
 // -------------------------------------------------------------
-// PHYSICS-BASED GLB EXPORTER: EXACT 190s TIMELINE (10s PRE + 170s SHOW + 10s POST)
+// PHYSICS-BASED GLB EXPORTER: BAKES POSITIONS + EXACT RGB SCALES
 // -------------------------------------------------------------
 window.bakeAndDownloadGLB = function() {
-  console.log("Simulating 60Hz physics with exact 190s timeline... please wait.");
+  console.log("Simulating 60Hz physics & baking RGB colors into Scale tracks... please wait.");
 
   const root = new THREE.Group();
   root.name = "SamhainDroneFleet";
@@ -756,15 +771,17 @@ window.bakeAndDownloadGLB = function() {
 
   const simPositions = new Float32Array(activeDroneCount * 3);
   const simVelocities = new Float32Array(activeDroneCount * 3);
+  const simColors = new Float32Array(activeDroneCount * 3);
   simPositions.set(groundPositions.subarray(0, activeDroneCount * 3));
 
   const sampleFPS = 15;
-  const BAKE_TOTAL_DURATION = PRE_SHOW_DELAY + TOTAL_DURATION + POST_SHOW_DELAY; // 10s + 170s + 10s = 190s
+  const BAKE_TOTAL_DURATION = PRE_SHOW_DELAY + TOTAL_DURATION + POST_SHOW_DELAY;
   const totalFrames = Math.floor(BAKE_TOTAL_DURATION * sampleFPS);
   const times = new Float32Array(totalFrames);
   for (let f = 0; f < totalFrames; f++) times[f] = f / sampleFPS;
 
   const positions = Array.from({ length: activeDroneCount }, () => new Float32Array(totalFrames * 3));
+  const scales = Array.from({ length: activeDroneCount }, () => new Float32Array(totalFrames * 3));
 
   const physicsSubsteps = 4;
   const dt = (1 / sampleFPS) / physicsSubsteps;
@@ -807,13 +824,23 @@ window.bakeAndDownloadGLB = function() {
       simVelocities[idx]     = vx;
       simVelocities[idx + 1] = vy;
       simVelocities[idx + 2] = vz;
+
+      simColors[idx]     += (targetColors[idx] - simColors[idx]) * 7.0 * dt;
+      simColors[idx + 1] += (targetColors[idx + 1] - simColors[idx + 1]) * 7.0 * dt;
+      simColors[idx + 2] += (targetColors[idx + 2] - simColors[idx + 2]) * 7.0 * dt;
     }
 
     if (s % physicsSubsteps === 0 && frameIdx < totalFrames) {
       for (let i = 0; i < activeDroneCount; i++) {
+        // Positions (Z negated for Unity left-handed space)
         positions[i][frameIdx * 3]     = simPositions[i * 3];
         positions[i][frameIdx * 3 + 1] = simPositions[i * 3 + 1];
         positions[i][frameIdx * 3 + 2] = -simPositions[i * 3 + 2];
+
+        // Exact RGB Color stored in Scale tracks (clamped to prevent 0 scale issues)
+        scales[i][frameIdx * 3]     = Math.max(0.02, simColors[i * 3]);
+        scales[i][frameIdx * 3 + 1] = Math.max(0.02, simColors[i * 3 + 1]);
+        scales[i][frameIdx * 3 + 2] = Math.max(0.02, simColors[i * 3 + 2]);
       }
       frameIdx++;
     }
@@ -829,6 +856,14 @@ window.bakeAndDownloadGLB = function() {
         THREE.InterpolateLinear
       )
     );
+    tracks.push(
+      new THREE.VectorKeyframeTrack(
+        `Drone_${i}.scale`,
+        times,
+        scales[i],
+        THREE.InterpolateLinear
+      )
+    );
   }
 
   const clip = new THREE.AnimationClip("DroneShowFlight", BAKE_TOTAL_DURATION, tracks);
@@ -841,7 +876,7 @@ window.bakeAndDownloadGLB = function() {
       link.href = URL.createObjectURL(blob);
       link.download = "Samhain_Drone_Show.glb";
       link.click();
-      console.log("GLB exported with all 15 formations and exact 190s timeline!");
+      console.log("GLB exported with exact per-drone RGB colors in scale tracks!");
     },
     (err) => console.error("Export error:", err),
     { binary: true, animations: [clip] }
@@ -929,33 +964,6 @@ renderer.setAnimationLoop(now => {
     currentColors[idx]     += (targetColors[idx] - currentColors[idx]) * 7.0 * dt;
     currentColors[idx + 1] += (targetColors[idx + 1] - currentColors[idx + 1]) * 7.0 * dt;
     currentColors[idx + 2] += (targetColors[idx + 2] - currentColors[idx + 2]) * 7.0 * dt;
-  }
-
-  const showBodyEnd = TOTAL_DURATION - landingConfig.dur;
-  if (precipConfig.enabled && playheadTime > takeoffConfig.dur && playheadTime < showBodyEnd) {
-    const fallSpeed = precipConfig.speed;
-    const windRad = THREE.MathUtils.degToRad(precipConfig.angle);
-    const windXShift = Math.sin(windRad) * Math.abs(fallSpeed);
-    const formationCount = Math.max(50, activeDroneCount - precipConfig.count);
-
-    for (let i = formationCount; i < activeDroneCount; i++) {
-      const idx = i * 3;
-      const seed = precipDriftSeeds[i];
-
-      precipPositions[idx + 1] -= fallSpeed * dt;
-      precipPositions[idx]     += windXShift * dt;
-      precipPositions[idx]     += Math.sin(now * 0.0015 + seed) * 0.6 * dt;
-      precipPositions[idx + 2] += Math.cos(now * 0.0012 + seed) * 0.6 * dt;
-
-      if (precipPositions[idx + 1] < 1.5) {
-        precipPositions[idx + 1] = 31.5;
-        precipPositions[idx]     = (Math.random() - 0.5) * 36;
-        precipPositions[idx + 2] = (Math.random() - 0.5) * 36;
-        currentPositions[idx]     = precipPositions[idx];
-        currentPositions[idx + 1] = precipPositions[idx + 1];
-        currentPositions[idx + 2] = precipPositions[idx + 2];
-      }
-    }
   }
 
   droneGeometry.attributes.position.needsUpdate = true;
