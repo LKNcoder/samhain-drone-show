@@ -2,21 +2,7 @@ Shader "Custom/DroneSamhainEmissive"
 {
     Properties
     {
-        [Header(Emission and Glow)]
-        _BaseIntensity ("Base Emission Boost", Range(1.0, 10.0)) = 3.0
-        _SparkleIntensity ("Sparkle Flash Boost", Range(2.0, 15.0)) = 8.0
-        _SparkleSpeed ("Sparkle Frequency", Range(5.0, 30.0)) = 18.0
-        _SparkleThreshold ("Sparkle Density (Higher = Fewer)", Range(0.7, 0.99)) = 0.92
-
-        [Header(Altitude Color Zones)]
-        _ColorGround ("Ground Ember (Y <= 0.5m)", Color) = (0.9, 0.2, 0.02, 1.0)
-        _ColorMidLow ("Mid-Low Orange (Y ~ 8m)", Color) = (1.0, 0.42, 0.0, 1.0)
-        _ColorMidHigh ("Mid-High Gold (Y ~ 16m)", Color) = (1.0, 0.8, 0.2, 1.0)
-        _ColorSky ("High Sky White/Flames (Y >= 20m)", Color) = (1.0, 0.98, 0.95, 1.0)
-
-        [Header(Radial Dispersion Spectrum)]
-        _ColorOuter ("Wide Swarm Celestial Blue/Cyan", Color) = (0.0, 0.85, 1.0, 1.0)
-        _ColorVortex ("Vortex Violet Fringe", Color) = (0.7, 0.15, 1.0, 1.0)
+        _BaseIntensity ("Emission Brightness Multiplier", Range(1.0, 10.0)) = 3.5
     }
 
     SubShader
@@ -53,30 +39,13 @@ Shader "Custom/DroneSamhainEmissive"
             struct Varyings
             {
                 float4 positionCS : SV_POSITION;
-                float3 positionWS : TEXCOORD0;
+                float3 colorRGB   : TEXCOORD0;
                 UNITY_VERTEX_INPUT_INSTANCE_ID
             };
 
             CBUFFER_START(UnityPerMaterial)
                 float _BaseIntensity;
-                float _SparkleIntensity;
-                float _SparkleSpeed;
-                float _SparkleThreshold;
-                float4 _ColorGround;
-                float4 _ColorMidLow;
-                float4 _ColorMidHigh;
-                float4 _ColorSky;
-                float4 _ColorOuter;
-                float4 _ColorVortex;
             CBUFFER_END
-
-            // Pseudo-random noise hash for diamond strobing
-            float Hash31(float3 p)
-            {
-                p = frac(p * 0.1031);
-                p += dot(p, p.yzx + 33.33);
-                return frac((p.x + p.y) * p.z);
-            }
 
             Varyings vert(Attributes input)
             {
@@ -84,9 +53,23 @@ Shader "Custom/DroneSamhainEmissive"
                 UNITY_SETUP_INSTANCE_ID(input);
                 UNITY_TRANSFER_INSTANCE_ID(input, output);
 
-                VertexPositionInputs vertexInputs = GetVertexPositionInputs(input.positionOS.xyz);
-                output.positionCS = vertexInputs.positionCS;
-                output.positionWS = vertexInputs.positionWS;
+                // 1. Extract the baked per-drone RGB color from the object transform's scale
+                float3 droneScale = float3(
+                    length(float3(UNITY_MATRIX_M[0].x, UNITY_MATRIX_M[1].x, UNITY_MATRIX_M[2].x)),
+                    length(float3(UNITY_MATRIX_M[0].y, UNITY_MATRIX_M[1].y, UNITY_MATRIX_M[2].y)),
+                    length(float3(UNITY_MATRIX_M[0].z, UNITY_MATRIX_M[1].z, UNITY_MATRIX_M[2].z))
+                );
+
+                // 2. Un-scale the sphere vertex so the drone remains a perfect 0.25m sphere
+                float3 safeScale = max(droneScale, float3(0.001, 0.001, 0.001));
+                float3 unscaledOS = input.positionOS.xyz / safeScale;
+
+                // 3. Compute world position from the object's origin plus unscaled offset
+                float3 worldPivot = float3(UNITY_MATRIX_M[0].w, UNITY_MATRIX_M[1].w, UNITY_MATRIX_M[2].w);
+                float3 worldPos   = worldPivot + unscaledOS;
+
+                output.positionCS = TransformWorldToHClip(worldPos);
+                output.colorRGB   = droneScale; // Passes the exact baked RGB to the fragment shader
                 return output;
             }
 
@@ -94,50 +77,8 @@ Shader "Custom/DroneSamhainEmissive"
             {
                 UNITY_SETUP_INSTANCE_ID(input);
 
-                float3 wpos = input.positionWS;
-                float y = wpos.y;
-                float radius = length(wpos.xz);
-                float t = _Time.y;
-
-                // 1. Vertical Altitude Color Blending (0m -> 8m -> 16m -> 22m+)
-                half3 col;
-                if (y < 8.0)
-                {
-                    float factor = saturate(y / 8.0);
-                    col = lerp(_ColorGround.rgb, _ColorMidLow.rgb, factor);
-                }
-                else if (y < 16.0)
-                {
-                    float factor = saturate((y - 8.0) / 8.0);
-                    col = lerp(_ColorMidLow.rgb, _ColorMidHigh.rgb, factor);
-                }
-                else
-                {
-                    float factor = saturate((y - 16.0) / 6.0);
-                    col = lerp(_ColorMidHigh.rgb, _ColorSky.rgb, factor);
-                }
-
-                // 2. Wide Radial Dispersion Shift (Vortex Swirls & Finale)
-                if (radius > 12.0)
-                {
-                    float rBlend = saturate((radius - 12.0) / 10.0);
-                    float radialAngle = atan2(wpos.z, wpos.x);
-                    half3 fringeCol = lerp(_ColorOuter.rgb, _ColorVortex.rgb, sin(radialAngle * 3.0 + t * 2.0) * 0.5 + 0.5);
-                    col = lerp(col, fringeCol, rBlend * 0.75);
-                }
-
-                // 3. Diamond Sparkle Strobes
-                // Discretize spatial position to give each individual drone a steady seed
-                float3 droneSeed = floor(wpos * 1.5);
-                float sparkleNoise = sin(t * _SparkleSpeed + Hash31(droneSeed) * 62.83);
-
-                half3 finalRGB = col * _BaseIntensity;
-
-                if (sparkleNoise > _SparkleThreshold && y > 2.0)
-                {
-                    finalRGB = half3(1.0, 1.0, 1.0) * _SparkleIntensity;
-                }
-
+                // Emissive radiance matching the web browser's exact color output
+                half3 finalRGB = input.colorRGB * _BaseIntensity;
                 return half4(finalRGB, 1.0);
             }
             ENDHLSL
