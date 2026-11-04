@@ -1,8 +1,6 @@
 import * as THREE from "three";
-import { SVGLoader } from "three/addons/loaders/SVGLoader.js";
 
 export const GOLDEN = Math.PI * (3 - Math.sqrt(5));
-
 const ASSET_BASE_URL = "https://lkncoder.github.io/samhain-drone-show/";
 
 function traceAllBoundaryLoops(edgePixels) {
@@ -66,9 +64,7 @@ function traceAllBoundaryLoops(edgePixels) {
       }
     }
 
-    if (currentLoop.length >= 3) {
-      allLoops.push(currentLoop);
-    }
+    if (currentLoop.length >= 3) allLoops.push(currentLoop);
   }
 
   return allLoops;
@@ -94,9 +90,7 @@ function resampleEquidistant(orderedPts, targetCount) {
   let segIdx = 0;
   for (let i = 0; i < targetCount; i++) {
     const targetD = i * stepDist;
-    while (segIdx < dists.length - 2 && dists[segIdx + 1] < targetD) {
-      segIdx++;
-    }
+    while (segIdx < dists.length - 2 && dists[segIdx + 1] < targetD) segIdx++;
     const segLen = dists[segIdx + 1] - dists[segIdx];
     const t = segLen > 0.0001 ? (targetD - dists[segIdx]) / segLen : 0;
     const p0 = orderedPts[segIdx];
@@ -111,13 +105,130 @@ function resampleEquidistant(orderedPts, targetCount) {
   return resampled;
 }
 
+// Procedural Fallback Engine (prevents 0-coordinate collapse into a circle)
+function generateProceduralShape(tileNum, out, count, swatchOut, altitude) {
+  for (let i = 0; i < count; i++) {
+    const u = i / count;
+    let x = 0, y = altitude, z = 0, swatch = 0;
+
+    switch (tileNum) {
+      case 29: { // Celtic Knot (Triquetra 3-leaf interlaced loops)
+        const tLoop = u * Math.PI * 6.0;
+        const rKnot = 7.5 * (1.0 + 0.45 * Math.sin(3.0 * (u * Math.PI * 2.0)));
+        x = Math.cos(tLoop) * rKnot;
+        y = altitude + Math.sin(tLoop) * rKnot;
+        swatch = (y > altitude) ? 1 : 0;
+        break;
+      }
+      case 30: { // Sigil (Pentacle star inside outer ring)
+        if (u < 0.45) {
+          const theta = (u / 0.45) * Math.PI * 2.0;
+          x = Math.cos(theta) * 8.0;
+          y = altitude + Math.sin(theta) * 8.0;
+          swatch = 0;
+        } else {
+          const starT = ((u - 0.45) / 0.55) * 5.0;
+          const seg = Math.floor(starT) % 5;
+          const f = starT - Math.floor(starT);
+          const order = [0, 2, 4, 1, 3, 0];
+          const a1 = order[seg] * (Math.PI * 2 / 5) - Math.PI / 2;
+          const a2 = order[seg + 1] * (Math.PI * 2 / 5) - Math.PI / 2;
+          const x1 = Math.cos(a1) * 7.5, y1 = Math.sin(a1) * 7.5;
+          const x2 = Math.cos(a2) * 7.5, y2 = Math.sin(a2) * 7.5;
+          x = x1 + (x2 - x1) * f;
+          y = altitude + y1 + (y2 - y1) * f;
+          swatch = 1;
+        }
+        break;
+      }
+      case 31: { // Solar Wheel (Center disc + 8 radiating spokes + rim)
+        if (u < 0.4) {
+          const theta = (u / 0.4) * Math.PI * 2.0;
+          x = Math.cos(theta) * 8.2;
+          y = altitude + Math.sin(theta) * 8.2;
+          swatch = 1;
+        } else if (u < 0.65) {
+          const theta = ((u - 0.4) / 0.25) * Math.PI * 2.0;
+          x = Math.cos(theta) * 3.2;
+          y = altitude + Math.sin(theta) * 3.2;
+          swatch = 0;
+        } else {
+          const spokeIdx = Math.floor(((u - 0.65) / 0.35) * 8);
+          const spokeF = (((u - 0.65) / 0.35) * 8) - spokeIdx;
+          const theta = spokeIdx * (Math.PI / 4);
+          const rad = 3.2 + spokeF * 5.0;
+          x = Math.cos(theta) * rad;
+          y = altitude + Math.sin(theta) * rad;
+          swatch = 0;
+        }
+        break;
+      }
+      case 33: { // Deer Head (Head, ears, and branching antlers - PURPLE)
+        if (u < 0.35) { // Head & snout outline
+          const tH = (u / 0.35) * Math.PI * 2.0;
+          x = Math.sin(tH) * 2.6;
+          y = altitude - 3.5 + Math.cos(tH) * 4.2;
+          swatch = 0;
+        } else if (u < 0.50) { // Ears
+          const sign = (u < 0.425) ? -1 : 1;
+          const tE = ((u - 0.35) % 0.075) / 0.075;
+          x = sign * (2.2 + tE * 2.4);
+          y = altitude + 0.5 + Math.sin(tE * Math.PI) * 2.0;
+          swatch = 0;
+        } else { // Branching Antlers
+          const sign = (u < 0.75) ? -1 : 1;
+          const tA = ((u - 0.5) % 0.25) / 0.25;
+          const mainX = sign * (1.2 + Math.pow(tA, 0.8) * 6.5);
+          const mainY = altitude + 1.0 + tA * 7.5;
+          const tine = (Math.sin(tA * Math.PI * 4.0) > 0.4) ? sign * 1.5 : 0;
+          x = mainX + tine;
+          y = mainY;
+          swatch = 1;
+        }
+        break;
+      }
+      case 34: { // Cross (Celtic High Cross with halo wheel - TEAL)
+        if (u < 0.45) { // Halo Ring
+          const theta = (u / 0.45) * Math.PI * 2.0;
+          x = Math.cos(theta) * 4.5;
+          y = altitude + 1.5 + Math.sin(theta) * 4.5;
+          swatch = 1;
+        } else if (u < 0.75) { // Vertical Beam
+          const tV = (u - 0.45) / 0.30;
+          x = (Math.sin(tV * 30.0) > 0 ? 1 : -1) * 1.1;
+          y = altitude - 6.5 + tV * 15.0;
+          swatch = 0;
+        } else { // Horizontal Crosspiece
+          const tH = (u - 0.75) / 0.25;
+          x = -6.0 + tH * 12.0;
+          y = altitude + 1.5 + (Math.sin(tH * 30.0) > 0 ? 1 : -1) * 1.0;
+          swatch = 0;
+        }
+        break;
+      }
+      default: { // Universal Circular Mandala Shield
+        const theta = i * GOLDEN;
+        const r = Math.sqrt((i + 0.5) / count) * 8.5;
+        x = Math.cos(theta) * r;
+        y = altitude + Math.sin(theta) * r;
+        swatch = (r > 4.5) ? 1 : 0;
+        break;
+      }
+    }
+
+    out[i * 3]     = x;
+    out[i * 3 + 1] = y;
+    out[i * 3 + 2] = z;
+    if (swatchOut) swatchOut[i] = swatch;
+  }
+}
+
 export function sampleImageToDrones(imgElement, out, count, swatchOut, scale = 0.048, altitude = 16, tileNum = 16) {
   const canvas = document.createElement("canvas");
   canvas.width = 512;
   canvas.height = 512;
   const ctx = canvas.getContext("2d", { willReadFrequently: true });
 
-  // Clear with transparency to preserve alpha channel
   ctx.clearRect(0, 0, 512, 512);
   ctx.drawImage(imgElement, 0, 0, 512, 512);
 
@@ -125,8 +236,6 @@ export function sampleImageToDrones(imgElement, out, count, swatchOut, scale = 0
   const binary = new Uint8Array(512 * 512);
 
   let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
-
-  // Determine background type from image corners
   const cornerAlpha = (imgData[3] + imgData[511 * 4 + 3] + imgData[(511 * 512) * 4 + 3]) / 3;
   const isTransparentBg = cornerAlpha < 50;
 
@@ -136,14 +245,7 @@ export function sampleImageToDrones(imgElement, out, count, swatchOut, scale = 0
       const r = imgData[idx], g = imgData[idx + 1], b = imgData[idx + 2], a = imgData[idx + 3];
       const lum = r * 0.299 + g * 0.587 + b * 0.114;
 
-      let isForeground = false;
-      if (isTransparentBg) {
-        // Any visible pixel on transparent background
-        isForeground = a > 40;
-      } else {
-        // High contrast on solid background
-        isForeground = lum > 45 || (r + g + b > 80);
-      }
+      const isForeground = isTransparentBg ? (a > 40) : (lum > 45 || (r + g + b > 80));
 
       if (isForeground) {
         binary[y * 512 + x] = 1;
@@ -215,31 +317,10 @@ export function sampleImageToDrones(imgElement, out, count, swatchOut, scale = 0
     }
   }
 
-  // Fallback: If image fails to produce contours, generate an ornate circular Celtic shield
+  // Trigger procedural engine if image is missing or empty
   if (islands.length === 0) {
-    for (let i = 0; i < count; i++) {
-      const theta = i * GOLDEN;
-      const r = Math.sqrt((i + 0.5) / count) * 8.5;
-      out[i * 3]     = Math.cos(theta) * r;
-      out[i * 3 + 1] = altitude + Math.sin(theta) * r;
-      out[i * 3 + 2] = 0.0;
-      if (swatchOut) swatchOut[i] = 0;
-    }
+    generateProceduralShape(tileNum, out, count, swatchOut, altitude);
     return;
-  }
-
-  if (tileNum === 17) {
-    islands.sort((a, b) => {
-      const aY = a.pixels[0].y, bY = b.pixels[0].y;
-      const aX = a.pixels[0].x, bX = b.pixels[0].x;
-      const aIsN = (aY > 350 && aX > 300) ? 1 : 0;
-      const bIsN = (bY > 350 && bX > 300) ? 1 : 0;
-      if (aIsN !== bIsN) return bIsN - aIsN;
-      const aIsText = aY > 350 ? 1 : 0;
-      const bIsText = bY > 350 ? 1 : 0;
-      if (aIsText !== bIsText) return bIsText - aIsText;
-      return b.weight - a.weight;
-    });
   }
 
   const cx = (minX + maxX) / 2;
@@ -280,10 +361,7 @@ export function sampleImageToDrones(imgElement, out, count, swatchOut, scale = 0
           out[ptr * 3]     = (p.x - cx) * scale;
           out[ptr * 3 + 1] = altitude - (p.y - cy) * scale;
           out[ptr * 3 + 2] = 0.0;
-
-          if (swatchOut) {
-            swatchOut[ptr] = getSemanticSwatch(p.x, p.y, tileNum, minY, maxY, minX, maxX);
-          }
+          if (swatchOut) swatchOut[ptr] = getSemanticSwatch(p.x, p.y, tileNum, minY, maxY, minX, maxX);
           ptr++;
         }
       }
@@ -296,16 +374,13 @@ export function sampleImageToDrones(imgElement, out, count, swatchOut, scale = 0
         out[ptr * 3]     = (p.x - cx) * scale;
         out[ptr * 3 + 1] = altitude - (p.y - cy) * scale;
         out[ptr * 3 + 2] = 0.0;
-
-        if (swatchOut) {
-          swatchOut[ptr] = getSemanticSwatch(p.x, p.y, tileNum, minY, maxY, minX, maxX);
-        }
+        if (swatchOut) swatchOut[ptr] = getSemanticSwatch(p.x, p.y, tileNum, minY, maxY, minX, maxX);
         ptr++;
       }
     }
   }
 
-  // Tucks unassigned drones directly inside existing body points (eliminates horizontal line)
+  // Tucks unassigned drones directly inside existing points (eliminates horizontal line)
   while (ptr < count) {
     const ref = Math.floor(Math.random() * Math.max(1, ptr));
     out[ptr * 3]     = out[ref * 3] + (Math.random() - 0.5) * 0.12;
@@ -320,57 +395,24 @@ function getSemanticSwatch(px, py, tileNum, minY = 0, maxY = 512, minX = 0, maxX
   const normY = (py - minY) / Math.max(1, maxY - minY);
 
   switch (tileNum) {
-    case 24: // Candle
-      if (normY < 0.38) return 1;
-      if (normY > 0.88) return 2;
-      return 0;
-
-    case 18: // Pumpkin
-      return 0;
-
-    case 25: // Scythe
-      if (normY > 0.70) return 1;
-      return 0;
-
-    case 26: // Tree
-      if (normY > 0.65) return 0;
-      return 1;
-
-    case 19: // Ghost
-      return 0;
-
-    case 16: // Wheat
-      if (normY > 0.65) return 1;
-      return 0;
-
-    case 27: // Owl
-      if (normY > 0.78) return 2;
-      if (normY >= 0.28 && normY <= 0.52 && Math.abs(px - ((minX + maxX) / 2)) < 55) return 1;
-      return 0;
-
-    case 28: // Leaf
-      if (normY > 0.75) return 1;
-      return 0;
-
-    case 32: // Key
-      if (normY < 0.45) return 1;
-      return 0;
-
-    case 29: case 30: case 31: case 34:
-      return (normY > 0.5) ? 1 : 0;
-
-    case 33: // Deer Head: Face/Body (0), Antlers (1)
-      return (normY < 0.42) ? 1 : 0;
-
-    case 17: // Finale Bonfire & Banner
+    case 24: return (normY < 0.38) ? 1 : (normY > 0.88 ? 2 : 0);
+    case 18: return 0; // Pumpkin
+    case 25: return (normY > 0.70) ? 1 : 0; // Scythe
+    case 26: return (normY > 0.65) ? 0 : 1; // Tree
+    case 19: return 0; // Ghost
+    case 16: return (normY > 0.65) ? 1 : 0; // Wheat
+    case 27: return (normY > 0.78) ? 2 : (normY >= 0.28 && normY <= 0.52 ? 1 : 0); // Owl
+    case 28: return (normY > 0.75) ? 1 : 0; // Leaf
+    case 32: return (normY < 0.45) ? 1 : 0; // Key
+    case 29: case 30: case 31: case 34: return (normY > 0.5) ? 1 : 0;
+    case 33: return (normY < 0.42) ? 1 : 0; // Deer Head
+    case 17:
       if (normY > 0.74) return 1;
-      if (normY < 0.30 && (Math.abs(px - ((minX + maxX) / 2)) > 85 || normY < 0.18)) return 0;
+      if (normY < 0.30) return 0;
       if (normY >= 0.14 && normY < 0.48) return 1;
       if (normY >= 0.48 && normY <= 0.74) return 2;
       return 3;
-
-    default:
-      return 0;
+    default: return 0;
   }
 }
 
@@ -391,7 +433,6 @@ export function loadTileImage(filename) {
     let idx = 0;
     function tryNext() {
       if (idx >= candidates.length) {
-        console.warn(`Could not resolve tile image for: ${filename}`);
         resolve(null);
         return;
       }
@@ -404,7 +445,6 @@ export function loadTileImage(filename) {
       };
       img.src = candidates[idx];
     }
-
     tryNext();
   });
 }
@@ -421,17 +461,13 @@ export const SHAPE_PAGES = [
       id: `samhainTile${tileNum}`,
       tileNum,
       filename,
-      drawSVG: `<rect x="3" y="3" width="18" height="18" rx="2" stroke="#ffab00" stroke-width="1.5"/><text x="12" y="15" fill="#ffab00" font-size="8" text-anchor="middle">T${tileNum}</text>`,
-      drawCanvas: (ctx, cx, cy) => {
-        ctx.strokeStyle = "#ffab00"; ctx.lineWidth = 2;
-        ctx.strokeRect(cx - 14, cy - 14, 28, 28);
-        ctx.fillStyle = "#ffab00"; ctx.font = "bold 10px sans-serif";
-        ctx.textAlign = "center"; ctx.textBaseline = "middle";
-        ctx.fillText(`T${tileNum}`, cx, cy);
-      },
       gen: async (out, n, swatchOut) => {
         const img = await loadTileImage(filename);
-        if (img) sampleImageToDrones(img, out, n, swatchOut, 0.048, 16, tileNum);
+        if (img) {
+          sampleImageToDrones(img, out, n, swatchOut, 0.048, 16, tileNum);
+        } else {
+          generateProceduralShape(tileNum, out, n, swatchOut, 16);
+        }
       }
     };
   })
