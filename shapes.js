@@ -5,7 +5,6 @@ export const GOLDEN = Math.PI * (3 - Math.sqrt(5));
 
 const ASSET_BASE_URL = "https://lkncoder.github.io/samhain-drone-show/";
 
-// Traces ALL closed boundary loops (outer silhouettes and interior cutouts)
 function traceAllBoundaryLoops(edgePixels) {
   if (edgePixels.length === 0) return [];
   const edgeSet = new Set(edgePixels.map(p => (p.y << 10) | p.x));
@@ -75,7 +74,6 @@ function traceAllBoundaryLoops(edgePixels) {
   return allLoops;
 }
 
-// Resamples an ordered contour polygon at exact equidistant arc-length intervals
 function resampleEquidistant(orderedPts, targetCount) {
   if (orderedPts.length === 0 || targetCount <= 0) return [];
   if (targetCount === 1) return [orderedPts[0]];
@@ -113,7 +111,6 @@ function resampleEquidistant(orderedPts, targetCount) {
   return resampled;
 }
 
-// Multi-Loop Arc-Length Density Sampler with Protected Quota Allocation
 export function sampleImageToDrones(imgElement, out, count, swatchOut, scale = 0.048, altitude = 16, tileNum = 16) {
   const canvas = document.createElement("canvas");
   canvas.width = 512;
@@ -129,13 +126,14 @@ export function sampleImageToDrones(imgElement, out, count, swatchOut, scale = 0
 
   let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
 
-  // 1. High-contrast threshold
+  // Broad contrast and color detection to capture saturated/dark line art
   for (let y = 1; y < 511; y++) {
     for (let x = 1; x < 511; x++) {
       const idx = (y * 512 + x) * 4;
-      const lum = imgData[idx] * 0.299 + imgData[idx + 1] * 0.587 + imgData[idx + 2] * 0.114;
+      const r = imgData[idx], g = imgData[idx + 1], b = imgData[idx + 2];
+      const lum = r * 0.299 + g * 0.587 + b * 0.114;
 
-      if (lum > 110) {
+      if (lum > 40 || (r + g + b > 75)) {
         binary[y * 512 + x] = 1;
         if (x < minX) minX = x; if (x > maxX) maxX = x;
         if (y < minY) minY = y; if (y > maxY) maxY = y;
@@ -143,7 +141,6 @@ export function sampleImageToDrones(imgElement, out, count, swatchOut, scale = 0
     }
   }
 
-  // 2. Connected Component Segmentation
   const visited = new Uint8Array(512 * 512);
   const islands = [];
 
@@ -191,13 +188,12 @@ export function sampleImageToDrones(imgElement, out, count, swatchOut, scale = 0
 
           let weight = totalLoopLen * 2.2 + Math.sqrt(islandPixels.length) * 4.0;
 
-          // Protected high priority for the letter 'N' and bottom banner in Tile 17
           if (tileNum === 17) {
             const avgY = islandPixels.reduce((acc, p) => acc + p.y, 0) / islandPixels.length;
             const avgX = islandPixels.reduce((acc, p) => acc + p.x, 0) / islandPixels.length;
             if (avgY > 350) {
               weight *= 4.5;
-              if (avgX > 310) weight *= 8.0; // Guaranteed full quota for 'N'
+              if (avgX > 310) weight *= 8.0;
             }
           }
 
@@ -209,7 +205,6 @@ export function sampleImageToDrones(imgElement, out, count, swatchOut, scale = 0
 
   if (islands.length === 0) return;
 
-  // In Tile 17, allocate text banner islands first
   if (tileNum === 17) {
     islands.sort((a, b) => {
       const aY = a.pixels[0].y, bY = b.pixels[0].y;
@@ -228,7 +223,6 @@ export function sampleImageToDrones(imgElement, out, count, swatchOut, scale = 0
   const cy = (minY + maxY) / 2;
   const totalWeight = islands.reduce((acc, isl) => acc + isl.weight, 0);
 
-  // 3. Hamilton Largest-Remainder Quota Allocation
   const quotas = [];
   let allocatedSum = 0;
 
@@ -246,7 +240,6 @@ export function sampleImageToDrones(imgElement, out, count, swatchOut, scale = 0
   }
   quotas.sort((a, b) => a.index - b.index);
 
-  // 4. Sample Drones into Coordinates
   let ptr = 0;
   for (let k = 0; k < islands.length; k++) {
     const isl = islands[k];
@@ -254,7 +247,6 @@ export function sampleImageToDrones(imgElement, out, count, swatchOut, scale = 0
     const edgeCount = Math.min(Math.round(isl.totalLoopLen * 1.5), Math.round(islDroneCount * 0.75));
     const fillCount = islDroneCount - edgeCount;
 
-    // A. Boundary Outlines
     if (isl.loops.length > 0 && edgeCount > 0 && isl.totalLoopLen > 0) {
       for (const loop of isl.loops) {
         const loopDrones = Math.max(2, Math.round((loop.length / isl.totalLoopLen) * edgeCount));
@@ -274,7 +266,6 @@ export function sampleImageToDrones(imgElement, out, count, swatchOut, scale = 0
       }
     }
 
-    // B. Interior Fill
     if (isl.pixels.length > 0 && fillCount > 0) {
       const stepF = isl.pixels.length / fillCount;
       for (let i = 0; i < fillCount && ptr < count; i++) {
@@ -300,60 +291,78 @@ export function sampleImageToDrones(imgElement, out, count, swatchOut, scale = 0
   }
 }
 
-// Logical Color Classification with Normalized Vertical Zonation
 function getSemanticSwatch(px, py, tileNum, minY = 0, maxY = 512, minX = 0, maxX = 512) {
   const normY = (py - minY) / Math.max(1, maxY - minY);
 
   switch (tileNum) {
-    case 24: // Candle: Top 38% flame, middle 50% wax, bottom 12% base
-      if (normY < 0.38) return 1; // Top 38%: Red/Orange flame
-      if (normY > 0.88) return 2; // Bottom 12%: Yellow candlestick base
-      return 0;                   // Middle 50%: Pure white wax
-
-    case 18: // Pumpkin: 100% deep saturated orange
+    case 24: // Candle
+      if (normY < 0.38) return 1;
+      if (normY > 0.88) return 2;
       return 0;
 
-    case 25: // Scythe: Top ~70% blade (Steel Grey), bottom ~30% handle (Wood Brown)
-      if (normY > 0.70) return 1; // Bottom 30%: Wood handle
-      return 0;                   // Top 70%: Steel blade
-
-    case 26: // Bare Leafless Tree: 100% Wood Brown Tones, ZERO Green
-      if (normY > 0.65) return 0; // Trunk and roots
-      return 1;                   // Bare branches
-
-    case 19: // Ghost: 100% Pure Brilliant White (#ffffff), ZERO Blue
+    case 18: // Pumpkin
       return 0;
 
-    case 16: // Wheat: Grain heads (0: Gold), Stalk (1: Wood Brown)
+    case 25: // Scythe
+      if (normY > 0.70) return 1;
+      return 0;
+
+    case 26: // Tree
+      if (normY > 0.65) return 0;
+      return 1;
+
+    case 19: // Ghost
+      return 0;
+
+    case 16: // Wheat
       if (normY > 0.65) return 1;
       return 0;
 
-    case 27: // Owl: Body Feathers (0: Soft White), Beak & Eyes (1: Amber Gold), Perch (2: Wood Brown)
+    case 27: // Owl
       if (normY > 0.78) return 2;
       if (normY >= 0.28 && normY <= 0.52 && Math.abs(px - ((minX + maxX) / 2)) < 55) return 1;
       return 0;
 
-    case 28: // Autumn Leaf: Leaf Blade (0: Crimson Red), Stem (1: Wood Brown)
+    case 28: // Leaf
       if (normY > 0.75) return 1;
       return 0;
 
-    case 32: // Skeleton Key: Shaft & Teeth (0: Polished Gold), Bow/Handle (1: Warm Brass)
+    case 32: // Key
       if (normY < 0.45) return 1;
       return 0;
 
-    case 17: // Finale Bonfire & Banner: White (0), Gold (1), Orange (2), Crimson (3)
-      if (normY > 0.74) return 1; // "Blessed Samhain" Banner (Radiant Gold)
-      if (normY < 0.30 && (Math.abs(px - ((minX + maxX) / 2)) > 85 || normY < 0.18)) return 0; // Stars (White)
-      if (normY >= 0.14 && normY < 0.48) return 1; // Upper Fire (Gold)
-      if (normY >= 0.48 && normY <= 0.74) return 2; // Lower Fire (Orange)
-      return 3; // Hearth Base (Crimson)
+    case 29: // Celtic Knot
+      if (normY > 0.5) return 1;
+      return 0;
+
+    case 30: // Sigil
+      if (normY > 0.5) return 1;
+      return 0;
+
+    case 31: // Solar Symbol
+      if (normY > 0.5) return 1;
+      return 0;
+
+    case 33: // Talisman
+      if (normY > 0.5) return 1;
+      return 0;
+
+    case 34: // Cross
+      if (normY > 0.5) return 1;
+      return 0;
+
+    case 17: // Finale Bonfire & Banner
+      if (normY > 0.74) return 1;
+      if (normY < 0.30 && (Math.abs(px - ((minX + maxX) / 2)) > 85 || normY < 0.18)) return 0;
+      if (normY >= 0.14 && normY < 0.48) return 1;
+      if (normY >= 0.48 && normY <= 0.74) return 2;
+      return 3;
 
     default:
       return 0;
   }
 }
 
-// Universal Tile Image Loader
 export function loadTileImage(filename) {
   return new Promise((resolve) => {
     const numMatch = filename.match(/\d+/);
@@ -389,7 +398,6 @@ export function loadTileImage(filename) {
   });
 }
 
-// Master Shape Directory in clean narrative order (Raven, Cauldron, Skull, and Witch excluded)
 const TILE_ORDER = [
   16, 25, 28, 26, 27, 18, 24, 19, 32, 29, 30, 31, 33, 34, 17,
   1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15
