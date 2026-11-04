@@ -2,7 +2,8 @@ Shader "Custom/DroneSamhainEmissive"
 {
     Properties
     {
-        _BaseIntensity ("Emission Brightness Multiplier", Range(1.0, 10.0)) = 3.5
+        _BaseIntensity ("Emission Brightness", Range(1.0, 10.0)) = 3.5
+        _TimeOffset ("Manual Time Offset (Seconds)", Float) = 0.0
     }
 
     SubShader
@@ -39,12 +40,13 @@ Shader "Custom/DroneSamhainEmissive"
             struct Varyings
             {
                 float4 positionCS : SV_POSITION;
-                float3 colorRGB   : TEXCOORD0;
+                float3 positionWS : TEXCOORD0;
                 UNITY_VERTEX_INPUT_INSTANCE_ID
             };
 
             CBUFFER_START(UnityPerMaterial)
                 float _BaseIntensity;
+                float _TimeOffset;
             CBUFFER_END
 
             Varyings vert(Attributes input)
@@ -53,23 +55,9 @@ Shader "Custom/DroneSamhainEmissive"
                 UNITY_SETUP_INSTANCE_ID(input);
                 UNITY_TRANSFER_INSTANCE_ID(input, output);
 
-                // 1. Extract the baked per-drone RGB color from the object transform's scale
-                float3 droneScale = float3(
-                    length(float3(UNITY_MATRIX_M[0].x, UNITY_MATRIX_M[1].x, UNITY_MATRIX_M[2].x)),
-                    length(float3(UNITY_MATRIX_M[0].y, UNITY_MATRIX_M[1].y, UNITY_MATRIX_M[2].y)),
-                    length(float3(UNITY_MATRIX_M[0].z, UNITY_MATRIX_M[1].z, UNITY_MATRIX_M[2].z))
-                );
-
-                // 2. Un-scale the sphere vertex so the drone remains a perfect 0.25m sphere
-                float3 safeScale = max(droneScale, float3(0.001, 0.001, 0.001));
-                float3 unscaledOS = input.positionOS.xyz / safeScale;
-
-                // 3. Compute world position from the object's origin plus unscaled offset
-                float3 worldPivot = float3(UNITY_MATRIX_M[0].w, UNITY_MATRIX_M[1].w, UNITY_MATRIX_M[2].w);
-                float3 worldPos   = worldPivot + unscaledOS;
-
-                output.positionCS = TransformWorldToHClip(worldPos);
-                output.colorRGB   = droneScale; // Passes the exact baked RGB to the fragment shader
+                VertexPositionInputs vertexInputs = GetVertexPositionInputs(input.positionOS.xyz);
+                output.positionCS = vertexInputs.positionCS;
+                output.positionWS = vertexInputs.positionWS;
                 return output;
             }
 
@@ -77,9 +65,130 @@ Shader "Custom/DroneSamhainEmissive"
             {
                 UNITY_SETUP_INSTANCE_ID(input);
 
-                // Emissive radiance matching the web browser's exact color output
-                half3 finalRGB = input.colorRGB * _BaseIntensity;
-                return half4(finalRGB, 1.0);
+                float3 wpos = input.positionWS;
+                float y = wpos.y;
+                float r = length(wpos.xz);
+
+                // Show loops every 190 seconds (10s pre-delay + 170s show + 10s post-delay)
+                float t = fmod(_Time.y + _TimeOffset, 190.0);
+
+                half3 col = half3(1.0, 0.45, 0.05); // Default Ember
+
+                // 1. Ground Pad Rest (0-10s and 180-190s)
+                if (t < 10.0 || t >= 180.0 || y < 0.6)
+                {
+                    col = half3(0.9, 0.35, 0.02); // Warm launchpad ember
+                }
+                // 2. Takeoff (10-20s)
+                else if (t >= 10.0 && t < 20.0)
+                {
+                    float u = (t - 10.0) / 10.0;
+                    col = lerp(half3(0.9, 0.35, 0.02), half3(1.0, 0.85, 0.3), u);
+                }
+                // 3. Wheat (20-29s)
+                else if (t >= 20.0 && t < 29.0)
+                {
+                    col = (y > 14.5) ? half3(1.0, 0.84, 0.31) : half3(0.55, 0.31, 0.16); // Gold heads, brown stalk
+                }
+                // 4. Scythe (29-38s)
+                else if (t >= 29.0 && t < 38.0)
+                {
+                    col = (y > 14.0) ? half3(0.82, 0.86, 0.9) : half3(0.38, 0.25, 0.2); // Steel blade, wood handle
+                }
+                // 5. Autumn Leaf (38-47s)
+                else if (t >= 38.0 && t < 47.0)
+                {
+                    col = (y > 13.0) ? half3(0.92, 0.02, 0.02) : half3(0.55, 0.31, 0.16); // Crimson red blade
+                }
+                // 6. Bare Tree (47-56s)
+                else if (t >= 47.0 && t < 56.0)
+                {
+                    col = (y > 15.0) ? half3(0.55, 0.43, 0.39) : half3(0.36, 0.25, 0.22); // 100% Wood brown, ZERO green
+                }
+                // 7. Owl (56-65s)
+                else if (t >= 56.0 && t < 65.0)
+                {
+                    if (y < 11.5) col = half3(0.36, 0.25, 0.22); // Perch
+                    else if (y > 17.5) col = half3(1.0, 0.67, 0.0); // Eyes/beak
+                    else col = half3(1.0, 1.0, 1.0); // White feathers
+                }
+                // 8. Pumpkin (65-74s)
+                else if (t >= 65.0 && t < 74.0)
+                {
+                    col = half3(1.0, 0.42, 0.0); // 100% Saturated Deep Pumpkin Orange
+                }
+                // 9. Candle (74-83s)
+                else if (t >= 74.0 && t < 83.0)
+                {
+                    if (y > 18.0) col = half3(1.0, 0.24, 0.0); // Flame
+                    else if (y < 12.0) col = half3(1.0, 0.84, 0.0); // Candlestick base
+                    else col = half3(1.0, 1.0, 1.0); // White wax body
+                }
+                // 10. Ghost (83-92s)
+                else if (t >= 83.0 && t < 92.0)
+                {
+                    col = half3(1.0, 1.0, 1.0); // 100% Pure Brilliant White
+                }
+                // 11. Skeleton Key (92-101s)
+                else if (t >= 92.0 && t < 101.0)
+                {
+                    col = (y > 17.0) ? half3(1.0, 0.84, 0.0) : half3(1.0, 0.7, 0.0); // Polished gold & brass
+                }
+                // 12. Celtic Knot (101-110s)
+                else if (t >= 101.0 && t < 110.0)
+                {
+                    col = (y > 16.0) ? half3(0.0, 0.9, 0.46) : half3(0.0, 0.69, 1.0); // Emerald green & cyan
+                }
+                // 13. Sigil (110-119s)
+                else if (t >= 110.0 && t < 119.0)
+                {
+                    col = half3(1.0, 0.09, 0.27); // Crimson red
+                }
+                // 14. Solar Symbol (119-128s)
+                else if (t >= 119.0 && t < 128.0)
+                {
+                    col = half3(1.0, 0.84, 0.31); // Radiant gold sun
+                }
+                // 15. Deer Head (128-137s)
+                else if (t >= 128.0 && t < 137.0)
+                {
+                    col = (y > 17.5) ? half3(1.0, 0.84, 0.31) : half3(0.84, 0.8, 0.78); // Golden antlers, soft face
+                }
+                // 16. Cross (137-146s)
+                else if (t >= 137.0 && t < 146.0)
+                {
+                    col = (y > 16.0) ? half3(0.49, 0.3, 1.0) : half3(0.0, 0.9, 1.0); // Violet & cyan
+                }
+                // 17. Finale Bonfire & Banner (146-156s)
+                else if (t >= 146.0 && t < 156.0)
+                {
+                    if (y < 12.0) col = half3(1.0, 0.84, 0.31); // Radiant Gold Banner ("Blessed Samhain")
+                    else if (y > 18.5) col = half3(1.0, 1.0, 1.0); // White Stars
+                    else if (y > 15.0) col = half3(1.0, 0.42, 0.0); // Upper fire
+                    else col = half3(0.85, 0.0, 0.0); // Lower hearth fire
+                }
+                // 18. Grand Celestial Swarm & Helix Descent (156-180s)
+                else
+                {
+                    float landT = t - 156.0;
+                    float hue = frac(landT * 0.15 + (wpos.x + wpos.z) * 0.03);
+                    col = half3(
+                        saturate(abs(hue * 6.0 - 3.0) - 1.0),
+                        saturate(2.0 - abs(hue * 6.0 - 2.0)),
+                        saturate(2.0 - abs(hue * 6.0 - 4.0))
+                    );
+
+                    // Diamond white sparkle strobes
+                    float sparkle = sin(landT * 22.0 + wpos.x * 7.1 + wpos.z * 5.3);
+                    if (sparkle > 0.65) col = half3(1.0, 1.0, 1.0) * 2.0;
+
+                    if (landT > 14.0)
+                    {
+                        col = lerp(col, half3(0.9, 0.35, 0.02), (landT - 14.0) / 10.0);
+                    }
+                }
+
+                return half4(col * _BaseIntensity, 1.0);
             }
             ENDHLSL
         }
