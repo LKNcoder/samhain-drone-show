@@ -51,7 +51,7 @@ import {
   findShapeById,
   sampleImageToDrones,
   GOLDEN
-} from "./shapes.js?v=samhain_final_suite_v21";
+} from "./shapes.js?v=samhain_final_suite_v22";
 
 function formatTime(s) {
   if (isNaN(s) || s === undefined || s === null) return "00:00";
@@ -62,7 +62,6 @@ function formatTime(s) {
 
 const MAX_DRONES = 2000;
 let activeDroneCount = 800;
-let TOTAL_DURATION = 125.0;
 const BASE_DRONE_SIZE = 0.48;
 
 let takeoffConfig = { dur: 10.0, style: "celtic_whirl" };
@@ -213,18 +212,23 @@ function assignMinimalPaths(currentPos, rawTargets, rawSwatches, count) {
   return { positions: assigned, swatches: assignedSwatches };
 }
 
-// 10 Genuine Narrative Formations across 8 Non-Repeating Transitions
+// All 15 authentic Samhain formations with expansive non-repeating transitions
 const SHOW_SCENES = [
   { tNum: 16, palette: ["#ffd54f", "#8d4e28"], motion: "vortex", colorFX: "sparkle" },           // 1. Wheat
   { tNum: 25, palette: ["#cfd8dc", "#5d4037"], motion: "cascade_wave", colorFX: "fire_burst" },  // 2. Scythe
-  { tNum: 28, palette: ["#d50000", "#8d4e28"], motion: "torus_warp", colorFX: "mystic_aurora" },   // 3. Leaf
-  { tNum: 26, palette: ["#5d4037", "#8d6e63"], motion: "explosion", colorFX: "beacon" },           // 4. Bare Tree
-  { tNum: 27, palette: ["#ffffff", "#ffab00", "#5d4037"], motion: "hourglass_twist", colorFX: "fire_burst" }, // 5. Owl
-  { tNum: 18, palette: ["#ff6d00"], motion: "celtic_swirl", colorFX: "sparkle" },                  // 6. Pumpkin
-  { tNum: 24, palette: ["#ffffff", "#ff3d00", "#ffd600"], motion: "quantum_scatter", colorFX: "fire_burst" }, // 7. Candle
-  { tNum: 19, palette: ["#ffffff"], motion: "helix", colorFX: "mystic_aurora" },                   // 8. Ghost
-  { tNum: 32, palette: ["#ffd700", "#ffb300"], motion: "vortex", colorFX: "sparkle" },             // 9. Key
-  { tNum: 17, palette: ["#ffffff", "#ffd54f", "#ff6d00", "#d50000"], motion: "vortex", colorFX: "fire_burst", isLast: true } // 10. Finale Bonfire
+  { tNum: 28, palette: ["#d50000", "#8d4e28"], motion: "celtic_swirl", colorFX: "mystic_aurora" },// 3. Leaf
+  { tNum: 26, palette: ["#5d4037", "#8d6e63"], motion: "explosion", colorFX: "beacon" },          // 4. Tree
+  { tNum: 27, palette: ["#ffffff", "#ffab00", "#5d4037"], motion: "helix", colorFX: "fire_burst" },// 5. Owl
+  { tNum: 18, palette: ["#ff6d00"], motion: "vortex", colorFX: "sparkle" },                       // 6. Pumpkin
+  { tNum: 24, palette: ["#ffffff", "#ff3d00", "#ffd600"], motion: "explosion", colorFX: "fire_burst" }, // 7. Candle
+  { tNum: 19, palette: ["#ffffff"], motion: "celtic_swirl", colorFX: "mystic_aurora" },            // 8. Ghost
+  { tNum: 32, palette: ["#ffd700", "#ffb300"], motion: "helix", colorFX: "sparkle" },             // 9. Key
+  { tNum: 29, palette: ["#00e676", "#00b0ff"], motion: "cascade_wave", colorFX: "beacon" },       // 10. Celtic Knot
+  { tNum: 30, palette: ["#ff1744", "#d50000"], motion: "vortex", colorFX: "fire_burst" },         // 11. Sigil
+  { tNum: 31, palette: ["#ffd54f", "#ff9100"], motion: "celtic_swirl", colorFX: "sparkle" },      // 12. Solar Symbol
+  { tNum: 33, palette: ["#e040fb", "#ffd54f"], motion: "explosion", colorFX: "beacon" },          // 13. Talisman
+  { tNum: 34, palette: ["#7c4dff", "#00e5ff"], motion: "helix", colorFX: "mystic_aurora" },       // 14. Cross
+  { tNum: 17, palette: ["#ffffff", "#ffd54f", "#ff6d00", "#d50000"], motion: "vortex", colorFX: "fire_burst", isLast: true } // 15. Finale
 ];
 
 const timelineData = {
@@ -253,6 +257,14 @@ const timelineData = {
   }))
 };
 
+let TOTAL_DURATION = 170.0;
+function recalculateTimelineDuration() {
+  let formTotal = 0;
+  for (const b of timelineData.formationBlocks) formTotal += b.dur + (b.transDur || 0);
+  TOTAL_DURATION = takeoffConfig.dur + formTotal + landingConfig.dur;
+}
+recalculateTimelineDuration();
+
 let formationTrajectories = [];
 let formationSwatchStore = [];
 
@@ -277,13 +289,6 @@ async function buildShowTrajectoryData() {
     prevSlots = result.positions;
   }
 }
-
-function recalculateTimelineDuration() {
-  let formTotal = 0;
-  for (const b of timelineData.formationBlocks) formTotal += b.dur + (b.transDur || 0);
-  TOTAL_DURATION = takeoffConfig.dur + Math.max(formTotal, 20.0) + landingConfig.dur;
-}
-recalculateTimelineDuration();
 
 let playheadTime = 0.0;
 const PRE_SHOW_DELAY = 10.0;
@@ -386,7 +391,7 @@ function evaluateTimeline(t) {
       targetColors[i * 3 + 2] = tempColor.b * (0.3 + 0.7 * ease);
     }
   }
-  // 2. Main Formation Blocks & Transitions
+  // 2. Main Formation Blocks & Transitions (15 Scenes)
   else if (t > takeoffConfig.dur && t < showBodyEnd) {
     const showT = t - takeoffConfig.dur;
     let curT = 0;
@@ -491,6 +496,13 @@ function evaluateTimeline(t) {
             localScratchPoints[j * 3]     = lx * cosW - ly * sinW;
             localScratchPoints[j * 3 + 1] = alt + (lx * sinW + ly * cosW);
           }
+        } else if (b.tileNum === 29 || b.tileNum === 30 || b.tileNum === 31 || b.tileNum === 33 || b.tileNum === 34) {
+          // Gentle breathing hover to keep the symbols crisp without distortion
+          const pulse = 1.0 + Math.sin(uBlock * Math.PI * 2.0) * 0.03;
+          for (let j = 0; j < formationCount; j++) {
+            localScratchPoints[j * 3]     *= pulse;
+            localScratchPoints[j * 3 + 1] = alt + (localScratchPoints[j * 3 + 1] - alt) * pulse;
+          }
         }
 
         for (let j = 0; j < formationCount; j++) {
@@ -562,28 +574,6 @@ function evaluateTimeline(t) {
             midX += Math.cos(helixAngle) * r;
             midY += Math.sin(helixAngle) * (arc * 4.0);
             midZ += Math.sin(helixAngle) * r;
-          } else if (motionStyle === "torus_warp") {
-            const uTorus = (j / formationCount) * Math.PI * 2.0 + progress * Math.PI * 2.0;
-            const vTorus = progress * Math.PI * 3.0 + (j % 10) * 0.6;
-            const R = 12.0 * arc;
-            const r = 4.5 * arc;
-            midX += (R + r * Math.cos(vTorus)) * Math.cos(uTorus) * 0.65;
-            midY += r * Math.sin(vTorus) * 0.65;
-            midZ += (R + r * Math.cos(vTorus)) * Math.sin(uTorus) * 0.65;
-          } else if (motionStyle === "hourglass_twist") {
-            const pinchFactor = 1.0 - arc * 0.82;
-            const twistAngle = (midY - interpAlt) * 0.15 * arc * Math.PI;
-            const cosT = Math.cos(twistAngle), sinT = Math.sin(twistAngle);
-            const px = midX * pinchFactor;
-            const pz = midZ * pinchFactor;
-            midX = px * cosT - pz * sinT;
-            midZ = px * sinT + pz * cosT;
-          } else if (motionStyle === "quantum_scatter") {
-            const scatterSeed = j * 41.7 + progress * 8.0;
-            const scatterDist = arc * 11.5;
-            midX += Math.sin(scatterSeed) * scatterDist;
-            midY += Math.cos(scatterSeed * 1.3) * (scatterDist * 0.7);
-            midZ += Math.sin(scatterSeed * 1.7) * scatterDist;
           } else if (motionStyle === "cascade_wave") {
             const waveX = (midX + 20.0) / 40.0;
             const wavePhase = progress * Math.PI * 2.5 - waveX * Math.PI * 2.0;
@@ -636,7 +626,7 @@ function evaluateTimeline(t) {
       curT = transEnd;
     }
   }
-  // 3. Finale Undulating Swarm & Helix Landing
+  // 3. Finale Undulating Swarm & Helix Landing (Runs only after all 15 formations finish)
   else {
     const landT = t - showBodyEnd;
     const u = THREE.MathUtils.clamp(landT / landingConfig.dur, 0, 1);
@@ -699,7 +689,7 @@ function evaluateTimeline(t) {
     }
   }
 
-  // 4. Atmospheric Precipitation
+  // 4. Atmospheric Particles
   if (precipConfig.enabled) {
     const precipHex = new THREE.Color(precipConfig.color);
 
@@ -743,10 +733,10 @@ function evaluateTimeline(t) {
 }
 
 // -------------------------------------------------------------
-// PHYSICS-BASED GLB EXPORTER WITH 10s DELAYS & ZERO TELEPORT GLITCHES
+// PHYSICS-BASED GLB EXPORTER: EXACT 190s TIMELINE (10s PRE + 170s SHOW + 10s POST)
 // -------------------------------------------------------------
 window.bakeAndDownloadGLB = function() {
-  console.log("Simulating 60Hz physics with 10s pre/post delays... please wait.");
+  console.log("Simulating 60Hz physics with exact 190s timeline... please wait.");
 
   const root = new THREE.Group();
   root.name = "SamhainDroneFleet";
@@ -769,7 +759,7 @@ window.bakeAndDownloadGLB = function() {
   simPositions.set(groundPositions.subarray(0, activeDroneCount * 3));
 
   const sampleFPS = 15;
-  const BAKE_TOTAL_DURATION = PRE_SHOW_DELAY + TOTAL_DURATION + POST_SHOW_DELAY; // 10s + 125s + 10s = 145s
+  const BAKE_TOTAL_DURATION = PRE_SHOW_DELAY + TOTAL_DURATION + POST_SHOW_DELAY; // 10s + 170s + 10s = 190s
   const totalFrames = Math.floor(BAKE_TOTAL_DURATION * sampleFPS);
   const times = new Float32Array(totalFrames);
   for (let f = 0; f < totalFrames; f++) times[f] = f / sampleFPS;
@@ -851,14 +841,13 @@ window.bakeAndDownloadGLB = function() {
       link.href = URL.createObjectURL(blob);
       link.download = "Samhain_Drone_Show.glb";
       link.click();
-      console.log("GLB baked with 10s pre/post delays and continuous physics!");
+      console.log("GLB exported with all 15 formations and exact 190s timeline!");
     },
     (err) => console.error("Export error:", err),
     { binary: true, animations: [clip] }
   );
 };
 
-// Boot Sequence
 (async () => {
   await buildShowTrajectoryData();
   evaluateTimeline(0);
@@ -942,7 +931,6 @@ renderer.setAnimationLoop(now => {
     currentColors[idx + 2] += (targetColors[idx + 2] - currentColors[idx + 2]) * 7.0 * dt;
   }
 
-  // Atmospheric Particles
   const showBodyEnd = TOTAL_DURATION - landingConfig.dur;
   if (precipConfig.enabled && playheadTime > takeoffConfig.dur && playheadTime < showBodyEnd) {
     const fallSpeed = precipConfig.speed;
