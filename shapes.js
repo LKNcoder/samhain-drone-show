@@ -126,9 +126,9 @@ export function sampleImageToDrones(imgElement, out, count, swatchOut, scale = 0
 
   let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
 
-  // Broad contrast and color detection to capture saturated/dark line art
-  for (let y = 1; y < 511; y++) {
-    for (let x = 1; x < 511; x++) {
+  // Crop outer 10 pixels to prevent border lines from generating artifacts
+  for (let y = 10; y < 502; y++) {
+    for (let x = 10; x < 502; x++) {
       const idx = (y * 512 + x) * 4;
       const r = imgData[idx], g = imgData[idx + 1], b = imgData[idx + 2];
       const lum = r * 0.299 + g * 0.587 + b * 0.114;
@@ -144,8 +144,8 @@ export function sampleImageToDrones(imgElement, out, count, swatchOut, scale = 0
   const visited = new Uint8Array(512 * 512);
   const islands = [];
 
-  for (let y = 1; y < 511; y++) {
-    for (let x = 1; x < 511; x++) {
+  for (let y = 10; y < 502; y++) {
+    for (let x = 10; x < 502; x++) {
       const idx = y * 512 + x;
       if (binary[idx] === 1 && !visited[idx]) {
         const islandPixels = [];
@@ -162,7 +162,7 @@ export function sampleImageToDrones(imgElement, out, count, swatchOut, scale = 0
           ];
 
           for (const n of neighbors) {
-            if (n.x >= 0 && n.x < 512 && n.y >= 0 && n.y < 512) {
+            if (n.x >= 10 && n.x < 502 && n.y >= 10 && n.y < 502) {
               const nIdx = n.y * 512 + n.x;
               if (binary[nIdx] === 1 && !visited[nIdx]) {
                 visited[nIdx] = 1;
@@ -282,11 +282,13 @@ export function sampleImageToDrones(imgElement, out, count, swatchOut, scale = 0
     }
   }
 
+  // Tucks leftover drones invisibly into the body instead of drawing a horizontal line
   while (ptr < count) {
-    out[ptr * 3]     = out[(ptr - 1) * 3] + 0.08;
-    out[ptr * 3 + 1] = out[(ptr - 1) * 3 + 1];
+    const ref = Math.floor(Math.random() * Math.max(1, ptr));
+    out[ptr * 3]     = out[ref * 3] + (Math.random() - 0.5) * 0.04;
+    out[ptr * 3 + 1] = out[ref * 3 + 1] + (Math.random() - 0.5) * 0.04;
     out[ptr * 3 + 2] = 0.0;
-    if (swatchOut) swatchOut[ptr] = 0;
+    if (swatchOut) swatchOut[ptr] = swatchOut[ref];
     ptr++;
   }
 }
@@ -300,7 +302,7 @@ function getSemanticSwatch(px, py, tileNum, minY = 0, maxY = 512, minX = 0, maxX
       if (normY > 0.88) return 2;
       return 0;
 
-    case 18: // Pumpkin
+    case 18: // Pumpkin: 100% Saturated Orange
       return 0;
 
     case 25: // Scythe
@@ -331,25 +333,8 @@ function getSemanticSwatch(px, py, tileNum, minY = 0, maxY = 512, minX = 0, maxX
       if (normY < 0.45) return 1;
       return 0;
 
-    case 29: // Celtic Knot
-      if (normY > 0.5) return 1;
-      return 0;
-
-    case 30: // Sigil
-      if (normY > 0.5) return 1;
-      return 0;
-
-    case 31: // Solar Symbol
-      if (normY > 0.5) return 1;
-      return 0;
-
-    case 33: // Talisman
-      if (normY > 0.5) return 1;
-      return 0;
-
-    case 34: // Cross
-      if (normY > 0.5) return 1;
-      return 0;
+    case 29: case 30: case 31: case 33: case 34:
+      return (normY > 0.5) ? 1 : 0;
 
     case 17: // Finale Bonfire & Banner
       if (normY > 0.74) return 1;
