@@ -51,14 +51,7 @@ import {
   findShapeById,
   sampleImageToDrones,
   GOLDEN
-} from "./shapes.js?v=samhain_final_suite_v24";
-
-function formatTime(s) {
-  if (isNaN(s) || s === undefined || s === null) return "00:00";
-  const m = Math.floor(s / 60);
-  const sec = Math.floor(s % 60);
-  return String(m).padStart(2, "0") + ":" + String(sec).padStart(2, "0");
-}
+} from "./shapes.js?v=samhain_final_suite_v25";
 
 const MAX_DRONES = 2000;
 let activeDroneCount = 800;
@@ -71,7 +64,7 @@ let precipConfig = {
   enabled: true,
   type: "snow",
   count: 60,
-  speed: 2.2,
+  speed: 2.4,
   angle: 18.0,
   fx: "glimmer",
   color: "#ff6d00"
@@ -134,6 +127,8 @@ const velocities = new Float32Array(MAX_DRONES * 3);
 const currentColors = new Float32Array(MAX_DRONES * 3);
 const targetColors = new Float32Array(MAX_DRONES * 3);
 const droneSwatchIndices = new Uint8Array(MAX_DRONES);
+const isDroneVisible = new Uint8Array(MAX_DRONES);
+isDroneVisible.fill(1);
 
 const groundPositions = new Float32Array(MAX_DRONES * 3);
 function updateGroundPositions(n) {
@@ -152,9 +147,9 @@ const precipDriftSeeds = new Float32Array(MAX_DRONES);
 function initPrecipPositions() {
   for (let i = 0; i < MAX_DRONES; i++) {
     precipPositions[i * 3]     = (Math.random() - 0.5) * 36;
-    precipPositions[i * 3 + 1] = 1.5 + Math.random() * 30;
+    precipPositions[i * 3 + 1] = 1.5 + Math.random() * 28;
     precipPositions[i * 3 + 2] = (Math.random() - 0.5) * 36;
-    precipDriftSeeds[i]        = Math.random() * Math.PI * 2;
+    precipDriftSeeds[i]        = Math.random();
   }
 }
 initPrecipPositions();
@@ -205,14 +200,12 @@ function assignMinimalPaths(currentPos, rawTargets, rawSwatches, count) {
     assigned[i * 3]     = rawTargets[closest * 3];
     assigned[i * 3 + 1] = rawTargets[closest * 3 + 1];
     assigned[i * 3 + 2] = rawTargets[closest * 3 + 2];
-    if (rawSwatches) {
-      assignedSwatches[i] = rawSwatches[closest];
-    }
+    if (rawSwatches) assignedSwatches[i] = rawSwatches[closest];
   }
   return { positions: assigned, swatches: assignedSwatches };
 }
 
-// 15 Formations in correct narrative order
+// 15 Narrative Formations: Deer is Purple, Cross is Teal
 const SHOW_SCENES = [
   { tNum: 16, palette: ["#ffd54f", "#8d4e28"], motion: "vortex", colorFX: "sparkle" },           // 1. Wheat
   { tNum: 25, palette: ["#cfd8dc", "#5d4037"], motion: "cascade_wave", colorFX: "fire_burst" },  // 2. Scythe
@@ -224,10 +217,10 @@ const SHOW_SCENES = [
   { tNum: 19, palette: ["#ffffff"], motion: "celtic_swirl", colorFX: "mystic_aurora" },            // 8. Ghost
   { tNum: 32, palette: ["#ffd700", "#ffb300"], motion: "helix", colorFX: "sparkle" },             // 9. Key
   { tNum: 29, palette: ["#00e676", "#00b0ff"], motion: "cascade_wave", colorFX: "beacon" },       // 10. Celtic Knot (Rotates)
-  { tNum: 30, palette: ["#ff1744", "#d50000"], motion: "vortex", colorFX: "fire_burst" },         // 11. Sigil
-  { tNum: 31, palette: ["#ffd54f", "#ff9100"], motion: "celtic_swirl", colorFX: "sparkle" },      // 12. Solar Symbol (Rotates)
-  { tNum: 33, palette: ["#d7ccc8", "#ffd54f"], motion: "helix", colorFX: "sparkle" },             // 13. Deer Head (Upright, stationary)
-  { tNum: 34, palette: ["#7c4dff", "#00e5ff"], motion: "celtic_swirl", colorFX: "mystic_aurora" },// 14. Cross
+  { tNum: 30, palette: ["#ff1744", "#d50000"], motion: "vortex", colorFX: "fire_burst" },         // 11. Sigil (Rotates)
+  { tNum: 31, palette: ["#ffd54f", "#ff9100"], motion: "celtic_swirl", colorFX: "sparkle" },      // 12. Solar Wheel (Rotates)
+  { tNum: 33, palette: ["#9c27b0", "#e040fb"], motion: "helix", colorFX: "sparkle" },             // 13. DEER HEAD (PURPLE / UPRIGHT / NO ROTATION)
+  { tNum: 34, palette: ["#00e5ff", "#00bfa5"], motion: "celtic_swirl", colorFX: "mystic_aurora" },// 14. CROSS (TEAL / TURQUOISE / ROTATING)
   { tNum: 17, palette: ["#ffffff", "#ffd54f", "#ff6d00", "#d50000"], motion: "vortex", colorFX: "fire_burst", isLast: true } // 15. Finale
 ];
 
@@ -236,7 +229,6 @@ const timelineData = {
     id: `s_${idx}`,
     shapeId: `samhainTile${sc.tNum}`,
     tileNum: sc.tNum,
-    isText: false,
     dur: sc.isLast ? 10.0 : 5.0,
     transDur: sc.isLast ? 0.0 : 4.0,
     transMotion: sc.motion,
@@ -246,12 +238,8 @@ const timelineData = {
     rotStartY: 0,
     rotEndY: 0,
     palette: sc.palette,
-    activeSwatchIdx: 0,
-    cycleSpeed: 0.5,
     run: (idx % 2 === 0),
     runSpeed: 3.5,
-    blink: false,
-    blinkSpeed: 3.0,
     sparkle: true,
     sparkleDensity: 0.35
   }))
@@ -315,11 +303,6 @@ function applyLightingFX(block, timeSec) {
       const wave = Math.sin(timeSec * block.runSpeed - (i / formationCount) * 8.0);
       if (wave > 0.3) { r = Math.min(1, r * 1.35); g = Math.min(1, g * 1.35); b = Math.min(1, b * 1.35); }
     }
-    if (block.blink) {
-      const on = Math.sin(timeSec * Math.PI * 2 * block.blinkSpeed) > 0;
-      const factor = on ? 1.0 : 0.08;
-      r *= factor; g *= factor; b *= factor;
-    }
     if (block.sparkle && Math.sin(i * 127.1 + timeSec * 16.0) > (1.0 - block.sparkleDensity * 0.8)) {
       r = 1.0; g = 1.0; b = 1.0;
     }
@@ -327,6 +310,7 @@ function applyLightingFX(block, timeSec) {
     targetColors[i * 3]     = r;
     targetColors[i * 3 + 1] = g;
     targetColors[i * 3 + 2] = b;
+    isDroneVisible[i] = 1;
   }
 }
 
@@ -339,11 +323,7 @@ function transformToSky(x, y, z, altitude, scale, angleY, outVec) {
   rotMatrix.makeRotationFromEuler(rotEuler);
   centerPt.set(0, altitude, 0);
 
-  outVec.set(
-    x * scale,
-    (y - 16) * scale + altitude,
-    z * scale
-  );
+  outVec.set(x * scale, (y - 16) * scale + altitude, z * scale);
   outVec.sub(centerPt);
   outVec.applyMatrix4(rotMatrix);
   outVec.add(centerPt);
@@ -370,25 +350,20 @@ function evaluateTimeline(t) {
     const v0y = THREE.MathUtils.degToRad(b0.rotStartY || 0);
 
     for (let i = 0; i < formationCount; i++) {
-      const gx = groundPositions[i * 3];
-      const gy = groundPositions[i * 3 + 1];
-      const gz = groundPositions[i * 3 + 2];
-
+      const gx = groundPositions[i * 3], gy = groundPositions[i * 3 + 1], gz = groundPositions[i * 3 + 2];
       transformToSky(firstTargets[i * 3], firstTargets[i * 3 + 1], firstTargets[i * 3 + 2], alt, scl, v0y, skyPosA);
 
       const ease = u * u * (3 - 2 * u);
-
       targetPositions[i * 3]     = gx + (skyPosA.x - gx) * ease;
       targetPositions[i * 3 + 1] = gy + (skyPosA.y - gy) * ease;
       targetPositions[i * 3 + 2] = gz + (skyPosA.z - gz) * ease;
 
       if (firstSwatches) droneSwatchIndices[i] = firstSwatches[i];
-
-      const hue = (u * 0.3 + (i % 30) / 30 * 0.15) % 1.0;
-      tempColor.setHSL(hue > 0.2 ? 0.08 : 0.5, 1.0, 0.6);
+      tempColor.setHSL(0.08, 1.0, 0.6);
       targetColors[i * 3]     = tempColor.r * (0.3 + 0.7 * ease);
       targetColors[i * 3 + 1] = tempColor.g * (0.3 + 0.7 * ease);
       targetColors[i * 3 + 2] = tempColor.b * (0.3 + 0.7 * ease);
+      isDroneVisible[i] = 1;
     }
   }
   // 2. Main Formation Blocks & Transitions (15 Scenes)
@@ -415,92 +390,11 @@ function evaluateTimeline(t) {
 
         localScratchPoints.set(currTargets.subarray(0, formationCount * 3));
 
-        if (b.tileNum === 16) {
-          for (let j = 0; j < formationCount; j++) {
-            const py = localScratchPoints[j * 3 + 1];
-            const px = localScratchPoints[j * 3];
-            const yNorm = Math.max(0, Math.min(1, (py - 8) / 16));
-            const sway = (Math.sin(tScene * 2.2 + px * 0.25) * 1.5 + Math.sin(tScene * 4.5) * 0.4) * Math.pow(yNorm, 1.6);
-            localScratchPoints[j * 3] += sway * env;
-            localScratchPoints[j * 3 + 1] -= Math.abs(sway) * 0.12 * yNorm * env;
-          }
-        } else if (b.tileNum === 25) {
-          const swingPhase = uBlock * Math.PI * 4.0;
-          const cutMotion = Math.sin(swingPhase) * 0.65;
-          const cosCut = Math.cos(cutMotion), sinCut = Math.sin(cutMotion);
-
-          for (let j = 0; j < formationCount; j++) {
-            const lx = localScratchPoints[j * 3];
-            const ly = localScratchPoints[j * 3 + 1] - 8.0;
-            localScratchPoints[j * 3]     = lx * cosCut - ly * sinCut;
-            localScratchPoints[j * 3 + 1] = 8.0 + (lx * sinCut + ly * cosCut);
-          }
-        } else if (b.tileNum === 28) {
-          for (let j = 0; j < formationCount; j++) {
-            const py = localScratchPoints[j * 3 + 1];
-            const flutter = Math.sin(tScene * 3.5 + py * 0.4) * 0.8 * env;
-            localScratchPoints[j * 3] += flutter;
-            localScratchPoints[j * 3 + 2] += Math.cos(tScene * 3.0 + py * 0.3) * 0.6 * env;
-          }
-        } else if (b.tileNum === 26) {
-          for (let j = 0; j < formationCount; j++) {
-            const py = localScratchPoints[j * 3 + 1];
-            if (py > 15.5) {
-              const yNorm = Math.max(0, (py - 15.5) / 10.0);
-              localScratchPoints[j * 3] += Math.sin(tScene * 2.2 + py * 0.25) * (yNorm * 0.7) * env;
-            }
-          }
-        } else if (b.tileNum === 27) {
-          const rockAngle = Math.sin(uBlock * Math.PI * 4.0) * 0.14;
-          const pivotY = 10.0;
-          for (let j = 0; j < formationCount; j++) {
-            const py = localScratchPoints[j * 3 + 1];
-            if (py > 10.5) {
-              const factor = Math.min(1.0, (py - 10.5) / 10.0);
-              const angle = rockAngle * factor;
-              const ca = Math.cos(angle), sa = Math.sin(angle);
-              const lx = localScratchPoints[j * 3];
-              const ly = py - pivotY;
-              localScratchPoints[j * 3]     = lx * ca - ly * sa;
-              localScratchPoints[j * 3 + 1] = pivotY + (lx * sa + ly * ca);
-            }
-          }
-        } else if (b.tileNum === 18) {
-          const wobblePulse = Math.sin(uBlock * Math.PI * 4.0) * 0.055;
-          const wobbleX = 1.0 + wobblePulse;
-          const wobbleY = 1.0 - wobblePulse;
-          for (let j = 0; j < formationCount; j++) {
-            localScratchPoints[j * 3]     *= wobbleX;
-            localScratchPoints[j * 3 + 1] = alt + (localScratchPoints[j * 3 + 1] - alt) * wobbleY;
-          }
-        } else if (b.tileNum === 24) {
-          for (let j = 0; j < formationCount; j++) {
-            if (currSwatches && currSwatches[j] === 1) {
-              const py = localScratchPoints[j * 3 + 1];
-              localScratchPoints[j * 3] += Math.sin(tScene * 5.5 + py * 1.5) * 0.45 * env;
-            }
-          }
-        } else if (b.tileNum === 19) {
-          const floatY = Math.sin(uBlock * Math.PI * 2.0) * 0.8;
-          for (let j = 0; j < formationCount; j++) {
-            const py = localScratchPoints[j * 3 + 1];
-            localScratchPoints[j * 3 + 1] += floatY;
-            localScratchPoints[j * 3] += Math.sin(tScene * 2.5 + py * 0.3) * 0.5 * env;
-          }
-        } else if (b.tileNum === 32) {
-          const wobble = Math.sin(uBlock * Math.PI * 2.0) * 0.08;
-          const cosW = Math.cos(wobble), sinW = Math.sin(wobble);
-          for (let j = 0; j < formationCount; j++) {
-            const lx = localScratchPoints[j * 3];
-            const ly = localScratchPoints[j * 3 + 1] - alt;
-            localScratchPoints[j * 3]     = lx * cosW - ly * sinW;
-            localScratchPoints[j * 3 + 1] = alt + (lx * sinW + ly * cosW);
-          }
-        } 
-        // ONLY actual wheels rotate (Tile 29 Knot, Tile 31 Solar Wheel).
-        // Deer Head (Tile 33), Sigil (Tile 30), and Cross (Tile 34) REMAIN UPRIGHT!
-        else if (b.tileNum === 29 || b.tileNum === 31) {
-          const dir = (b.tileNum === 31) ? -1 : 1;
+        // ROTATION LOGIC:
+        // Knot (29), Sigil (30), Solar (31), and CROSS (34) rotate full 360-degrees.
+        // DEER HEAD (33) remains UPRIGHT with gentle breathing hover (NO ROTATION).
+        if (b.tileNum === 29 || b.tileNum === 30 || b.tileNum === 31 || b.tileNum === 34) {
+          const dir = (b.tileNum === 31 || b.tileNum === 34) ? -1 : 1;
           const spinA = uBlock * Math.PI * 2.0 * dir;
           const cosS = Math.cos(spinA), sinS = Math.sin(spinA);
           for (let j = 0; j < formationCount; j++) {
@@ -510,10 +404,16 @@ function evaluateTimeline(t) {
             localScratchPoints[j * 3 + 1] = alt + (lx * sinS + ly * cosS);
           }
         } else if (b.tileNum === 33) {
-          // Deer Head: Gentle, majestic breathing hover (NO ROTATION)
-          const breathe = Math.sin(uBlock * Math.PI * 2.0) * 0.35;
+          // Deer Head: Upright & stationary, soft breathing hover
+          const breathe = Math.sin(uBlock * Math.PI * 2.0) * 0.4;
           for (let j = 0; j < formationCount; j++) {
             localScratchPoints[j * 3 + 1] += breathe;
+          }
+        } else if (b.tileNum === 18) { // Pumpkin body pulse
+          const wobble = 1.0 + Math.sin(uBlock * Math.PI * 4.0) * 0.04;
+          for (let j = 0; j < formationCount; j++) {
+            localScratchPoints[j * 3]     *= wobble;
+            localScratchPoints[j * 3 + 1] = alt + (localScratchPoints[j * 3 + 1] - alt) * wobble;
           }
         }
 
@@ -523,6 +423,7 @@ function evaluateTimeline(t) {
           targetPositions[j * 3 + 1] = skyPosA.y;
           targetPositions[j * 3 + 2] = skyPosA.z;
           if (currSwatches) droneSwatchIndices[j] = currSwatches[j];
+          isDroneVisible[j] = 1;
         }
 
         applyLightingFX(b, t);
@@ -557,46 +458,40 @@ function evaluateTimeline(t) {
           let midZ = skyPosA.z + (skyPosB.z - skyPosA.z) * ease;
 
           if (motionStyle === "vortex") {
-            const distFromCenter = Math.sqrt(midX * midX + (midY - interpAlt) * (midY - interpAlt));
-            const baseAngle = Math.atan2(midY - interpAlt, midX);
-            const spinAngle = baseAngle + progress * (Math.PI * 2.22);
-            const expandRadius = distFromCenter * (1.0 + arc * 0.38);
-
-            midX = Math.cos(spinAngle) * expandRadius;
-            midY = interpAlt + Math.sin(spinAngle) * expandRadius;
+            const dist = Math.sqrt(midX * midX + (midY - interpAlt) * (midY - interpAlt));
+            const angle = Math.atan2(midY - interpAlt, midX) + progress * (Math.PI * 2.22);
+            const expand = dist * (1.0 + arc * 0.38);
+            midX = Math.cos(angle) * expand;
+            midY = interpAlt + Math.sin(angle) * expand;
             midZ += Math.sin(j * 0.15 + progress * Math.PI * 2.0) * (arc * 4.5);
           } else if (motionStyle === "explosion") {
-            const dirX = midX;
-            const dirY = midY - interpAlt;
+            const dirX = midX, dirY = midY - interpAlt;
             const len = Math.max(0.1, Math.sqrt(dirX * dirX + dirY * dirY));
             const blast = arc * 14.0 * (0.8 + (j % 12) * 0.035);
-
             midX += (dirX / len) * blast;
             midY += (dirY / len) * blast;
             midZ += (Math.sin(j * 37.1) * 2.0 - 1.0) * (arc * 7.5);
           } else if (motionStyle === "celtic_swirl") {
-            const ribbonPhase = (j / formationCount) * Math.PI * 4.0;
-            const wave = Math.sin(progress * Math.PI * 2.0 + ribbonPhase);
-            midX += Math.cos(ribbonPhase + progress * Math.PI) * (arc * 8.5);
-            midY += wave * (arc * 5.0);
+            const phase = (j / formationCount) * Math.PI * 4.0;
+            midX += Math.cos(phase + progress * Math.PI) * (arc * 8.5);
+            midY += Math.sin(progress * Math.PI * 2.0 + phase) * (arc * 5.0);
             midZ += Math.sin(progress * Math.PI * 3.0 + (j % 5)) * (arc * 7.0);
           } else if (motionStyle === "helix") {
-            const helixAngle = progress * Math.PI * 2.4 + (j % 24) * (Math.PI / 12);
-            const r = 9.5 * arc;
-            midX += Math.cos(helixAngle) * r;
-            midY += Math.sin(helixAngle) * (arc * 4.0);
-            midZ += Math.sin(helixAngle) * r;
+            const angle = progress * Math.PI * 2.4 + (j % 24) * (Math.PI / 12);
+            midX += Math.cos(angle) * (9.5 * arc);
+            midY += Math.sin(angle) * (arc * 4.0);
+            midZ += Math.sin(angle) * (9.5 * arc);
           } else if (motionStyle === "cascade_wave") {
             const waveX = (midX + 20.0) / 40.0;
-            const wavePhase = progress * Math.PI * 2.5 - waveX * Math.PI * 2.0;
-            const crest = Math.sin(wavePhase);
-            midY += crest * (arc * 7.5);
-            midZ += Math.cos(wavePhase) * (arc * 6.0);
+            const phase = progress * Math.PI * 2.5 - waveX * Math.PI * 2.0;
+            midY += Math.sin(phase) * (arc * 7.5);
+            midZ += Math.cos(phase) * (arc * 6.0);
           }
 
           targetPositions[j * 3]     = midX;
           targetPositions[j * 3 + 1] = Math.max(0.5, midY);
           targetPositions[j * 3 + 2] = midZ;
+          isDroneVisible[j] = 1;
 
           if (ease > 0.5 && nextSwatches) droneSwatchIndices[j] = nextSwatches[j];
           else if (currSwatches) droneSwatchIndices[j] = currSwatches[j];
@@ -610,24 +505,7 @@ function evaluateTimeline(t) {
           const swatchB = nextSwatches ? (nextSwatches[j] % palB.length) : 0;
           prevBlockColor.set(palA[swatchA]);
           nextBlockColor.set(palB[swatchB]);
-
           tempColor.lerpColors(prevBlockColor, nextBlockColor, ease);
-
-          if (b.transColorFX === "sparkle") {
-            const sparkle = Math.sin(t * 22.0 + j * 9.0) > 0.2 ? 1.0 : 0.15;
-            tempColor.r = THREE.MathUtils.lerp(tempColor.r, sparkle, arc * 0.6);
-            tempColor.g = THREE.MathUtils.lerp(tempColor.g, sparkle * 0.85, arc * 0.6);
-            tempColor.b = THREE.MathUtils.lerp(tempColor.b, sparkle * 0.4, arc * 0.6);
-          } else if (b.transColorFX === "fire_burst") {
-            const burst = (Math.sin(t * 18.0 + (j % 20)) > 0.3) ? 1.0 : 0.2;
-            tempColor.r = THREE.MathUtils.lerp(tempColor.r, 1.0, arc * 0.7);
-            tempColor.g = THREE.MathUtils.lerp(tempColor.g, burst * 0.65, arc * 0.7);
-            tempColor.b = THREE.MathUtils.lerp(tempColor.b, 0.05, arc * 0.7);
-          } else if (b.transColorFX === "mystic_aurora") {
-            const hue = (progress * 0.6 + (j / formationCount) * 0.4) % 1.0;
-            const auroraCol = new THREE.Color().setHSL(hue, 1.0, 0.55);
-            tempColor.lerp(auroraCol, arc * 0.75);
-          }
 
           targetColors[j * 3]     = tempColor.r;
           targetColors[j * 3 + 1] = tempColor.g;
@@ -638,7 +516,7 @@ function evaluateTimeline(t) {
       curT = transEnd;
     }
   }
-  // 3. Finale Undulating Swarm & Helix Landing (Runs only after all 15 formations finish)
+  // 3. Finale Undulating Swarm & Helix Landing
   else {
     const landT = t - showBodyEnd;
     const u = THREE.MathUtils.clamp(landT / landingConfig.dur, 0, 1);
@@ -650,15 +528,11 @@ function evaluateTimeline(t) {
 
     const uExpand = Math.min(1.0, u / 0.35);
     const easeExpand = uExpand * uExpand * (3 - 2 * uExpand);
-
     const uDesc = Math.max(0.0, (u - 0.35) / 0.65);
     const easeDesc = uDesc * uDesc * (3 - 2 * uDesc);
 
     for (let i = 0; i < formationCount; i++) {
-      const gx = groundPositions[i * 3];
-      const gy = groundPositions[i * 3 + 1];
-      const gz = groundPositions[i * 3 + 2];
-
+      const gx = groundPositions[i * 3], gy = groundPositions[i * 3 + 1], gz = groundPositions[i * 3 + 2];
       transformToSky(lastTargets[i * 3], lastTargets[i * 3 + 1], lastTargets[i * 3 + 2], alt, scl, v1y, skyPosA);
 
       const phi = Math.acos(1.0 - 2.0 * ((i + 0.5) / formationCount));
@@ -676,95 +550,81 @@ function evaluateTimeline(t) {
       const spiralAngle = (1.0 - easeDesc) * Math.PI * 4.0 + (i % 3) * (Math.PI * 2 / 3);
       const spiralRadius = Math.sin(Math.PI * easeDesc) * 8.0;
 
-      const curX = THREE.MathUtils.lerp(curSwarmX, gx, easeDesc) + Math.cos(spiralAngle) * spiralRadius;
-      const curY = THREE.MathUtils.lerp(curSwarmY, gy, easeDesc);
-      const curZ = THREE.MathUtils.lerp(curSwarmZ, gz, easeDesc) + Math.sin(spiralAngle) * spiralRadius;
+      targetPositions[i * 3]     = THREE.MathUtils.lerp(curSwarmX, gx, easeDesc) + Math.cos(spiralAngle) * spiralRadius;
+      targetPositions[i * 3 + 1] = Math.max(0.12, THREE.MathUtils.lerp(curSwarmY, gy, easeDesc));
+      targetPositions[i * 3 + 2] = THREE.MathUtils.lerp(curSwarmZ, gz, easeDesc) + Math.sin(spiralAngle) * spiralRadius;
 
-      targetPositions[i * 3]     = curX;
-      targetPositions[i * 3 + 1] = Math.max(0.12, curY);
-      targetPositions[i * 3 + 2] = curZ;
-
-      const hueShift = (landT * 0.4 + (i / formationCount) * 0.6) % 1.0;
-      tempColor.setHSL(hueShift, 1.0, 0.58);
-
-      const isSparkleStar = (Math.sin(landT * 18.0 + i * 13.7) > 0.60);
-      if (isSparkleStar && easeDesc < 0.8) {
-        targetColors[i * 3]     = 1.0;
-        targetColors[i * 3 + 1] = 1.0;
-        targetColors[i * 3 + 2] = 1.0;
-      } else {
-        const emberPulse = Math.sin(t * 6.0 + i) > 0.4 ? 1.0 : 0.4;
-        targetColors[i * 3]     = THREE.MathUtils.lerp(tempColor.r, emberPulse, easeDesc);
-        targetColors[i * 3 + 1] = THREE.MathUtils.lerp(tempColor.g, emberPulse * 0.5, easeDesc);
-        targetColors[i * 3 + 2] = THREE.MathUtils.lerp(tempColor.b, 0.05, easeDesc);
-      }
+      const hue = (landT * 0.4 + (i / formationCount) * 0.6) % 1.0;
+      tempColor.setHSL(hue, 1.0, 0.58);
+      targetColors[i * 3]     = tempColor.r;
+      targetColors[i * 3 + 1] = tempColor.g;
+      targetColors[i * 3 + 2] = tempColor.b;
+      isDroneVisible[i] = 1;
     }
   }
 
-  // 4. Falling Leaves: Travel downwards ONLY. Resetting drones move via outer perimeter invisibly.
+  // 4. Atmospheric Precipitation (Leaves visible ONLY falling down; zero scale & hidden when resetting)
   if (precipConfig.enabled) {
     const precipHex = new THREE.Color(precipConfig.color);
-    const fallSpeed = precipConfig.speed;
-    const fallHeight = 28.0;
+    const fallDuration = 10.0; // Seconds to fall 28 meters
+    const resetDuration = 0.6; // Invisible underground teleport window
+    const totalCycle = fallDuration + resetDuration;
 
     for (let i = formationCount; i < activeDroneCount; i++) {
-      const gx = groundPositions[i * 3];
-      const gy = groundPositions[i * 3 + 1];
-      const gz = groundPositions[i * 3 + 2];
-      const x0 = precipPositions[i * 3];
-      const y0 = precipPositions[i * 3 + 1];
-      const z0 = precipPositions[i * 3 + 2];
+      const gx = groundPositions[i * 3], gy = groundPositions[i * 3 + 1], gz = groundPositions[i * 3 + 2];
+      const x0 = precipPositions[i * 3], z0 = precipPositions[i * 3 + 2];
       const seed = precipDriftSeeds[i];
 
-      // Downward cycle duration: 12 seconds
-      const cycleDuration = fallHeight / fallSpeed;
-      const cycleT = ((t + seed * 12.0) % (cycleDuration + 1.5));
+      const cycleT = ((t + seed * totalCycle) % totalCycle);
 
-      let curX, curY, curZ;
+      if (cycleT < fallDuration) {
+        // VISIBLE: Descending down through the sky
+        const uFall = cycleT / fallDuration;
+        const curY = 29.5 - uFall * 28.0; // 29.5m down to 1.5m
+        const curX = x0 + Math.sin(t * 2.2 + seed * 6.28) * 1.2;
+        const curZ = z0 + Math.cos(t * 1.8 + seed * 6.28) * 1.2;
 
-      if (cycleT < cycleDuration) {
-        // Falling down through the sky
-        const uFall = cycleT / cycleDuration;
-        curY = 29.5 - uFall * fallHeight;
-        curX = x0 + Math.sin(t * 2.2 + seed * 6.28) * 1.2;
-        curZ = z0 + Math.cos(t * 1.8 + seed * 6.28) * 1.2;
+        if (t <= takeoffConfig.dur) {
+          const u = Math.max(0, t / takeoffConfig.dur);
+          const ease = u * u * (3 - 2 * u);
+          targetPositions[i * 3]     = gx + (curX - gx) * ease;
+          targetPositions[i * 3 + 1] = gy + (curY - gy) * ease;
+          targetPositions[i * 3 + 2] = gz + (curZ - gz) * ease;
+        } else if (t > takeoffConfig.dur && t < showBodyEnd) {
+          targetPositions[i * 3]     = curX;
+          targetPositions[i * 3 + 1] = curY;
+          targetPositions[i * 3 + 2] = curZ;
+        } else {
+          const u = THREE.MathUtils.clamp((t - showBodyEnd) / landingConfig.dur, 0, 1);
+          const ease = u * u * (3 - 2 * u);
+          targetPositions[i * 3]     = curX + (gx - curX) * ease;
+          targetPositions[i * 3 + 1] = curY + (gy - curY) * ease;
+          targetPositions[i * 3 + 2] = curZ + (gz - curZ) * ease;
+        }
+
+        targetColors[i * 3]     = precipHex.r;
+        targetColors[i * 3 + 1] = precipHex.g;
+        targetColors[i * 3 + 2] = precipHex.b;
+        isDroneVisible[i] = 1;
       } else {
-        // Resetting phase: travel outside the volume (X = 35m) so no upward motion is seen
-        curY = 30.0;
-        curX = 35.0;
-        curZ = 35.0;
+        // INVISIBLE: Placed underground, scale drops to 0, color drops to black
+        targetPositions[i * 3]     = x0;
+        targetPositions[i * 3 + 1] = -15.0; // Underground
+        targetPositions[i * 3 + 2] = z0;
+        targetColors[i * 3]     = 0.0;
+        targetColors[i * 3 + 1] = 0.0;
+        targetColors[i * 3 + 2] = 0.0;
+        isDroneVisible[i] = 0; // ZERO SCALE
       }
-
-      if (t <= takeoffConfig.dur) {
-        const u = Math.max(0, t / takeoffConfig.dur);
-        const ease = u * u * (3 - 2 * u);
-        targetPositions[i * 3]     = gx + (curX - gx) * ease;
-        targetPositions[i * 3 + 1] = gy + (curY - gy) * ease;
-        targetPositions[i * 3 + 2] = gz + (curZ - gz) * ease;
-      } else if (t > takeoffConfig.dur && t < showBodyEnd) {
-        targetPositions[i * 3]     = curX;
-        targetPositions[i * 3 + 1] = curY;
-        targetPositions[i * 3 + 2] = curZ;
-      } else {
-        const u = THREE.MathUtils.clamp((t - showBodyEnd) / landingConfig.dur, 0, 1);
-        const ease = u * u * (3 - 2 * u);
-        targetPositions[i * 3]     = curX + (gx - curX) * ease;
-        targetPositions[i * 3 + 1] = curY + (gy - curY) * ease;
-        targetPositions[i * 3 + 2] = curZ + (gz - curZ) * ease;
-      }
-
-      targetColors[i * 3]     = precipHex.r;
-      targetColors[i * 3 + 1] = precipHex.g;
-      targetColors[i * 3 + 2] = precipHex.b;
     }
   }
 }
 
 // -------------------------------------------------------------
-// PHYSICS-BASED GLB EXPORTER: UNIFORM SPHERES (NO OVALS / ZERO SKEW)
+// PHYSICS-BASED GLB EXPORTER: UNIFORM SCALES (ROUND SPHERES / ZERO OVALS)
 // -------------------------------------------------------------
 window.bakeAndDownloadGLB = function() {
-  console.log("Simulating 60Hz physics with 190s timeline... please wait.");
+  console.log("Simulating 60Hz physics with uniform round spheres... please wait.");
 
   const root = new THREE.Group();
   root.name = "SamhainDroneFleet";
@@ -787,12 +647,13 @@ window.bakeAndDownloadGLB = function() {
   simPositions.set(groundPositions.subarray(0, activeDroneCount * 3));
 
   const sampleFPS = 15;
-  const BAKE_TOTAL_DURATION = PRE_SHOW_DELAY + TOTAL_DURATION + POST_SHOW_DELAY; // 190s
+  const BAKE_TOTAL_DURATION = PRE_SHOW_DELAY + TOTAL_DURATION + POST_SHOW_DELAY;
   const totalFrames = Math.floor(BAKE_TOTAL_DURATION * sampleFPS);
   const times = new Float32Array(totalFrames);
   for (let f = 0; f < totalFrames; f++) times[f] = f / sampleFPS;
 
   const positions = Array.from({ length: activeDroneCount }, () => new Float32Array(totalFrames * 3));
+  const scales = Array.from({ length: activeDroneCount }, () => new Float32Array(totalFrames * 3));
 
   const physicsSubsteps = 4;
   const dt = (1 / sampleFPS) / physicsSubsteps;
@@ -815,6 +676,15 @@ window.bakeAndDownloadGLB = function() {
       let px = simPositions[idx], py = simPositions[idx + 1], pz = simPositions[idx + 2];
       let vx = simVelocities[idx], vy = simVelocities[idx + 1], vz = simVelocities[idx + 2];
 
+      // Precipitation drones teleport invisibly while underground without spring drag
+      if (isDroneVisible[i] === 0) {
+        simPositions[idx]     = targetPositions[idx];
+        simPositions[idx + 1] = targetPositions[idx + 1];
+        simPositions[idx + 2] = targetPositions[idx + 2];
+        simVelocities[idx] = 0; simVelocities[idx + 1] = 0; simVelocities[idx + 2] = 0;
+        continue;
+      }
+
       let fx = (targetPositions[idx] - px) * SPRING - vx * DAMPING;
       let fy = (targetPositions[idx + 1] - py) * SPRING - vy * DAMPING;
       let fz = (targetPositions[idx + 2] - pz) * SPRING - vz * DAMPING;
@@ -831,10 +701,7 @@ window.bakeAndDownloadGLB = function() {
       simPositions[idx]     += vx * dt;
       simPositions[idx + 1] += vy * dt;
       simPositions[idx + 2] += vz * dt;
-
-      simVelocities[idx]     = vx;
-      simVelocities[idx + 1] = vy;
-      simVelocities[idx + 2] = vz;
+      simVelocities[idx] = vx; simVelocities[idx + 1] = vy; simVelocities[idx + 2] = vz;
     }
 
     if (s % physicsSubsteps === 0 && frameIdx < totalFrames) {
@@ -842,6 +709,12 @@ window.bakeAndDownloadGLB = function() {
         positions[i][frameIdx * 3]     = simPositions[i * 3];
         positions[i][frameIdx * 3 + 1] = simPositions[i * 3 + 1];
         positions[i][frameIdx * 3 + 2] = -simPositions[i * 3 + 2];
+
+        // UNIFORM SCALING: x = y = z = 1.0 (never oval) or 0.0 (invisible reset)
+        const sVal = (isDroneVisible[i] === 1) ? 1.0 : 0.0;
+        scales[i][frameIdx * 3]     = sVal;
+        scales[i][frameIdx * 3 + 1] = sVal;
+        scales[i][frameIdx * 3 + 2] = sVal;
       }
       frameIdx++;
     }
@@ -849,14 +722,8 @@ window.bakeAndDownloadGLB = function() {
 
   const tracks = [];
   for (let i = 0; i < activeDroneCount; i++) {
-    tracks.push(
-      new THREE.VectorKeyframeTrack(
-        `Drone_${i}.position`,
-        times,
-        positions[i],
-        THREE.InterpolateLinear
-      )
-    );
+    tracks.push(new THREE.VectorKeyframeTrack(`Drone_${i}.position`, times, positions[i], THREE.InterpolateLinear));
+    tracks.push(new THREE.VectorKeyframeTrack(`Drone_${i}.scale`, times, scales[i], THREE.InterpolateLinear));
   }
 
   const clip = new THREE.AnimationClip("DroneShowFlight", BAKE_TOTAL_DURATION, tracks);
@@ -869,7 +736,7 @@ window.bakeAndDownloadGLB = function() {
       link.href = URL.createObjectURL(blob);
       link.download = "Samhain_Drone_Show.glb";
       link.click();
-      console.log("GLB exported with round uniform spheres!");
+      console.log("GLB exported with uniform spheres and invisible leaf resets!");
     },
     (err) => console.error("Export error:", err),
     { binary: true, animations: [clip] }
@@ -949,10 +816,7 @@ renderer.setAnimationLoop(now => {
     currentPositions[idx]     += vx * dt;
     currentPositions[idx + 1] += vy * dt;
     currentPositions[idx + 2] += vz * dt;
-
-    velocities[idx]     = vx;
-    velocities[idx + 1] = vy;
-    velocities[idx + 2] = vz;
+    velocities[idx] = vx; velocities[idx + 1] = vy; velocities[idx + 2] = vz;
 
     currentColors[idx]     += (targetColors[idx] - currentColors[idx]) * 7.0 * dt;
     currentColors[idx + 1] += (targetColors[idx + 1] - currentColors[idx + 1]) * 7.0 * dt;
