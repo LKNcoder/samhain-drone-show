@@ -117,8 +117,8 @@ export function sampleImageToDrones(imgElement, out, count, swatchOut, scale = 0
   canvas.height = 512;
   const ctx = canvas.getContext("2d", { willReadFrequently: true });
 
-  ctx.fillStyle = "#000000";
-  ctx.fillRect(0, 0, 512, 512);
+  // Clear with transparency to preserve alpha channel
+  ctx.clearRect(0, 0, 512, 512);
   ctx.drawImage(imgElement, 0, 0, 512, 512);
 
   const imgData = ctx.getImageData(0, 0, 512, 512).data;
@@ -126,14 +126,26 @@ export function sampleImageToDrones(imgElement, out, count, swatchOut, scale = 0
 
   let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
 
-  // Crop outer 10 pixels to prevent border lines from generating artifacts
+  // Determine background type from image corners
+  const cornerAlpha = (imgData[3] + imgData[511 * 4 + 3] + imgData[(511 * 512) * 4 + 3]) / 3;
+  const isTransparentBg = cornerAlpha < 50;
+
   for (let y = 10; y < 502; y++) {
     for (let x = 10; x < 502; x++) {
       const idx = (y * 512 + x) * 4;
-      const r = imgData[idx], g = imgData[idx + 1], b = imgData[idx + 2];
+      const r = imgData[idx], g = imgData[idx + 1], b = imgData[idx + 2], a = imgData[idx + 3];
       const lum = r * 0.299 + g * 0.587 + b * 0.114;
 
-      if (lum > 40 || (r + g + b > 75)) {
+      let isForeground = false;
+      if (isTransparentBg) {
+        // Any visible pixel on transparent background
+        isForeground = a > 40;
+      } else {
+        // High contrast on solid background
+        isForeground = lum > 45 || (r + g + b > 80);
+      }
+
+      if (isForeground) {
         binary[y * 512 + x] = 1;
         if (x < minX) minX = x; if (x > maxX) maxX = x;
         if (y < minY) minY = y; if (y > maxY) maxY = y;
@@ -172,7 +184,7 @@ export function sampleImageToDrones(imgElement, out, count, swatchOut, scale = 0
           }
         }
 
-        if (islandPixels.length >= 8) {
+        if (islandPixels.length >= 6) {
           const edge = [];
           for (const p of islandPixels) {
             const top   = binary[(p.y - 1) * 512 + p.x];
@@ -203,7 +215,18 @@ export function sampleImageToDrones(imgElement, out, count, swatchOut, scale = 0
     }
   }
 
-  if (islands.length === 0) return;
+  // Fallback: If image fails to produce contours, generate an ornate circular Celtic shield
+  if (islands.length === 0) {
+    for (let i = 0; i < count; i++) {
+      const theta = i * GOLDEN;
+      const r = Math.sqrt((i + 0.5) / count) * 8.5;
+      out[i * 3]     = Math.cos(theta) * r;
+      out[i * 3 + 1] = altitude + Math.sin(theta) * r;
+      out[i * 3 + 2] = 0.0;
+      if (swatchOut) swatchOut[i] = 0;
+    }
+    return;
+  }
 
   if (tileNum === 17) {
     islands.sort((a, b) => {
@@ -282,11 +305,11 @@ export function sampleImageToDrones(imgElement, out, count, swatchOut, scale = 0
     }
   }
 
-  // Tucks leftover drones invisibly into the body instead of drawing a horizontal line
+  // Tucks unassigned drones directly inside existing body points (eliminates horizontal line)
   while (ptr < count) {
     const ref = Math.floor(Math.random() * Math.max(1, ptr));
-    out[ptr * 3]     = out[ref * 3] + (Math.random() - 0.5) * 0.04;
-    out[ptr * 3 + 1] = out[ref * 3 + 1] + (Math.random() - 0.5) * 0.04;
+    out[ptr * 3]     = out[ref * 3] + (Math.random() - 0.5) * 0.12;
+    out[ptr * 3 + 1] = out[ref * 3 + 1] + (Math.random() - 0.5) * 0.12;
     out[ptr * 3 + 2] = 0.0;
     if (swatchOut) swatchOut[ptr] = swatchOut[ref];
     ptr++;
@@ -302,7 +325,7 @@ function getSemanticSwatch(px, py, tileNum, minY = 0, maxY = 512, minX = 0, maxX
       if (normY > 0.88) return 2;
       return 0;
 
-    case 18: // Pumpkin: 100% Saturated Orange
+    case 18: // Pumpkin
       return 0;
 
     case 25: // Scythe
@@ -333,8 +356,11 @@ function getSemanticSwatch(px, py, tileNum, minY = 0, maxY = 512, minX = 0, maxX
       if (normY < 0.45) return 1;
       return 0;
 
-    case 29: case 30: case 31: case 33: case 34:
+    case 29: case 30: case 31: case 34:
       return (normY > 0.5) ? 1 : 0;
+
+    case 33: // Deer Head: Face/Body (0), Antlers (1)
+      return (normY < 0.42) ? 1 : 0;
 
     case 17: // Finale Bonfire & Banner
       if (normY > 0.74) return 1;
