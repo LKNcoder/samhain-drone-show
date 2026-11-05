@@ -49,18 +49,19 @@ Shader "Custom/DroneSamhainEmissive"
                 Varyings output;
 
                 // 1. Get the drone's true center in world space
-                float3 worldCenter = TransformObjectToWorld(float3(0.0, 0.0, 0.0));
+                float4x4 M = GetObjectToWorldMatrix();
+                float3 worldCenter = mul(M, float4(0.0, 0.0, 0.0, 1.0)).xyz;
 
-                // 2. Add unscaled sphere vertices directly (guarantees round spheres, no ovals)
+                // 2. Add unscaled sphere vertices directly (guarantees round spheres, never ovals)
                 float3 worldPos = worldCenter + input.positionOS.xyz;
                 output.positionCS = TransformWorldToHClip(worldPos);
 
-                // 3. Extract the baked (R, G, B) scale track from the transform axes
-                float3 axisX = TransformObjectToWorldDir(float3(1.0, 0.0, 0.0));
-                float3 axisY = TransformObjectToWorldDir(float3(0.0, 1.0, 0.0));
-                float3 axisZ = TransformObjectToWorldDir(float3(0.0, 0.0, 1.0));
+                // 3. Extract the unnormalized (R, G, B) scale track from matrix columns
+                float3 col0 = float3(M._m00, M._m10, M._m20);
+                float3 col1 = float3(M._m01, M._m11, M._m21);
+                float3 col2 = float3(M._m02, M._m12, M._m22);
 
-                output.colorRGB = float3(length(axisX), length(axisY), length(axisZ));
+                output.colorRGB = float3(length(col0), length(col1), length(col2));
 
                 return output;
             }
