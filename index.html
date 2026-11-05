@@ -1,895 +1,483 @@
-<!doctype html>
-<html lang="en">
-<head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Samhain XR Drone Show Designer</title>
-<style>
-:root { color-scheme: dark; }
-* { box-sizing: border-box; }
-body {
-  margin: 0;
-  overflow: hidden;
-  background: #02040d;
-  color: #e8efff;
-  font: 14px/1.4 system-ui, sans-serif;
-  user-select: none;
-}
-canvas { display: block; }
-#panel, #vr-tip { display: none !important; }
-</style>
-<script type="importmap">
-{
-  "imports": {
-    "three": "https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js",
-    "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/"
-  }
-}
-</script>
-</head>
-<body>
-<div id="panel"></div>
-
-<script type="module">
 import * as THREE from "three";
-import { OrbitControls } from "three/addons/controls/OrbitControls.js";
-import { VRButton } from "three/addons/webxr/VRButton.js";
-import { GLTFExporter } from "three/addons/exporters/GLTFExporter.js";
-import {
-  SHAPE_PAGES,
-  findShapeById,
-  sampleImageToDrones,
-  GOLDEN
-} from "./shapes.js?v=samhain_final_suite_v27";
 
-const MAX_DRONES = 2000;
-let activeDroneCount = 800;
-const BASE_DRONE_SIZE = 0.48;
+export const GOLDEN = Math.PI * (3 - Math.sqrt(5));
+const ASSET_BASE_URL = "https://lkncoder.github.io/samhain-drone-show/";
 
-let takeoffConfig = { dur: 10.0, style: "celtic_whirl" };
-let landingConfig = { dur: 24.0, style: "climactic_helix" };
+function traceAllBoundaryLoops(edgePixels) {
+  if (edgePixels.length === 0) return [];
+  const edgeSet = new Set(edgePixels.map(p => (p.y << 10) | p.x));
+  const visited = new Set();
+  const allLoops = [];
 
-let precipConfig = {
-  enabled: true,
-  type: "snow",
-  count: 60,
-  speed: 2.4,
-  angle: 18.0,
-  fx: "glimmer",
-  color: "#ff6d00"
-};
+  const dirs = [
+    { dx: 1, dy: 0 }, { dx: 1, dy: 1 }, { dx: 0, dy: 1 }, { dx: -1, dy: 1 },
+    { dx: -1, dy: 0 }, { dx: -1, dy: -1 }, { dx: 0, dy: -1 }, { dx: 1, dy: -1 }
+  ];
 
-const scene = new THREE.Scene();
-scene.background = null;
+  for (const startPt of edgePixels) {
+    const startKey = (startPt.y << 10) | startPt.x;
+    if (visited.has(startKey)) continue;
 
-const camera = new THREE.PerspectiveCamera(55, innerWidth / innerHeight, 0.1, 500);
-camera.position.set(0, 16, 52);
+    const currentLoop = [];
+    let curr = startPt;
+    let lastDir = 0;
+    visited.add(startKey);
+    currentLoop.push(curr);
 
-const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
-renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
-renderer.setSize(innerWidth, innerHeight);
-renderer.outputColorSpace = THREE.SRGBColorSpace;
-renderer.xr.enabled = true;
-renderer.xr.setFoveation(0.0);
+    const maxSteps = Math.max(300, edgePixels.length);
+    for (let step = 0; step < maxSteps; step++) {
+      let found = false;
+      for (let i = 0; i < 8; i++) {
+        const dIdx = (lastDir + i) % 8;
+        const nx = curr.x + dirs[dIdx].dx;
+        const ny = curr.y + dirs[dIdx].dy;
+        const nKey = (ny << 10) | nx;
 
-document.body.appendChild(renderer.domElement);
-document.body.appendChild(VRButton.createButton(renderer));
+        if (edgeSet.has(nKey) && !visited.has(nKey)) {
+          visited.add(nKey);
+          curr = { x: nx, y: ny };
+          currentLoop.push(curr);
+          lastDir = (dIdx + 5) % 8;
+          found = true;
+          break;
+        }
+      }
 
-const xrRig = new THREE.Group();
-scene.add(xrRig);
-xrRig.add(camera);
-
-const orbit = new OrbitControls(camera, renderer.domElement);
-orbit.target.set(0, 14, 0);
-orbit.update();
-
-const stageGroup = new THREE.Group();
-scene.add(stageGroup);
-
-scene.add(new THREE.HemisphereLight(0xffb300, 0x0a101a, 1.2));
-const gridHelper = new THREE.GridHelper(90, 45, 0x422915, 0x14100c);
-stageGroup.add(gridHelper);
-
-const launchPadGeom = new THREE.CircleGeometry(18, 32);
-const launchPadMat = new THREE.MeshBasicMaterial({ color: 0x140c06, side: THREE.DoubleSide });
-const launchPadMesh = new THREE.Mesh(launchPadGeom, launchPadMat);
-launchPadMesh.rotation.x = -Math.PI / 2;
-launchPadMesh.position.y = 0.05;
-stageGroup.add(launchPadMesh);
-
-const glowCanvas = document.createElement("canvas");
-glowCanvas.width = 64; glowCanvas.height = 64;
-const glowCtx = glowCanvas.getContext("2d");
-const grad = glowCtx.createRadialGradient(32, 32, 1, 32, 32, 32);
-grad.addColorStop(0, "rgba(255,255,255,1)");
-grad.addColorStop(0.25, "rgba(255,220,180,0.9)");
-grad.addColorStop(0.6, "rgba(255,140,0,0.2)");
-grad.addColorStop(1, "rgba(255,100,0,0)");
-glowCtx.fillStyle = grad;
-glowCtx.fillRect(0, 0, 64, 64);
-const glowTexture = new THREE.CanvasTexture(glowCanvas);
-glowTexture.colorSpace = THREE.SRGBColorSpace;
-
-const currentPositions = new Float32Array(MAX_DRONES * 3);
-const targetPositions = new Float32Array(MAX_DRONES * 3);
-const velocities = new Float32Array(MAX_DRONES * 3);
-const currentColors = new Float32Array(MAX_DRONES * 3);
-const targetColors = new Float32Array(MAX_DRONES * 3);
-const droneSwatchIndices = new Uint8Array(MAX_DRONES);
-const isDroneVisible = new Uint8Array(MAX_DRONES);
-isDroneVisible.fill(1);
-
-const groundPositions = new Float32Array(MAX_DRONES * 3);
-function updateGroundPositions(n) {
-  for (let i = 0; i < n; i++) {
-    const r = Math.sqrt((i + 0.5) / n) * 15.5;
-    const theta = i * GOLDEN;
-    groundPositions[i * 3]     = Math.cos(theta) * r;
-    groundPositions[i * 3 + 1] = 0.12;
-    groundPositions[i * 3 + 2] = Math.sin(theta) * r;
-  }
-}
-updateGroundPositions(activeDroneCount);
-
-const precipPositions = new Float32Array(MAX_DRONES * 3);
-const precipDriftSeeds = new Float32Array(MAX_DRONES);
-function initPrecipPositions() {
-  for (let i = 0; i < MAX_DRONES; i++) {
-    precipPositions[i * 3]     = (Math.random() - 0.5) * 36;
-    precipPositions[i * 3 + 1] = 1.5 + Math.random() * 28;
-    precipPositions[i * 3 + 2] = (Math.random() - 0.5) * 36;
-    precipDriftSeeds[i]        = Math.random();
-  }
-}
-initPrecipPositions();
-
-for (let i = 0; i < MAX_DRONES; i++) {
-  currentPositions[i * 3]     = groundPositions[i * 3];
-  currentPositions[i * 3 + 1] = groundPositions[i * 3 + 1];
-  currentPositions[i * 3 + 2] = groundPositions[i * 3 + 2];
-  targetPositions[i * 3]      = currentPositions[i * 3];
-  targetPositions[i * 3 + 1]  = currentPositions[i * 3 + 1];
-  targetPositions[i * 3 + 2]  = currentPositions[i * 3 + 2];
-}
-
-const droneGeometry = new THREE.BufferGeometry();
-droneGeometry.setAttribute("position", new THREE.BufferAttribute(currentPositions, 3));
-droneGeometry.setAttribute("color", new THREE.BufferAttribute(currentColors, 3));
-droneGeometry.setDrawRange(0, activeDroneCount);
-
-const dronePoints = new THREE.Points(
-  droneGeometry,
-  new THREE.PointsMaterial({
-    size: BASE_DRONE_SIZE,
-    map: glowTexture,
-    vertexColors: true,
-    transparent: true,
-    alphaTest: 0.05,
-    blending: THREE.AdditiveBlending,
-    depthWrite: false
-  })
-);
-stageGroup.add(dronePoints);
-
-function assignMinimalPaths(currentPos, rawTargets, rawSwatches, count) {
-  const assigned = new Float32Array(count * 3);
-  const assignedSwatches = new Uint8Array(count);
-  const unassigned = new Set();
-  for (let i = 0; i < count; i++) unassigned.add(i);
-
-  for (let i = 0; i < count; i++) {
-    const cx = currentPos[i * 3], cy = currentPos[i * 3 + 1], cz = currentPos[i * 3 + 2];
-    let closest = -1, minD = Infinity;
-    for (const tIdx of unassigned) {
-      const tx = rawTargets[tIdx * 3], ty = rawTargets[tIdx * 3 + 1], tz = rawTargets[tIdx * 3 + 2];
-      const d = (cx - tx) ** 2 + (cy - ty) ** 2 + (cz - tz) ** 2;
-      if (d < minD) { minD = d; closest = tIdx; }
+      if (!found) {
+        let nearest = null;
+        let minD = Infinity;
+        for (const p of edgePixels) {
+          const pk = (p.y << 10) | p.x;
+          if (!visited.has(pk)) {
+            const d = (p.x - curr.x) ** 2 + (p.y - curr.y) ** 2;
+            if (d < minD) { minD = d; nearest = p; }
+          }
+        }
+        if (nearest && minD <= 25) {
+          curr = nearest;
+          visited.add((curr.y << 10) | curr.x);
+          currentLoop.push(curr);
+          lastDir = 0;
+        } else {
+          break;
+        }
+      }
     }
-    unassigned.delete(closest);
-    assigned[i * 3]     = rawTargets[closest * 3];
-    assigned[i * 3 + 1] = rawTargets[closest * 3 + 1];
-    assigned[i * 3 + 2] = rawTargets[closest * 3 + 2];
-    if (rawSwatches) assignedSwatches[i] = rawSwatches[closest];
+
+    if (currentLoop.length >= 3) allLoops.push(currentLoop);
   }
-  return { positions: assigned, swatches: assignedSwatches };
+
+  return allLoops;
 }
 
-// 15 Formations with exact narrative palettes
-const SHOW_SCENES = [
-  { tNum: 16, palette: ["#ffd54f", "#8d4e28"], motion: "vortex", colorFX: "sparkle" },           // 1. Wheat
-  { tNum: 25, palette: ["#cfd8dc", "#5d4037"], motion: "cascade_wave", colorFX: "fire_burst" },  // 2. Scythe
-  { tNum: 28, palette: ["#d50000", "#8d4e28"], motion: "celtic_swirl", colorFX: "mystic_aurora" },// 3. Leaf
-  { tNum: 26, palette: ["#5d4037", "#8d6e63"], motion: "explosion", colorFX: "beacon" },          // 4. Tree
-  { tNum: 27, palette: ["#ffffff", "#ffab00", "#5d4037"], motion: "helix", colorFX: "fire_burst" },// 5. Owl
-  { tNum: 18, palette: ["#ff6d00"], motion: "vortex", colorFX: "sparkle" },                       // 6. Pumpkin
-  { tNum: 24, palette: ["#ffffff", "#ff3d00", "#ffd600"], motion: "explosion", colorFX: "fire_burst" }, // 7. Candle
-  { tNum: 19, palette: ["#ffffff"], motion: "celtic_swirl", colorFX: "mystic_aurora" },            // 8. Ghost
-  { tNum: 32, palette: ["#ffd700", "#ffb300"], motion: "helix", colorFX: "sparkle" },             // 9. Key
-  { tNum: 29, palette: ["#00e676", "#00b0ff"], motion: "cascade_wave", colorFX: "beacon" },       // 10. Celtic Knot (Rotates)
-  { tNum: 30, palette: ["#ff1744", "#d50000"], motion: "vortex", colorFX: "fire_burst" },         // 11. Sigil (Rotates)
-  { tNum: 31, palette: ["#ffd54f", "#ff9100"], motion: "celtic_swirl", colorFX: "sparkle" },      // 12. Solar Wheel (Rotates)
-  { tNum: 33, palette: ["#9c27b0", "#e040fb"], motion: "helix", colorFX: "sparkle" },             // 13. DEER HEAD (PURPLE / UPRIGHT)
-  { tNum: 34, palette: ["#00e5ff", "#00bfa5"], motion: "celtic_swirl", colorFX: "mystic_aurora" },// 14. CROSS (TEAL / ROTATING)
-  { tNum: 17, palette: ["#ffffff", "#ffd54f", "#ff6d00", "#d50000"], motion: "vortex", colorFX: "fire_burst", isLast: true } // 15. Finale
+function resampleEquidistant(orderedPts, targetCount) {
+  if (orderedPts.length === 0 || targetCount <= 0) return [];
+  if (targetCount === 1) return [orderedPts[0]];
+
+  const dists = [0];
+  for (let i = 1; i < orderedPts.length; i++) {
+    const dx = orderedPts[i].x - orderedPts[i - 1].x;
+    const dy = orderedPts[i].y - orderedPts[i - 1].y;
+    dists.push(dists[i - 1] + Math.sqrt(dx * dx + dy * dy));
+  }
+
+  const totalLen = dists[dists.length - 1];
+  if (totalLen <= 0.001) return Array(targetCount).fill(orderedPts[0]);
+
+  const stepDist = totalLen / targetCount;
+  const resampled = [];
+
+  let segIdx = 0;
+  for (let i = 0; i < targetCount; i++) {
+    const targetD = i * stepDist;
+    while (segIdx < dists.length - 2 && dists[segIdx + 1] < targetD) segIdx++;
+    const segLen = dists[segIdx + 1] - dists[segIdx];
+    const t = segLen > 0.0001 ? (targetD - dists[segIdx]) / segLen : 0;
+    const p0 = orderedPts[segIdx];
+    const p1 = orderedPts[segIdx + 1];
+
+    resampled.push({
+      x: p0.x + (p1.x - p0.x) * t,
+      y: p0.y + (p1.y - p0.y) * t
+    });
+  }
+
+  return resampled;
+}
+
+// Procedural 18-meter vector formations (prevents circle collapse)
+function generateProceduralShape(tileNum, out, count, swatchOut, altitude) {
+  for (let i = 0; i < count; i++) {
+    const u = i / count;
+    let x = 0, y = altitude, z = 0, swatch = 0;
+
+    switch (tileNum) {
+      case 29: { // Celtic Knot (Triquetra 3-leaf interlaced loops)
+        const tLoop = u * Math.PI * 6.0;
+        const rKnot = 7.5 * (1.0 + 0.45 * Math.sin(3.0 * (u * Math.PI * 2.0)));
+        x = Math.cos(tLoop) * rKnot;
+        y = altitude + Math.sin(tLoop) * rKnot;
+        swatch = (y > altitude) ? 1 : 0;
+        break;
+      }
+      case 30: { // Sigil (Pentacle star inside outer ring)
+        if (u < 0.45) {
+          const theta = (u / 0.45) * Math.PI * 2.0;
+          x = Math.cos(theta) * 8.0;
+          y = altitude + Math.sin(theta) * 8.0;
+          swatch = 0;
+        } else {
+          const starT = ((u - 0.45) / 0.55) * 5.0;
+          const seg = Math.floor(starT) % 5;
+          const f = starT - Math.floor(starT);
+          const order = [0, 2, 4, 1, 3, 0];
+          const a1 = order[seg] * (Math.PI * 2 / 5) - Math.PI / 2;
+          const a2 = order[seg + 1] * (Math.PI * 2 / 5) - Math.PI / 2;
+          x = Math.cos(a1) * 7.5 + (Math.cos(a2) * 7.5 - Math.cos(a1) * 7.5) * f;
+          y = altitude + Math.sin(a1) * 7.5 + (Math.sin(a2) * 7.5 - Math.sin(a1) * 7.5) * f;
+          swatch = 1;
+        }
+        break;
+      }
+      case 31: { // Solar Wheel (Center disc + 8 radiating spokes + rim)
+        if (u < 0.4) {
+          const theta = (u / 0.4) * Math.PI * 2.0;
+          x = Math.cos(theta) * 8.2;
+          y = altitude + Math.sin(theta) * 8.2;
+          swatch = 1;
+        } else if (u < 0.65) {
+          const theta = ((u - 0.4) / 0.25) * Math.PI * 2.0;
+          x = Math.cos(theta) * 3.2;
+          y = altitude + Math.sin(theta) * 3.2;
+          swatch = 0;
+        } else {
+          const spokeIdx = Math.floor(((u - 0.65) / 0.35) * 8);
+          const spokeF = (((u - 0.65) / 0.35) * 8) - spokeIdx;
+          const theta = spokeIdx * (Math.PI / 4);
+          const rad = 3.2 + spokeF * 5.0;
+          x = Math.cos(theta) * rad;
+          y = altitude + Math.sin(theta) * rad;
+          swatch = 0;
+        }
+        break;
+      }
+      case 33: { // Deer Head (Head, ears, and branching antlers - PURPLE)
+        if (u < 0.35) {
+          const tH = (u / 0.35) * Math.PI * 2.0;
+          x = Math.sin(tH) * 2.6;
+          y = altitude - 3.5 + Math.cos(tH) * 4.2;
+          swatch = 0;
+        } else if (u < 0.50) {
+          const sign = (u < 0.425) ? -1 : 1;
+          const tE = ((u - 0.35) % 0.075) / 0.075;
+          x = sign * (2.2 + tE * 2.4);
+          y = altitude + 0.5 + Math.sin(tE * Math.PI) * 2.0;
+          swatch = 0;
+        } else {
+          const sign = (u < 0.75) ? -1 : 1;
+          const tA = ((u - 0.5) % 0.25) / 0.25;
+          const mainX = sign * (1.2 + Math.pow(tA, 0.8) * 6.5);
+          const mainY = altitude + 1.0 + tA * 7.5;
+          const tine = (Math.sin(tA * Math.PI * 4.0) > 0.4) ? sign * 1.5 : 0;
+          x = mainX + tine;
+          y = mainY;
+          swatch = 1;
+        }
+        break;
+      }
+      case 34: { // Cross (Celtic High Cross with halo ring - TEAL)
+        if (u < 0.45) {
+          const theta = (u / 0.45) * Math.PI * 2.0;
+          x = Math.cos(theta) * 4.5;
+          y = altitude + 1.5 + Math.sin(theta) * 4.5;
+          swatch = 1;
+        } else if (u < 0.75) {
+          const tV = (u - 0.45) / 0.30;
+          x = (Math.sin(tV * 30.0) > 0 ? 1 : -1) * 1.1;
+          y = altitude - 6.5 + tV * 15.0;
+          swatch = 0;
+        } else {
+          const tH = (u - 0.75) / 0.25;
+          x = -6.0 + tH * 12.0;
+          y = altitude + 1.5 + (Math.sin(tH * 30.0) > 0 ? 1 : -1) * 1.0;
+          swatch = 0;
+        }
+        break;
+      }
+      default: {
+        const theta = i * GOLDEN;
+        const r = Math.sqrt((i + 0.5) / count) * 8.5;
+        x = Math.cos(theta) * r;
+        y = altitude + Math.sin(theta) * r;
+        swatch = 0;
+        break;
+      }
+    }
+
+    out[i * 3]     = x;
+    out[i * 3 + 1] = y;
+    out[i * 3 + 2] = z;
+    if (swatchOut) swatchOut[i] = swatch;
+  }
+}
+
+export function sampleImageToDrones(imgElement, out, count, swatchOut, scale = 0.048, altitude = 16, tileNum = 16) {
+  const canvas = document.createElement("canvas");
+  canvas.width = 512;
+  canvas.height = 512;
+  const ctx = canvas.getContext("2d", { willReadFrequently: true });
+
+  ctx.clearRect(0, 0, 512, 512);
+  ctx.drawImage(imgElement, 0, 0, 512, 512);
+
+  const imgData = ctx.getImageData(0, 0, 512, 512).data;
+  const binary = new Uint8Array(512 * 512);
+
+  let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
+  const cornerAlpha = (imgData[3] + imgData[511 * 4 + 3] + imgData[(511 * 512) * 4 + 3]) / 3;
+  const isTransparentBg = cornerAlpha < 50;
+
+  for (let y = 10; y < 502; y++) {
+    for (let x = 10; x < 502; x++) {
+      const idx = (y * 512 + x) * 4;
+      const r = imgData[idx], g = imgData[idx + 1], b = imgData[idx + 2], a = imgData[idx + 3];
+      const lum = r * 0.299 + g * 0.587 + b * 0.114;
+
+      const isForeground = isTransparentBg ? (a > 40) : (lum > 45 || (r + g + b > 80));
+
+      if (isForeground) {
+        binary[y * 512 + x] = 1;
+        if (x < minX) minX = x; if (x > maxX) maxX = x;
+        if (y < minY) minY = y; if (y > maxY) maxY = y;
+      }
+    }
+  }
+
+  const visited = new Uint8Array(512 * 512);
+  const islands = [];
+
+  for (let y = 10; y < 502; y++) {
+    for (let x = 10; x < 502; x++) {
+      const idx = y * 512 + x;
+      if (binary[idx] === 1 && !visited[idx]) {
+        const islandPixels = [];
+        const queue = [{ x, y }];
+        visited[idx] = 1;
+
+        while (queue.length > 0) {
+          const pt = queue.pop();
+          islandPixels.push(pt);
+
+          const neighbors = [
+            { x: pt.x + 1, y: pt.y }, { x: pt.x - 1, y: pt.y },
+            { x: pt.x, y: pt.y + 1 }, { x: pt.x, y: pt.y - 1 }
+          ];
+
+          for (const n of neighbors) {
+            if (n.x >= 10 && n.x < 502 && n.y >= 10 && n.y < 502) {
+              const nIdx = n.y * 512 + n.x;
+              if (binary[nIdx] === 1 && !visited[nIdx]) {
+                visited[nIdx] = 1;
+                queue.push(n);
+              }
+            }
+          }
+        }
+
+        if (islandPixels.length >= 6) {
+          const edge = [];
+          for (const p of islandPixels) {
+            const top   = binary[(p.y - 1) * 512 + p.x];
+            const bot   = binary[(p.y + 1) * 512 + p.x];
+            const left  = binary[p.y * 512 + (p.x - 1)];
+            const right = binary[p.y * 512 + (p.x + 1)];
+            if (!top || !bot || !left || !right) edge.push(p);
+          }
+
+          const allLoops = traceAllBoundaryLoops(edge);
+          let totalLoopLen = 0;
+          for (const loop of allLoops) totalLoopLen += loop.length;
+
+          let weight = totalLoopLen * 2.2 + Math.sqrt(islandPixels.length) * 4.0;
+
+          if (tileNum === 17) {
+            const avgY = islandPixels.reduce((acc, p) => acc + p.y, 0) / islandPixels.length;
+            const avgX = islandPixels.reduce((acc, p) => acc + p.x, 0) / islandPixels.length;
+            if (avgY > 350) {
+              weight *= 4.5;
+              if (avgX > 310) weight *= 8.0;
+            }
+          }
+
+          islands.push({ pixels: islandPixels, loops: allLoops, totalLoopLen, weight });
+        }
+      }
+    }
+  }
+
+  if (islands.length === 0) {
+    generateProceduralShape(tileNum, out, count, swatchOut, altitude);
+    return;
+  }
+
+  const cx = (minX + maxX) / 2;
+  const cy = (minY + maxY) / 2;
+  const totalWeight = islands.reduce((acc, isl) => acc + isl.weight, 0);
+
+  const quotas = [];
+  let allocatedSum = 0;
+
+  for (let i = 0; i < islands.length; i++) {
+    const rawQuota = (islands[i].weight / totalWeight) * count;
+    const baseQuota = Math.max(3, Math.floor(rawQuota));
+    quotas.push({ base: baseQuota, remainder: rawQuota - baseQuota, index: i });
+    allocatedSum += baseQuota;
+  }
+
+  quotas.sort((a, b) => b.remainder - a.remainder);
+  let remDrones = count - allocatedSum;
+  for (let i = 0; i < quotas.length && remDrones > 0; i++, remDrones--) {
+    quotas[i].base++;
+  }
+  quotas.sort((a, b) => a.index - b.index);
+
+  let ptr = 0;
+  for (let k = 0; k < islands.length; k++) {
+    const isl = islands[k];
+    const islDroneCount = quotas[k].base;
+    const edgeCount = Math.min(Math.round(isl.totalLoopLen * 1.5), Math.round(islDroneCount * 0.75));
+    const fillCount = islDroneCount - edgeCount;
+
+    if (isl.loops.length > 0 && edgeCount > 0 && isl.totalLoopLen > 0) {
+      for (const loop of isl.loops) {
+        const loopDrones = Math.max(2, Math.round((loop.length / isl.totalLoopLen) * edgeCount));
+        const resampled = resampleEquidistant(loop, loopDrones);
+
+        for (let i = 0; i < resampled.length && ptr < count; i++) {
+          const p = resampled[i];
+          out[ptr * 3]     = (p.x - cx) * scale;
+          out[ptr * 3 + 1] = altitude - (p.y - cy) * scale;
+          out[ptr * 3 + 2] = 0.0;
+          if (swatchOut) swatchOut[ptr] = getSemanticSwatch(p.x, p.y, tileNum, minY, maxY, minX, maxX);
+          ptr++;
+        }
+      }
+    }
+
+    if (isl.pixels.length > 0 && fillCount > 0) {
+      const stepF = isl.pixels.length / fillCount;
+      for (let i = 0; i < fillCount && ptr < count; i++) {
+        const p = isl.pixels[Math.floor(i * stepF) % isl.pixels.length];
+        out[ptr * 3]     = (p.x - cx) * scale;
+        out[ptr * 3 + 1] = altitude - (p.y - cy) * scale;
+        out[ptr * 3 + 2] = 0.0;
+        if (swatchOut) swatchOut[ptr] = getSemanticSwatch(p.x, p.y, tileNum, minY, maxY, minX, maxX);
+        ptr++;
+      }
+    }
+  }
+
+  // Tucks unassigned drones directly inside existing points (eliminates horizontal line)
+  while (ptr < count) {
+    const ref = Math.floor(Math.random() * Math.max(1, ptr));
+    out[ptr * 3]     = out[ref * 3] + (Math.random() - 0.5) * 0.12;
+    out[ptr * 3 + 1] = out[ref * 3 + 1] + (Math.random() - 0.5) * 0.12;
+    out[ptr * 3 + 2] = 0.0;
+    if (swatchOut) swatchOut[ptr] = swatchOut[ref];
+    ptr++;
+  }
+}
+
+function getSemanticSwatch(px, py, tileNum, minY = 0, maxY = 512, minX = 0, maxX = 512) {
+  const normY = (py - minY) / Math.max(1, maxY - minY);
+
+  switch (tileNum) {
+    case 24: return (normY < 0.38) ? 1 : (normY > 0.88 ? 2 : 0);
+    case 18: return 0; // Pumpkin
+    case 25: return (normY > 0.70) ? 1 : 0; // Scythe
+    case 26: return (normY > 0.65) ? 0 : 1; // Tree
+    case 19: return 0; // Ghost
+    case 16: return (normY > 0.65) ? 1 : 0; // Wheat
+    case 27: return (normY > 0.78) ? 2 : (normY >= 0.28 && normY <= 0.52 ? 1 : 0); // Owl
+    case 28: return (normY > 0.75) ? 1 : 0; // Leaf
+    case 32: return (normY < 0.45) ? 1 : 0; // Key
+    case 29: case 30: case 31: case 34: return (normY > 0.5) ? 1 : 0;
+    case 33: return (normY < 0.42) ? 1 : 0; // Deer Head
+    case 17:
+      if (normY > 0.74) return 1;
+      if (normY < 0.30) return 0;
+      if (normY >= 0.14 && normY < 0.48) return 1;
+      if (normY >= 0.48 && normY <= 0.74) return 2;
+      return 3;
+    default: return 0;
+  }
+}
+
+export function loadTileImage(filename) {
+  return new Promise((resolve) => {
+    const numMatch = filename.match(/\d+/);
+    const tileNum = numMatch ? numMatch[0] : "";
+
+    const candidates = [
+      `./samhain-tile${tileNum}.png`,
+      `./samhain-tile${tileNum}.svg`,
+      `${ASSET_BASE_URL}samhain-tile${tileNum}.png`,
+      `${ASSET_BASE_URL}samhain-tile${tileNum}.svg`,
+      `./tile${tileNum}.png`,
+      `./tile${tileNum}.svg`,
+      `${ASSET_BASE_URL}tile${tileNum}.png`,
+      `${ASSET_BASE_URL}tile${tileNum}.svg`,
+      `./${filename}`,
+      `${ASSET_BASE_URL}${filename}`
+    ];
+
+    let idx = 0;
+    function tryNext() {
+      if (idx >= candidates.length) {
+        resolve(null);
+        return;
+      }
+      const img = new Image();
+      img.crossOrigin = "anonymous";
+      img.onload = () => resolve(img);
+      img.onerror = () => {
+        idx++;
+        tryNext();
+      };
+      img.src = candidates[idx];
+    }
+    tryNext();
+  });
+}
+
+const TILE_ORDER = [
+  16, 25, 28, 26, 27, 18, 24, 19, 32, 29, 30, 31, 33, 34, 17
 ];
 
-const timelineData = {
-  formationBlocks: SHOW_SCENES.map((sc, idx) => ({
-    id: `s_${idx}`,
-    shapeId: `samhainTile${sc.tNum}`,
-    tileNum: sc.tNum,
-    dur: sc.isLast ? 10.0 : 5.0,
-    transDur: sc.isLast ? 0.0 : 4.0,
-    transMotion: sc.motion,
-    transColorFX: sc.colorFX,
-    altitude: 16.0,
-    scale: 1.0,
-    rotStartY: 0,
-    rotEndY: 0,
-    palette: sc.palette,
-    run: (idx % 2 === 0),
-    runSpeed: 3.5,
-    sparkle: true,
-    sparkleDensity: 0.35
-  }))
-};
-
-let TOTAL_DURATION = 170.0;
-function recalculateTimelineDuration() {
-  let formTotal = 0;
-  for (const b of timelineData.formationBlocks) formTotal += b.dur + (b.transDur || 0);
-  TOTAL_DURATION = takeoffConfig.dur + formTotal + landingConfig.dur;
-}
-recalculateTimelineDuration();
-
-let formationTrajectories = [];
-let formationSwatchStore = [];
-
-async function buildShowTrajectoryData() {
-  const formationCount = precipConfig.enabled ? Math.max(50, activeDroneCount - precipConfig.count) : activeDroneCount;
-  formationTrajectories = [];
-  formationSwatchStore = [];
-
-  let prevSlots = groundPositions;
-
-  for (let i = 0; i < timelineData.formationBlocks.length; i++) {
-    const b = timelineData.formationBlocks[i];
-    const raw = new Float32Array(formationCount * 3);
-    const swatches = new Uint8Array(formationCount);
-
-    const shape = findShapeById(b.shapeId);
-    if (shape) await shape.gen(raw, formationCount, swatches);
-
-    const result = assignMinimalPaths(prevSlots, raw, swatches, formationCount);
-    formationTrajectories.push(result.positions);
-    formationSwatchStore.push(result.swatches);
-    prevSlots = result.positions;
-  }
-}
-
-let playheadTime = 0.0;
-const PRE_SHOW_DELAY = 10.0;
-const POST_SHOW_DELAY = 10.0;
-let showState = "PRE_SHOW";
-let pauseCountdown = PRE_SHOW_DELAY;
-
-const tempColor = new THREE.Color();
-const prevBlockColor = new THREE.Color();
-const nextBlockColor = new THREE.Color();
-
-function applyLightingFX(block, timeSec) {
-  const pal = block.palette || ["#ffffff"];
-  const nColors = pal.length;
-  const formationCount = precipConfig.enabled ? Math.max(50, activeDroneCount - precipConfig.count) : activeDroneCount;
-
-  for (let i = 0; i < formationCount; i++) {
-    let r = 1, g = 1, b = 1;
-    const swatchIdx = droneSwatchIndices[i] % nColors;
-    tempColor.set(pal[swatchIdx]);
-    r = tempColor.r; g = tempColor.g; b = tempColor.b;
-
-    if (block.run) {
-      const wave = Math.sin(timeSec * block.runSpeed - (i / formationCount) * 8.0);
-      if (wave > 0.3) { r = Math.min(1, r * 1.35); g = Math.min(1, g * 1.35); b = Math.min(1, b * 1.35); }
-    }
-    if (block.sparkle && Math.sin(i * 127.1 + timeSec * 16.0) > (1.0 - block.sparkleDensity * 0.8)) {
-      r = 1.0; g = 1.0; b = 1.0;
-    }
-
-    targetColors[i * 3]     = r;
-    targetColors[i * 3 + 1] = g;
-    targetColors[i * 3 + 2] = b;
-    isDroneVisible[i] = 1;
-  }
-}
-
-const rotEuler = new THREE.Euler(0, 0, 0, "YXZ");
-const rotMatrix = new THREE.Matrix4();
-const centerPt = new THREE.Vector3(0, 16, 0);
-
-function transformToSky(x, y, z, altitude, scale, angleY, outVec) {
-  rotEuler.set(0, angleY, 0);
-  rotMatrix.makeRotationFromEuler(rotEuler);
-  centerPt.set(0, altitude, 0);
-
-  outVec.set(x * scale, (y - 16) * scale + altitude, z * scale);
-  outVec.sub(centerPt);
-  outVec.applyMatrix4(rotMatrix);
-  outVec.add(centerPt);
-  outVec.y = Math.max(0.12, outVec.y);
-}
-
-const skyPosA = new THREE.Vector3();
-const skyPosB = new THREE.Vector3();
-const localScratchPoints = new Float32Array(MAX_DRONES * 3);
-
-function evaluateTimeline(t) {
-  const formationCount = precipConfig.enabled ? Math.max(50, activeDroneCount - precipConfig.count) : activeDroneCount;
-  const showBodyEnd = TOTAL_DURATION - landingConfig.dur;
-  if (formationTrajectories.length === 0) return;
-
-  // 1. Takeoff Phase
-  if (t <= takeoffConfig.dur) {
-    const u = Math.max(0, t / takeoffConfig.dur);
-    const firstTargets = formationTrajectories[0];
-    const firstSwatches = formationSwatchStore[0];
-    const b0 = timelineData.formationBlocks[0];
-    const alt = b0.altitude || 16.0;
-    const scl = b0.scale || 1.0;
-    const v0y = THREE.MathUtils.degToRad(b0.rotStartY || 0);
-
-    for (let i = 0; i < formationCount; i++) {
-      const gx = groundPositions[i * 3], gy = groundPositions[i * 3 + 1], gz = groundPositions[i * 3 + 2];
-      transformToSky(firstTargets[i * 3], firstTargets[i * 3 + 1], firstTargets[i * 3 + 2], alt, scl, v0y, skyPosA);
-
-      const ease = u * u * (3 - 2 * u);
-      targetPositions[i * 3]     = gx + (skyPosA.x - gx) * ease;
-      targetPositions[i * 3 + 1] = gy + (skyPosA.y - gy) * ease;
-      targetPositions[i * 3 + 2] = gz + (skyPosA.z - gz) * ease;
-
-      if (firstSwatches) droneSwatchIndices[i] = firstSwatches[i];
-      tempColor.setHSL(0.08, 1.0, 0.6);
-      targetColors[i * 3]     = tempColor.r * (0.3 + 0.7 * ease);
-      targetColors[i * 3 + 1] = tempColor.g * (0.3 + 0.7 * ease);
-      targetColors[i * 3 + 2] = tempColor.b * (0.3 + 0.7 * ease);
-      isDroneVisible[i] = 1;
-    }
-  }
-  // 2. Main Formation Blocks & Transitions (ALL 15 ANIMATIONS RESTORED)
-  else if (t > takeoffConfig.dur && t < showBodyEnd) {
-    const showT = t - takeoffConfig.dur;
-    let curT = 0;
-
-    for (let i = 0; i < timelineData.formationBlocks.length; i++) {
-      const b = timelineData.formationBlocks[i];
-      const formStart = curT, formEnd = curT + b.dur, transEnd = formEnd + (b.transDur || 0);
-      const currTargets = formationTrajectories[i];
-      const currSwatches = formationSwatchStore[i];
-
-      const alt = b.altitude || 16.0;
-      const scl = b.scale || 1.0;
-      const v0y = THREE.MathUtils.degToRad(b.rotStartY || 0);
-      const v1y = THREE.MathUtils.degToRad(b.rotEndY || 0);
-
-      if (showT >= formStart && showT < formEnd) {
-        const uBlock = (showT - formStart) / b.dur;
-        const curRotY = v0y + (v1y - v0y) * uBlock;
-        const tScene = showT - formStart;
-        const env = Math.sin(Math.PI * uBlock);
-
-        localScratchPoints.set(currTargets.subarray(0, formationCount * 3));
-
-        // RESTORED KINEMATICS FOR ALL 15 TILES:
-        if (b.tileNum === 16) { // Wheat sway
-          for (let j = 0; j < formationCount; j++) {
-            const py = localScratchPoints[j * 3 + 1], px = localScratchPoints[j * 3];
-            const yNorm = Math.max(0, Math.min(1, (py - 8) / 16));
-            const sway = (Math.sin(tScene * 2.2 + px * 0.25) * 1.5 + Math.sin(tScene * 4.5) * 0.4) * Math.pow(yNorm, 1.6);
-            localScratchPoints[j * 3] += sway * env;
-            localScratchPoints[j * 3 + 1] -= Math.abs(sway) * 0.12 * yNorm * env;
-          }
-        } else if (b.tileNum === 25) { // Scythe cutting swing
-          const swingPhase = uBlock * Math.PI * 4.0;
-          const cutMotion = Math.sin(swingPhase) * 0.65;
-          const cosCut = Math.cos(cutMotion), sinCut = Math.sin(cutMotion);
-          for (let j = 0; j < formationCount; j++) {
-            const lx = localScratchPoints[j * 3], ly = localScratchPoints[j * 3 + 1] - 8.0;
-            localScratchPoints[j * 3]     = lx * cosCut - ly * sinCut;
-            localScratchPoints[j * 3 + 1] = 8.0 + (lx * sinCut + ly * cosCut);
-          }
-        } else if (b.tileNum === 28) { // Autumn Leaf flutter
-          for (let j = 0; j < formationCount; j++) {
-            const py = localScratchPoints[j * 3 + 1];
-            localScratchPoints[j * 3] += Math.sin(tScene * 3.5 + py * 0.4) * 0.8 * env;
-            localScratchPoints[j * 3 + 2] += Math.cos(tScene * 3.0 + py * 0.3) * 0.6 * env;
-          }
-        } else if (b.tileNum === 26) { // Bare Tree branch sway
-          for (let j = 0; j < formationCount; j++) {
-            const py = localScratchPoints[j * 3 + 1];
-            if (py > 15.5) {
-              const yNorm = Math.max(0, (py - 15.5) / 10.0);
-              localScratchPoints[j * 3] += Math.sin(tScene * 2.2 + py * 0.25) * (yNorm * 0.7) * env;
-            }
-          }
-        } else if (b.tileNum === 27) { // Owl head tilt
-          const rockAngle = Math.sin(uBlock * Math.PI * 4.0) * 0.14;
-          const ca = Math.cos(rockAngle), sa = Math.sin(rockAngle);
-          for (let j = 0; j < formationCount; j++) {
-            const py = localScratchPoints[j * 3 + 1];
-            if (py > 10.5) {
-              const lx = localScratchPoints[j * 3], ly = py - 10.0;
-              localScratchPoints[j * 3]     = lx * ca - ly * sa;
-              localScratchPoints[j * 3 + 1] = 10.0 + (lx * sa + ly * ca);
-            }
-          }
-        } else if (b.tileNum === 18) { // Pumpkin heartbeat pulse
-          const wobble = 1.0 + Math.sin(uBlock * Math.PI * 4.0) * 0.04;
-          for (let j = 0; j < formationCount; j++) {
-            localScratchPoints[j * 3]     *= wobble;
-            localScratchPoints[j * 3 + 1] = alt + (localScratchPoints[j * 3 + 1] - alt) * wobble;
-          }
-        } else if (b.tileNum === 24) { // Candle flame flicker
-          for (let j = 0; j < formationCount; j++) {
-            if (currSwatches && currSwatches[j] === 1) {
-              const py = localScratchPoints[j * 3 + 1];
-              localScratchPoints[j * 3] += Math.sin(tScene * 5.5 + py * 1.5) * 0.45 * env;
-            }
-          }
-        } else if (b.tileNum === 19) { // Ghost float & sway
-          const floatY = Math.sin(uBlock * Math.PI * 2.0) * 0.8;
-          for (let j = 0; j < formationCount; j++) {
-            localScratchPoints[j * 3 + 1] += floatY;
-            localScratchPoints[j * 3] += Math.sin(tScene * 2.5 + localScratchPoints[j * 3 + 1] * 0.3) * 0.5 * env;
-          }
-        } else if (b.tileNum === 32) { // Skeleton Key wobble
-          const wobble = Math.sin(uBlock * Math.PI * 2.0) * 0.08;
-          const cosW = Math.cos(wobble), sinW = Math.sin(wobble);
-          for (let j = 0; j < formationCount; j++) {
-            const lx = localScratchPoints[j * 3], ly = localScratchPoints[j * 3 + 1] - alt;
-            localScratchPoints[j * 3]     = lx * cosW - ly * sinW;
-            localScratchPoints[j * 3 + 1] = alt + (lx * sinW + ly * cosW);
-          }
-        } else if (b.tileNum === 29 || b.tileNum === 30 || b.tileNum === 31 || b.tileNum === 34) {
-          // Knot, Sigil, Solar Wheel, and CROSS execute full 360-degree rotation
-          const dir = (b.tileNum === 31 || b.tileNum === 34) ? -1 : 1;
-          const spinA = uBlock * Math.PI * 2.0 * dir;
-          const cosS = Math.cos(spinA), sinS = Math.sin(spinA);
-          for (let j = 0; j < formationCount; j++) {
-            const lx = localScratchPoints[j * 3], ly = localScratchPoints[j * 3 + 1] - alt;
-            localScratchPoints[j * 3]     = lx * cosS - ly * sinS;
-            localScratchPoints[j * 3 + 1] = alt + (lx * sinS + ly * cosS);
-          }
-        } else if (b.tileNum === 33) {
-          // DEER HEAD: Upright & stationary (breathing hover ONLY)
-          const breathe = Math.sin(uBlock * Math.PI * 2.0) * 0.4;
-          for (let j = 0; j < formationCount; j++) {
-            localScratchPoints[j * 3 + 1] += breathe;
-          }
-        }
-
-        for (let j = 0; j < formationCount; j++) {
-          transformToSky(localScratchPoints[j * 3], localScratchPoints[j * 3 + 1], localScratchPoints[j * 3 + 2], alt, scl, curRotY, skyPosA);
-          targetPositions[j * 3]     = skyPosA.x;
-          targetPositions[j * 3 + 1] = skyPosA.y;
-          targetPositions[j * 3 + 2] = skyPosA.z;
-          if (currSwatches) droneSwatchIndices[j] = currSwatches[j];
-          isDroneVisible[j] = 1;
-        }
-
-        applyLightingFX(b, t);
-        break;
-      } else if (showT >= formEnd && showT < transEnd) {
-        const nextIdx = (i + 1 < timelineData.formationBlocks.length) ? i + 1 : 0;
-        const nextB = timelineData.formationBlocks[nextIdx];
-        const nextTargets = formationTrajectories[nextIdx];
-        const nextSwatches = formationSwatchStore[nextIdx];
-
-        const progress = (showT - formEnd) / b.transDur;
-        const ease = progress * progress * (3 - 2 * progress);
-        const arc = Math.sin(Math.PI * progress);
-
-        const nextAlt = nextB.altitude || 16.0;
-        const nextScl = nextB.scale || 1.0;
-        const interpAlt = alt + (nextAlt - alt) * ease;
-        const interpScl = scl + (nextScl - scl) * ease;
-
-        const nextV0y = THREE.MathUtils.degToRad(nextB.rotStartY || 0);
-        const curRotY = v1y + (nextV0y - v1y) * ease;
-
-        localScratchPoints.set(currTargets.subarray(0, formationCount * 3));
-        const motionStyle = b.transMotion || "vortex";
-
-        for (let j = 0; j < formationCount; j++) {
-          transformToSky(localScratchPoints[j * 3], localScratchPoints[j * 3 + 1], localScratchPoints[j * 3 + 2], interpAlt, interpScl, curRotY, skyPosA);
-          transformToSky(nextTargets[j * 3], nextTargets[j * 3 + 1], nextTargets[j * 3 + 2], interpAlt, interpScl, curRotY, skyPosB);
-
-          let midX = skyPosA.x + (skyPosB.x - skyPosA.x) * ease;
-          let midY = skyPosA.y + (skyPosB.y - skyPosA.y) * ease;
-          let midZ = skyPosA.z + (skyPosB.z - skyPosA.z) * ease;
-
-          if (motionStyle === "vortex") {
-            const dist = Math.sqrt(midX * midX + (midY - interpAlt) * (midY - interpAlt));
-            const angle = Math.atan2(midY - interpAlt, midX) + progress * (Math.PI * 2.22);
-            const expand = dist * (1.0 + arc * 0.38);
-            midX = Math.cos(angle) * expand;
-            midY = interpAlt + Math.sin(angle) * expand;
-            midZ += Math.sin(j * 0.15 + progress * Math.PI * 2.0) * (arc * 4.5);
-          } else if (motionStyle === "explosion") {
-            const dirX = midX, dirY = midY - interpAlt;
-            const len = Math.max(0.1, Math.sqrt(dirX * dirX + dirY * dirY));
-            const blast = arc * 14.0 * (0.8 + (j % 12) * 0.035);
-            midX += (dirX / len) * blast;
-            midY += (dirY / len) * blast;
-            midZ += (Math.sin(j * 37.1) * 2.0 - 1.0) * (arc * 7.5);
-          } else if (motionStyle === "celtic_swirl") {
-            const phase = (j / formationCount) * Math.PI * 4.0;
-            midX += Math.cos(phase + progress * Math.PI) * (arc * 8.5);
-            midY += Math.sin(progress * Math.PI * 2.0 + phase) * (arc * 5.0);
-            midZ += Math.sin(progress * Math.PI * 3.0 + (j % 5)) * (arc * 7.0);
-          } else if (motionStyle === "helix") {
-            const angle = progress * Math.PI * 2.4 + (j % 24) * (Math.PI / 12);
-            midX += Math.cos(angle) * (9.5 * arc);
-            midY += Math.sin(angle) * (arc * 4.0);
-            midZ += Math.sin(angle) * (9.5 * arc);
-          } else if (motionStyle === "cascade_wave") {
-            const waveX = (midX + 20.0) / 40.0;
-            const phase = progress * Math.PI * 2.5 - waveX * Math.PI * 2.0;
-            midY += Math.sin(phase) * (arc * 7.5);
-            midZ += Math.cos(phase) * (arc * 6.0);
-          }
-
-          targetPositions[j * 3]     = midX;
-          targetPositions[j * 3 + 1] = Math.max(0.5, midY);
-          targetPositions[j * 3 + 2] = midZ;
-          isDroneVisible[j] = 1;
-
-          if (ease > 0.5 && nextSwatches) droneSwatchIndices[j] = nextSwatches[j];
-          else if (currSwatches) droneSwatchIndices[j] = currSwatches[j];
-        }
-
-        const palA = b.palette || ["#ffffff"], palB = nextB.palette || ["#ffffff"];
-        for (let j = 0; j < formationCount; j++) {
-          const swatchA = currSwatches ? (currSwatches[j] % palA.length) : 0;
-          const swatchB = nextSwatches ? (nextSwatches[j] % palB.length) : 0;
-          prevBlockColor.set(palA[swatchA]);
-          nextBlockColor.set(palB[swatchB]);
-          tempColor.lerpColors(prevBlockColor, nextBlockColor, ease);
-          targetColors[j * 3]     = tempColor.r;
-          targetColors[j * 3 + 1] = tempColor.g;
-          targetColors[j * 3 + 2] = tempColor.b;
-        }
-        break;
-      }
-      curT = transEnd;
-    }
-  }
-  // 3. Finale Undulating Swarm & Helix Landing
-  else {
-    const landT = t - showBodyEnd;
-    const u = THREE.MathUtils.clamp(landT / landingConfig.dur, 0, 1);
-    const lastTargets = formationTrajectories[formationTrajectories.length - 1];
-    const lastB = timelineData.formationBlocks[timelineData.formationBlocks.length - 1];
-    const alt = lastB.altitude || 16.0;
-    const scl = lastB.scale || 1.0;
-    const v1y = THREE.MathUtils.degToRad(lastB.rotEndY || 0);
-
-    const uExpand = Math.min(1.0, u / 0.35);
-    const easeExpand = uExpand * uExpand * (3 - 2 * uExpand);
-    const uDesc = Math.max(0.0, (u - 0.35) / 0.65);
-    const easeDesc = uDesc * uDesc * (3 - 2 * uDesc);
-
-    for (let i = 0; i < formationCount; i++) {
-      const gx = groundPositions[i * 3], gy = groundPositions[i * 3 + 1], gz = groundPositions[i * 3 + 2];
-      transformToSky(lastTargets[i * 3], lastTargets[i * 3 + 1], lastTargets[i * 3 + 2], alt, scl, v1y, skyPosA);
-
-      const phi = Math.acos(1.0 - 2.0 * ((i + 0.5) / formationCount));
-      const theta = i * GOLDEN + landT * 1.6;
-      const rSwarm = 22.0 + Math.sin(landT * 3.0 + i * 0.15) * 5.0 + Math.sin(landT * 6.0 + theta * 2.0) * 3.0;
-
-      const swarmX = Math.sin(phi) * Math.cos(theta) * rSwarm;
-      const swarmY = alt + Math.cos(phi) * (rSwarm * 0.72) + Math.sin(landT * 4.0 + theta) * 2.2;
-      const swarmZ = Math.sin(phi) * Math.sin(theta) * rSwarm;
-
-      const curSwarmX = THREE.MathUtils.lerp(skyPosA.x, swarmX, easeExpand);
-      const curSwarmY = THREE.MathUtils.lerp(skyPosA.y, swarmY, easeExpand);
-      const curSwarmZ = THREE.MathUtils.lerp(skyPosA.z, swarmZ, easeExpand);
-
-      const spiralAngle = (1.0 - easeDesc) * Math.PI * 4.0 + (i % 3) * (Math.PI * 2 / 3);
-      const spiralRadius = Math.sin(Math.PI * easeDesc) * 8.0;
-
-      targetPositions[i * 3]     = THREE.MathUtils.lerp(curSwarmX, gx, easeDesc) + Math.cos(spiralAngle) * spiralRadius;
-      targetPositions[i * 3 + 1] = Math.max(0.12, THREE.MathUtils.lerp(curSwarmY, gy, easeDesc));
-      targetPositions[i * 3 + 2] = THREE.MathUtils.lerp(curSwarmZ, gz, easeDesc) + Math.sin(spiralAngle) * spiralRadius;
-
-      const hue = (landT * 0.4 + (i / formationCount) * 0.6) % 1.0;
-      tempColor.setHSL(hue, 1.0, 0.58);
-      targetColors[i * 3]     = tempColor.r;
-      targetColors[i * 3 + 1] = tempColor.g;
-      targetColors[i * 3 + 2] = tempColor.b;
-      isDroneVisible[i] = 1;
-    }
-  }
-
-  // 4. Falling Leaves: Travel downwards ONLY. Resetting drones move via underground zero-scale invisibly.
-  if (precipConfig.enabled) {
-    const precipHex = new THREE.Color(precipConfig.color);
-    const fallDuration = 10.0;
-    const resetDuration = 0.5;
-    const totalCycle = fallDuration + resetDuration;
-
-    for (let i = formationCount; i < activeDroneCount; i++) {
-      const gx = groundPositions[i * 3], gy = groundPositions[i * 3 + 1], gz = groundPositions[i * 3 + 2];
-      const x0 = precipPositions[i * 3], z0 = precipPositions[i * 3 + 2];
-      const seed = precipDriftSeeds[i];
-
-      const cycleT = ((t + seed * totalCycle) % totalCycle);
-
-      if (cycleT < fallDuration) {
-        const uFall = cycleT / fallDuration;
-        const curY = 29.5 - uFall * 28.0;
-        const curX = x0 + Math.sin(t * 2.2 + seed * 6.28) * 1.2;
-        const curZ = z0 + Math.cos(t * 1.8 + seed * 6.28) * 1.2;
-
-        if (t <= takeoffConfig.dur) {
-          const u = Math.max(0, t / takeoffConfig.dur);
-          const ease = u * u * (3 - 2 * u);
-          targetPositions[i * 3]     = gx + (curX - gx) * ease;
-          targetPositions[i * 3 + 1] = gy + (curY - gy) * ease;
-          targetPositions[i * 3 + 2] = gz + (curZ - gz) * ease;
-        } else if (t > takeoffConfig.dur && t < showBodyEnd) {
-          targetPositions[i * 3]     = curX;
-          targetPositions[i * 3 + 1] = curY;
-          targetPositions[i * 3 + 2] = curZ;
+export const SHAPE_PAGES = [
+  TILE_ORDER.map((tileNum) => {
+    const filename = `samhain-tile${tileNum}.png`;
+    return {
+      id: `samhainTile${tileNum}`,
+      tileNum,
+      filename,
+      gen: async (out, n, swatchOut) => {
+        const img = await loadTileImage(filename);
+        if (img) {
+          sampleImageToDrones(img, out, n, swatchOut, 0.048, 16, tileNum);
         } else {
-          const u = THREE.MathUtils.clamp((t - showBodyEnd) / landingConfig.dur, 0, 1);
-          const ease = u * u * (3 - 2 * u);
-          targetPositions[i * 3]     = curX + (gx - curX) * ease;
-          targetPositions[i * 3 + 1] = curY + (gy - curY) * ease;
-          targetPositions[i * 3 + 2] = curZ + (gz - curZ) * ease;
+          generateProceduralShape(tileNum, out, n, swatchOut, 16);
         }
-
-        targetColors[i * 3]     = precipHex.r;
-        targetColors[i * 3 + 1] = precipHex.g;
-        targetColors[i * 3 + 2] = precipHex.b;
-        isDroneVisible[i] = 1;
-      } else {
-        // Invisible underground reset
-        targetPositions[i * 3]     = x0;
-        targetPositions[i * 3 + 1] = -15.0;
-        targetPositions[i * 3 + 2] = z0;
-        targetColors[i * 3]     = 0.0;
-        targetColors[i * 3 + 1] = 0.0;
-        targetColors[i * 3 + 2] = 0.0;
-        isDroneVisible[i] = 0;
       }
+    };
+  })
+];
+
+export function findShapeById(id) {
+  for (const page of SHAPE_PAGES) {
+    for (const shape of page) {
+      if (shape.id === id) return shape;
     }
   }
+  return SHAPE_PAGES[0][0];
 }
-
-// -------------------------------------------------------------
-// PHYSICS-BASED GLB EXPORTER: EXACT RGB SCALES + ZERO OVALS
-// -------------------------------------------------------------
-window.bakeAndDownloadGLB = function() {
-  console.log("Baking physics and exact per-drone RGB scales... please wait.");
-
-  const root = new THREE.Group();
-  root.name = "SamhainDroneFleet";
-
-  const sphereGeom = new THREE.SphereGeometry(0.25, 8, 6);
-  const droneMat = new THREE.MeshBasicMaterial({ color: 0xffffff });
-
-  for (let i = 0; i < activeDroneCount; i++) {
-    const drone = new THREE.Mesh(sphereGeom, droneMat);
-    drone.name = `Drone_${i}`;
-    root.add(drone);
-  }
-
-  const SPRING = 7.5;
-  const DAMPING = 4.0;
-  const MAX_DRONE_SPEED = 8.5;
-
-  const simPositions = new Float32Array(activeDroneCount * 3);
-  const simVelocities = new Float32Array(activeDroneCount * 3);
-  const simColors = new Float32Array(activeDroneCount * 3);
-  simPositions.set(groundPositions.subarray(0, activeDroneCount * 3));
-
-  const sampleFPS = 15;
-  const BAKE_TOTAL_DURATION = PRE_SHOW_DELAY + TOTAL_DURATION + POST_SHOW_DELAY;
-  const totalFrames = Math.floor(BAKE_TOTAL_DURATION * sampleFPS);
-  const times = new Float32Array(totalFrames);
-  for (let f = 0; f < totalFrames; f++) times[f] = f / sampleFPS;
-
-  const positions = Array.from({ length: activeDroneCount }, () => new Float32Array(totalFrames * 3));
-  const scales = Array.from({ length: activeDroneCount }, () => new Float32Array(totalFrames * 3));
-
-  const physicsSubsteps = 4;
-  const dt = (1 / sampleFPS) / physicsSubsteps;
-  const totalSubsteps = totalFrames * physicsSubsteps;
-  let frameIdx = 0;
-
-  for (let s = 0; s < totalSubsteps; s++) {
-    const simTime = s * dt;
-
-    if (simTime < PRE_SHOW_DELAY) {
-      evaluateTimeline(0.0);
-    } else if (simTime < PRE_SHOW_DELAY + TOTAL_DURATION) {
-      evaluateTimeline(simTime - PRE_SHOW_DELAY);
-    } else {
-      evaluateTimeline(TOTAL_DURATION);
-    }
-
-    for (let i = 0; i < activeDroneCount; i++) {
-      const idx = i * 3;
-      let px = simPositions[idx], py = simPositions[idx + 1], pz = simPositions[idx + 2];
-      let vx = simVelocities[idx], vy = simVelocities[idx + 1], vz = simVelocities[idx + 2];
-
-      // Resetting leaf teleports instantly without spring drag
-      if (isDroneVisible[i] === 0) {
-        simPositions[idx]     = targetPositions[idx];
-        simPositions[idx + 1] = targetPositions[idx + 1];
-        simPositions[idx + 2] = targetPositions[idx + 2];
-        simVelocities[idx] = 0; simVelocities[idx + 1] = 0; simVelocities[idx + 2] = 0;
-        continue;
-      }
-
-      let fx = (targetPositions[idx] - px) * SPRING - vx * DAMPING;
-      let fy = (targetPositions[idx + 1] - py) * SPRING - vy * DAMPING;
-      let fz = (targetPositions[idx + 2] - pz) * SPRING - vz * DAMPING;
-
-      vx += fx * dt; vy += fy * dt; vz += fz * dt;
-
-      const speed = Math.sqrt(vx * vx + vy * vy + vz * vz);
-      if (speed > MAX_DRONE_SPEED) {
-        vx = (vx / speed) * MAX_DRONE_SPEED;
-        vy = (vy / speed) * MAX_DRONE_SPEED;
-        vz = (vz / speed) * MAX_DRONE_SPEED;
-      }
-
-      simPositions[idx]     += vx * dt;
-      simPositions[idx + 1] += vy * dt;
-      simPositions[idx + 2] += vz * dt;
-      simVelocities[idx] = vx; simVelocities[idx + 1] = vy; simVelocities[idx + 2] = vz;
-
-      simColors[idx]     += (targetColors[idx] - simColors[idx]) * 7.0 * dt;
-      simColors[idx + 1] += (targetColors[idx + 1] - simColors[idx + 1]) * 7.0 * dt;
-      simColors[idx + 2] += (targetColors[idx + 2] - simColors[idx + 2]) * 7.0 * dt;
-    }
-
-    if (s % physicsSubsteps === 0 && frameIdx < totalFrames) {
-      for (let i = 0; i < activeDroneCount; i++) {
-        positions[i][frameIdx * 3]     = simPositions[i * 3];
-        positions[i][frameIdx * 3 + 1] = simPositions[i * 3 + 1];
-        positions[i][frameIdx * 3 + 2] = -simPositions[i * 3 + 2];
-
-        if (isDroneVisible[i] === 1) {
-          scales[i][frameIdx * 3]     = Math.max(0.08, simColors[i * 3]);
-          scales[i][frameIdx * 3 + 1] = Math.max(0.08, simColors[i * 3 + 1]);
-          scales[i][frameIdx * 3 + 2] = Math.max(0.08, simColors[i * 3 + 2]);
-        } else {
-          scales[i][frameIdx * 3]     = 0.0;
-          scales[i][frameIdx * 3 + 1] = 0.0;
-          scales[i][frameIdx * 3 + 2] = 0.0;
-        }
-      }
-      frameIdx++;
-    }
-  }
-
-  const tracks = [];
-  for (let i = 0; i < activeDroneCount; i++) {
-    tracks.push(new THREE.VectorKeyframeTrack(`Drone_${i}.position`, times, positions[i], THREE.InterpolateLinear));
-    tracks.push(new THREE.VectorKeyframeTrack(`Drone_${i}.scale`, times, scales[i], THREE.InterpolateLinear));
-  }
-
-  const clip = new THREE.AnimationClip("DroneShowFlight", BAKE_TOTAL_DURATION, tracks);
-
-  new GLTFExporter().parse(
-    root,
-    (buffer) => {
-      const blob = new Blob([buffer], { type: "application/octet-stream" });
-      const link = document.createElement("a");
-      link.href = URL.createObjectURL(blob);
-      link.download = "Samhain_Drone_Show.glb";
-      link.click();
-      console.log("GLB exported with exact per-drone RGB colors baked into scales!");
-    },
-    (err) => console.error("Export error:", err),
-    { binary: true, animations: [clip] }
-  );
-};
-
-(async () => {
-  await buildShowTrajectoryData();
-  evaluateTimeline(0);
-})();
-
-renderer.xr.addEventListener("sessionstart", () => {
-  document.body.classList.add("xr-active");
-  renderer.xr.setFoveation(0.0);
-  xrRig.position.set(0, 0, 38);
-  xrRig.rotation.set(0, 0, 0);
-});
-renderer.xr.addEventListener("sessionend", () => {
-  document.body.classList.remove("xr-active");
-});
-
-const SPRING = 7.5;
-const DAMPING = 4.0;
-const MAX_DRONE_SPEED = 8.5;
-
-let prevTime = performance.now();
-renderer.setAnimationLoop(now => {
-  const dt = Math.min(0.05, (now - prevTime) / 1000);
-  prevTime = now;
-
-  if (showState === "PRE_SHOW") {
-    pauseCountdown -= dt;
-    evaluateTimeline(0.0);
-    if (pauseCountdown <= 0) {
-      showState = "RUNNING";
-      playheadTime = 0.0;
-    }
-  } else if (showState === "RUNNING") {
-    playheadTime += dt;
-    if (playheadTime >= TOTAL_DURATION) {
-      playheadTime = TOTAL_DURATION;
-      evaluateTimeline(TOTAL_DURATION);
-      showState = "POST_SHOW";
-      pauseCountdown = POST_SHOW_DELAY;
-    } else {
-      evaluateTimeline(playheadTime);
-    }
-  } else if (showState === "POST_SHOW") {
-    pauseCountdown -= dt;
-    evaluateTimeline(TOTAL_DURATION);
-    if (pauseCountdown <= 0) {
-      showState = "RUNNING";
-      playheadTime = 0.0;
-    }
-  }
-
-  dronePoints.material.size = Math.max(0.02, BASE_DRONE_SIZE * stageGroup.scale.x);
-
-  for (let i = 0; i < activeDroneCount; i++) {
-    const idx = i * 3;
-    let px = currentPositions[idx], py = currentPositions[idx + 1], pz = currentPositions[idx + 2];
-    let vx = velocities[idx], vy = velocities[idx + 1], vz = velocities[idx + 2];
-
-    let fx = (targetPositions[idx] - px) * SPRING - vx * DAMPING;
-    let fy = (targetPositions[idx + 1] - py) * SPRING - vy * DAMPING;
-    let fz = (targetPositions[idx + 2] - pz) * SPRING - vz * DAMPING;
-
-    vx += fx * dt; vy += fy * dt; vz += fz * dt;
-
-    const speed = Math.sqrt(vx * vx + vy * vy + vz * vz);
-    if (speed > MAX_DRONE_SPEED) {
-      vx = (vx / speed) * MAX_DRONE_SPEED;
-      vy = (vy / speed) * MAX_DRONE_SPEED;
-      vz = (vz / speed) * MAX_DRONE_SPEED;
-    }
-
-    currentPositions[idx]     += vx * dt;
-    currentPositions[idx + 1] += vy * dt;
-    currentPositions[idx + 2] += vz * dt;
-    velocities[idx] = vx; velocities[idx + 1] = vy; velocities[idx + 2] = vz;
-
-    currentColors[idx]     += (targetColors[idx] - currentColors[idx]) * 7.0 * dt;
-    currentColors[idx + 1] += (targetColors[idx + 1] - currentColors[idx + 1]) * 7.0 * dt;
-    currentColors[idx + 2] += (targetColors[idx + 2] - currentColors[idx + 2]) * 7.0 * dt;
-  }
-
-  droneGeometry.attributes.position.needsUpdate = true;
-  droneGeometry.attributes.color.needsUpdate = true;
-
-  if (!renderer.xr.isPresenting) orbit.update();
-  renderer.render(scene, camera);
-});
-
-addEventListener("resize", () => {
-  camera.aspect = innerWidth / innerHeight;
-  camera.updateProjectionMatrix();
-  renderer.setSize(innerWidth, innerHeight);
-});
-</script>
-</body>
-</html>
