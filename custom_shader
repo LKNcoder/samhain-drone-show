@@ -2,7 +2,7 @@ Shader "Custom/DroneSamhainEmissive"
 {
     Properties
     {
-        _BaseIntensity ("Emission Brightness", Range(1.0, 10.0)) = 3.5
+        _BaseIntensity ("Emission Brightness", Range(0.5, 3.0)) = 1.2
     }
 
     SubShader
@@ -52,7 +52,7 @@ Shader "Custom/DroneSamhainEmissive"
                 float4x4 M = GetObjectToWorldMatrix();
                 float3 worldCenter = mul(M, float4(0.0, 0.0, 0.0, 1.0)).xyz;
 
-                // 2. Add unscaled sphere vertices directly (guarantees round spheres, never ovals)
+                // 2. Add unscaled sphere vertices directly (always round 0.25m spheres)
                 float3 worldPos = worldCenter + input.positionOS.xyz;
                 output.positionCS = TransformWorldToHClip(worldPos);
 
