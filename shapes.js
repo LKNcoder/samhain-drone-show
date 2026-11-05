@@ -105,29 +105,29 @@ function resampleEquidistant(orderedPts, targetCount) {
   return resampled;
 }
 
-// Full 18-meter vector fallbacks
+// Full 18-meter procedural vector fallbacks (guarantees no circle collapse)
 function generateProceduralShape(tileNum, out, count, swatchOut, altitude) {
   for (let i = 0; i < count; i++) {
     const u = i / count;
     let x = 0, y = altitude, z = 0, swatch = 0;
 
     switch (tileNum) {
-      case 29: { // Celtic Knot (Triquetra 3-leaf interlaced loops - 18m wide)
+      case 29: { // Celtic Knot (Triquetra 3-leaf loops)
         const tLoop = u * Math.PI * 6.0;
-        const rKnot = 8.5 * (1.0 + 0.42 * Math.sin(3.0 * (u * Math.PI * 2.0)));
+        const rKnot = 8.5 * (1.0 + 0.45 * Math.sin(3.0 * (u * Math.PI * 2.0)));
         x = Math.cos(tLoop) * rKnot;
         y = altitude + Math.sin(tLoop) * rKnot;
         swatch = (y > altitude) ? 1 : 0;
         break;
       }
-      case 30: { // Sigil (Pentacle star inside outer ring - 18m wide)
-        if (u < 0.40) {
-          const theta = (u / 0.40) * Math.PI * 2.0;
-          x = Math.cos(theta) * 8.8;
-          y = altitude + Math.sin(theta) * 8.8;
+      case 30: { // Sigil (Pentacle star inside outer ring)
+        if (u < 0.45) {
+          const theta = (u / 0.45) * Math.PI * 2.0;
+          x = Math.cos(theta) * 9.0;
+          y = altitude + Math.sin(theta) * 9.0;
           swatch = 0;
         } else {
-          const starT = ((u - 0.40) / 0.60) * 5.0;
+          const starT = ((u - 0.45) / 0.55) * 5.0;
           const seg = Math.floor(starT) % 5;
           const f = starT - Math.floor(starT);
           const order = [0, 2, 4, 1, 3, 0];
@@ -139,65 +139,65 @@ function generateProceduralShape(tileNum, out, count, swatchOut, altitude) {
         }
         break;
       }
-      case 31: { // Solar Wheel (Center disc + 8 radiating spokes + rim - 18m wide)
-        if (u < 0.35) {
-          const theta = (u / 0.35) * Math.PI * 2.0;
-          x = Math.cos(theta) * 8.8;
-          y = altitude + Math.sin(theta) * 8.8;
+      case 31: { // Solar Wheel (Center disc + 8 radiating spokes + rim)
+        if (u < 0.4) {
+          const theta = (u / 0.4) * Math.PI * 2.0;
+          x = Math.cos(theta) * 9.0;
+          y = altitude + Math.sin(theta) * 9.0;
           swatch = 1;
-        } else if (u < 0.55) {
-          const theta = ((u - 0.35) / 0.20) * Math.PI * 2.0;
+        } else if (u < 0.65) {
+          const theta = ((u - 0.4) / 0.25) * Math.PI * 2.0;
           x = Math.cos(theta) * 3.5;
           y = altitude + Math.sin(theta) * 3.5;
           swatch = 0;
         } else {
-          const spokeIdx = Math.floor(((u - 0.55) / 0.45) * 8);
-          const spokeF = (((u - 0.55) / 0.45) * 8) - spokeIdx;
+          const spokeIdx = Math.floor(((u - 0.65) / 0.35) * 8);
+          const spokeF = (((u - 0.65) / 0.35) * 8) - spokeIdx;
           const theta = spokeIdx * (Math.PI / 4);
-          const rad = 3.5 + spokeF * 5.3;
+          const rad = 3.5 + spokeF * 5.5;
           x = Math.cos(theta) * rad;
           y = altitude + Math.sin(theta) * rad;
           swatch = 0;
         }
         break;
       }
-      case 33: { // Deer Head (Head, ears, and branching antlers - 18m wide - PURPLE)
+      case 33: { // Deer Head (Head, ears, and branching antlers - PURPLE)
         if (u < 0.35) {
           const tH = (u / 0.35) * Math.PI * 2.0;
           x = Math.sin(tH) * 3.2;
-          y = altitude - 3.8 + Math.cos(tH) * 5.0;
+          y = altitude - 4.5 + Math.cos(tH) * 5.0;
           swatch = 0;
         } else if (u < 0.50) {
           const sign = (u < 0.425) ? -1 : 1;
           const tE = ((u - 0.35) % 0.075) / 0.075;
-          x = sign * (2.8 + tE * 2.8);
-          y = altitude + 0.8 + Math.sin(tE * Math.PI) * 2.2;
+          x = sign * (2.8 + tE * 3.0);
+          y = altitude + 0.8 + Math.sin(tE * Math.PI) * 2.5;
           swatch = 0;
         } else {
           const sign = (u < 0.75) ? -1 : 1;
           const tA = ((u - 0.5) % 0.25) / 0.25;
-          const mainX = sign * (1.8 + Math.pow(tA, 0.75) * 7.2);
-          const mainY = altitude + 1.2 + tA * 8.0;
-          const tine = (Math.sin(tA * Math.PI * 4.0) > 0.35) ? sign * 2.0 : 0;
+          const mainX = sign * (1.6 + Math.pow(tA, 0.8) * 7.5);
+          const mainY = altitude + 1.2 + tA * 8.5;
+          const tine = (Math.sin(tA * Math.PI * 4.0) > 0.4) ? sign * 1.8 : 0;
           x = mainX + tine;
           y = mainY;
           swatch = 1;
         }
         break;
       }
-      case 34: { // Cross (Celtic High Cross with halo ring - 18m tall - TEAL)
-        if (u < 0.40) {
-          const theta = (u / 0.40) * Math.PI * 2.0;
+      case 34: { // Cross (Celtic High Cross with halo ring - TEAL)
+        if (u < 0.45) {
+          const theta = (u / 0.45) * Math.PI * 2.0;
           x = Math.cos(theta) * 5.2;
           y = altitude + 1.8 + Math.sin(theta) * 5.2;
           swatch = 1;
-        } else if (u < 0.70) {
-          const tV = (u - 0.40) / 0.30;
+        } else if (u < 0.75) {
+          const tV = (u - 0.45) / 0.30;
           x = (Math.sin(tV * 30.0) > 0 ? 1 : -1) * 1.3;
-          y = altitude - 8.0 + tV * 17.5;
+          y = altitude - 7.5 + tV * 17.0;
           swatch = 0;
         } else {
-          const tH = (u - 0.70) / 0.30;
+          const tH = (u - 0.75) / 0.25;
           x = -7.5 + tH * 15.0;
           y = altitude + 1.8 + (Math.sin(tH * 30.0) > 0 ? 1 : -1) * 1.2;
           swatch = 0;
@@ -206,7 +206,7 @@ function generateProceduralShape(tileNum, out, count, swatchOut, altitude) {
       }
       default: {
         const theta = i * GOLDEN;
-        const r = Math.sqrt((i + 0.5) / count) * 8.8;
+        const r = Math.sqrt((i + 0.5) / count) * 9.0;
         x = Math.cos(theta) * r;
         y = altitude + Math.sin(theta) * r;
         swatch = 0;
@@ -252,6 +252,19 @@ export function sampleImageToDrones(imgElement, out, count, swatchOut, scale = 0
       }
     }
   }
+
+  const spanX = maxX - minX;
+  const spanY = maxY - minY;
+  const maxSpan = Math.max(spanX, spanY);
+
+  // If image contrast is too low or bounds are tiny, fall back to procedural geometry
+  if (maxSpan < 60 || !isFinite(minX)) {
+    generateProceduralShape(tileNum, out, count, swatchOut, altitude);
+    return;
+  }
+
+  // Normalize shape so it reliably spans 18 meters wide
+  const autoScale = 18.0 / maxSpan;
 
   const visited = new Uint8Array(512 * 512);
   const islands = [];
@@ -305,20 +318,15 @@ export function sampleImageToDrones(imgElement, out, count, swatchOut, scale = 0
     }
   }
 
-  // Auto-fit normalization prevents formations from collapsing to small clumps
-  if (islands.length === 0 || (maxX - minX) < 15 || (maxY - minY) < 15) {
+  if (islands.length === 0) {
     generateProceduralShape(tileNum, out, count, swatchOut, altitude);
     return;
   }
 
   const cx = (minX + maxX) / 2;
   const cy = (minY + maxY) / 2;
-  const spanX = Math.max(10, maxX - minX);
-  const spanY = Math.max(10, maxY - minY);
-  const maxSpan = Math.max(spanX, spanY);
-  const dynamicScale = 17.5 / maxSpan; // Guarantees 17.5m full span in the sky
-
   const totalWeight = islands.reduce((acc, isl) => acc + isl.weight, 0);
+
   const quotas = [];
   let allocatedSum = 0;
 
@@ -350,8 +358,8 @@ export function sampleImageToDrones(imgElement, out, count, swatchOut, scale = 0
 
         for (let i = 0; i < resampled.length && ptr < count; i++) {
           const p = resampled[i];
-          out[ptr * 3]     = (p.x - cx) * dynamicScale;
-          out[ptr * 3 + 1] = altitude - (p.y - cy) * dynamicScale;
+          out[ptr * 3]     = (p.x - cx) * autoScale;
+          out[ptr * 3 + 1] = altitude - (p.y - cy) * autoScale;
           out[ptr * 3 + 2] = 0.0;
           if (swatchOut) swatchOut[ptr] = getSemanticSwatch(p.x, p.y, tileNum, minY, maxY, minX, maxX);
           ptr++;
@@ -363,8 +371,8 @@ export function sampleImageToDrones(imgElement, out, count, swatchOut, scale = 0
       const stepF = isl.pixels.length / fillCount;
       for (let i = 0; i < fillCount && ptr < count; i++) {
         const p = isl.pixels[Math.floor(i * stepF) % isl.pixels.length];
-        out[ptr * 3]     = (p.x - cx) * dynamicScale;
-        out[ptr * 3 + 1] = altitude - (p.y - cy) * dynamicScale;
+        out[ptr * 3]     = (p.x - cx) * autoScale;
+        out[ptr * 3 + 1] = altitude - (p.y - cy) * autoScale;
         out[ptr * 3 + 2] = 0.0;
         if (swatchOut) swatchOut[ptr] = getSemanticSwatch(p.x, p.y, tileNum, minY, maxY, minX, maxX);
         ptr++;
@@ -387,16 +395,16 @@ function getSemanticSwatch(px, py, tileNum, minY = 0, maxY = 512, minX = 0, maxX
 
   switch (tileNum) {
     case 24: return (normY < 0.38) ? 1 : (normY > 0.88 ? 2 : 0);
-    case 18: return 0; // Pumpkin
-    case 25: return (normY > 0.70) ? 1 : 0; // Scythe
-    case 26: return (normY > 0.65) ? 0 : 1; // Tree
-    case 19: return 0; // Ghost
-    case 16: return (normY > 0.65) ? 1 : 0; // Wheat
-    case 27: return (normY > 0.78) ? 2 : (normY >= 0.28 && normY <= 0.52 ? 1 : 0); // Owl
-    case 28: return (normY > 0.75) ? 1 : 0; // Leaf
-    case 32: return (normY < 0.45) ? 1 : 0; // Key
+    case 18: return 0;
+    case 25: return (normY > 0.70) ? 1 : 0;
+    case 26: return (normY > 0.65) ? 0 : 1;
+    case 19: return 0;
+    case 16: return (normY > 0.65) ? 1 : 0;
+    case 27: return (normY > 0.78) ? 2 : (normY >= 0.28 && normY <= 0.52 ? 1 : 0);
+    case 28: return (normY > 0.75) ? 1 : 0;
+    case 32: return (normY < 0.45) ? 1 : 0;
     case 29: case 30: case 31: case 34: return (normY > 0.5) ? 1 : 0;
-    case 33: return (normY < 0.42) ? 1 : 0; // Deer Head
+    case 33: return (normY < 0.42) ? 1 : 0;
     case 17:
       if (normY > 0.74) return 1;
       if (normY < 0.30) return 0;
