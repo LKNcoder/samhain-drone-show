@@ -105,7 +105,7 @@ function resampleEquidistant(orderedPts, targetCount) {
   return resampled;
 }
 
-// Procedural Fallback Engine (prevents 0-coordinate collapse into a circle)
+// Procedural 18-meter vector formations (prevents circle collapse)
 function generateProceduralShape(tileNum, out, count, swatchOut, altitude) {
   for (let i = 0; i < count; i++) {
     const u = i / count;
@@ -133,10 +133,8 @@ function generateProceduralShape(tileNum, out, count, swatchOut, altitude) {
           const order = [0, 2, 4, 1, 3, 0];
           const a1 = order[seg] * (Math.PI * 2 / 5) - Math.PI / 2;
           const a2 = order[seg + 1] * (Math.PI * 2 / 5) - Math.PI / 2;
-          const x1 = Math.cos(a1) * 7.5, y1 = Math.sin(a1) * 7.5;
-          const x2 = Math.cos(a2) * 7.5, y2 = Math.sin(a2) * 7.5;
-          x = x1 + (x2 - x1) * f;
-          y = altitude + y1 + (y2 - y1) * f;
+          x = Math.cos(a1) * 7.5 + (Math.cos(a2) * 7.5 - Math.cos(a1) * 7.5) * f;
+          y = altitude + Math.sin(a1) * 7.5 + (Math.sin(a2) * 7.5 - Math.sin(a1) * 7.5) * f;
           swatch = 1;
         }
         break;
@@ -164,18 +162,18 @@ function generateProceduralShape(tileNum, out, count, swatchOut, altitude) {
         break;
       }
       case 33: { // Deer Head (Head, ears, and branching antlers - PURPLE)
-        if (u < 0.35) { // Head & snout outline
+        if (u < 0.35) {
           const tH = (u / 0.35) * Math.PI * 2.0;
           x = Math.sin(tH) * 2.6;
           y = altitude - 3.5 + Math.cos(tH) * 4.2;
           swatch = 0;
-        } else if (u < 0.50) { // Ears
+        } else if (u < 0.50) {
           const sign = (u < 0.425) ? -1 : 1;
           const tE = ((u - 0.35) % 0.075) / 0.075;
           x = sign * (2.2 + tE * 2.4);
           y = altitude + 0.5 + Math.sin(tE * Math.PI) * 2.0;
           swatch = 0;
-        } else { // Branching Antlers
+        } else {
           const sign = (u < 0.75) ? -1 : 1;
           const tA = ((u - 0.5) % 0.25) / 0.25;
           const mainX = sign * (1.2 + Math.pow(tA, 0.8) * 6.5);
@@ -187,18 +185,18 @@ function generateProceduralShape(tileNum, out, count, swatchOut, altitude) {
         }
         break;
       }
-      case 34: { // Cross (Celtic High Cross with halo wheel - TEAL)
-        if (u < 0.45) { // Halo Ring
+      case 34: { // Cross (Celtic High Cross with halo ring - TEAL)
+        if (u < 0.45) {
           const theta = (u / 0.45) * Math.PI * 2.0;
           x = Math.cos(theta) * 4.5;
           y = altitude + 1.5 + Math.sin(theta) * 4.5;
           swatch = 1;
-        } else if (u < 0.75) { // Vertical Beam
+        } else if (u < 0.75) {
           const tV = (u - 0.45) / 0.30;
           x = (Math.sin(tV * 30.0) > 0 ? 1 : -1) * 1.1;
           y = altitude - 6.5 + tV * 15.0;
           swatch = 0;
-        } else { // Horizontal Crosspiece
+        } else {
           const tH = (u - 0.75) / 0.25;
           x = -6.0 + tH * 12.0;
           y = altitude + 1.5 + (Math.sin(tH * 30.0) > 0 ? 1 : -1) * 1.0;
@@ -206,12 +204,12 @@ function generateProceduralShape(tileNum, out, count, swatchOut, altitude) {
         }
         break;
       }
-      default: { // Universal Circular Mandala Shield
+      default: {
         const theta = i * GOLDEN;
         const r = Math.sqrt((i + 0.5) / count) * 8.5;
         x = Math.cos(theta) * r;
         y = altitude + Math.sin(theta) * r;
-        swatch = (r > 4.5) ? 1 : 0;
+        swatch = 0;
         break;
       }
     }
@@ -317,7 +315,6 @@ export function sampleImageToDrones(imgElement, out, count, swatchOut, scale = 0
     }
   }
 
-  // Trigger procedural engine if image is missing or empty
   if (islands.length === 0) {
     generateProceduralShape(tileNum, out, count, swatchOut, altitude);
     return;
@@ -423,9 +420,13 @@ export function loadTileImage(filename) {
 
     const candidates = [
       `./samhain-tile${tileNum}.png`,
+      `./samhain-tile${tileNum}.svg`,
       `${ASSET_BASE_URL}samhain-tile${tileNum}.png`,
+      `${ASSET_BASE_URL}samhain-tile${tileNum}.svg`,
       `./tile${tileNum}.png`,
+      `./tile${tileNum}.svg`,
       `${ASSET_BASE_URL}tile${tileNum}.png`,
+      `${ASSET_BASE_URL}tile${tileNum}.svg`,
       `./${filename}`,
       `${ASSET_BASE_URL}${filename}`
     ];
@@ -450,8 +451,7 @@ export function loadTileImage(filename) {
 }
 
 const TILE_ORDER = [
-  16, 25, 28, 26, 27, 18, 24, 19, 32, 29, 30, 31, 33, 34, 17,
-  1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15
+  16, 25, 28, 26, 27, 18, 24, 19, 32, 29, 30, 31, 33, 34, 17
 ];
 
 export const SHAPE_PAGES = [
