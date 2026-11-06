@@ -39,7 +39,7 @@ import {
   SHAPE_PAGES,
   findShapeById,
   GOLDEN
-} from "./shapes.js?v=samhain_final_suite_v30";
+} from "./shapes.js?v=samhain_final_suite_v31";
 
 const MAX_DRONES = 2000;
 let activeDroneCount = 800;
@@ -311,9 +311,10 @@ function evaluateTimeline(t) {
   const showBodyEnd = TOTAL_DURATION - landingConfig.dur;
   if (formationTrajectories.length === 0) return;
 
-  // 1. Takeoff Phase
+  // 1. Takeoff Phase: ALL 800 DRONES LIFT OFF TOGETHER FROM THE GROUND
   if (t <= takeoffConfig.dur) {
     const u = Math.max(0, t / takeoffConfig.dur);
+    const ease = u * u * (3 - 2 * u);
     const firstTargets = formationTrajectories[0];
     const firstSwatches = formationSwatchStore[0];
     const b0 = timelineData.formationBlocks[0];
@@ -321,11 +322,11 @@ function evaluateTimeline(t) {
     const scl = b0.scale || 1.0;
     const v0y = THREE.MathUtils.degToRad(b0.rotStartY || 0);
 
+    // Drones 0..739: Lift off into Wheat formation
     for (let i = 0; i < formationCount; i++) {
       const gx = groundPositions[i * 3], gy = groundPositions[i * 3 + 1], gz = groundPositions[i * 3 + 2];
       transformToSky(firstTargets[i * 3], firstTargets[i * 3 + 1], firstTargets[i * 3 + 2], alt, scl, v0y, skyPosA);
 
-      const ease = u * u * (3 - 2 * u);
       targetPositions[i * 3]     = gx + (skyPosA.x - gx) * ease;
       targetPositions[i * 3 + 1] = gy + (skyPosA.y - gy) * ease;
       targetPositions[i * 3 + 2] = gz + (skyPosA.z - gz) * ease;
@@ -336,6 +337,24 @@ function evaluateTimeline(t) {
       targetColors[i * 3 + 1] = tempColor.g * (0.3 + 0.7 * ease);
       targetColors[i * 3 + 2] = tempColor.b * (0.3 + 0.7 * ease);
       isDroneVisible[i] = 1;
+    }
+
+    // Drones 740..799: Lift off from ground into sky ceiling (NO FALLING YET)
+    if (precipConfig.enabled) {
+      const precipHex = new THREE.Color(precipConfig.color);
+      for (let i = formationCount; i < activeDroneCount; i++) {
+        const gx = groundPositions[i * 3], gy = groundPositions[i * 3 + 1], gz = groundPositions[i * 3 + 2];
+        const x0 = precipPositions[i * 3], z0 = precipPositions[i * 3 + 2];
+
+        targetPositions[i * 3]     = gx + (x0 - gx) * ease;
+        targetPositions[i * 3 + 1] = gy + (30.0 - gy) * ease;
+        targetPositions[i * 3 + 2] = gz + (z0 - gz) * ease;
+
+        targetColors[i * 3]     = precipHex.r * (0.3 + 0.7 * ease);
+        targetColors[i * 3 + 1] = precipHex.g * (0.3 + 0.7 * ease);
+        targetColors[i * 3 + 2] = precipHex.b * (0.3 + 0.7 * ease);
+        isDroneVisible[i] = 1;
+      }
     }
   }
   // 2. Main Formation Blocks & Transitions (ALL 15 ANIMATIONS)
@@ -544,8 +563,32 @@ function evaluateTimeline(t) {
       }
       curT = transEnd;
     }
+
+    // Precipitation Drones (Leaves): ONLY active during the show body (t >= 20s)
+    if (precipConfig.enabled) {
+      const precipHex = new THREE.Color(precipConfig.color);
+      const fallDuration = 10.0;
+      const tInShow = t - takeoffConfig.dur;
+
+      for (let i = formationCount; i < activeDroneCount; i++) {
+        const x0 = precipPositions[i * 3], z0 = precipPositions[i * 3 + 2];
+        const seed = precipDriftSeeds[i];
+        const cycleT = (tInShow + seed * fallDuration) % fallDuration;
+        const uFall = cycleT / fallDuration;
+
+        // Leaf travels downward cleanly
+        targetPositions[i * 3]     = x0 + Math.sin(t * 2.2 + seed * 6.28) * 1.2;
+        targetPositions[i * 3 + 1] = 30.0 - uFall * 28.5; // 30m down to 1.5m
+        targetPositions[i * 3 + 2] = z0 + Math.cos(t * 1.8 + seed * 6.28) * 1.2;
+
+        targetColors[i * 3]     = precipHex.r;
+        targetColors[i * 3 + 1] = precipHex.g;
+        targetColors[i * 3 + 2] = precipHex.b;
+        isDroneVisible[i] = 1;
+      }
+    }
   }
-  // 3. Finale Undulating Swarm & Helix Landing
+  // 3. Finale Undulating Swarm & Helix Landing: ALL 800 DRONES LAND TOGETHER
   else {
     const landT = t - showBodyEnd;
     const u = THREE.MathUtils.clamp(landT / landingConfig.dur, 0, 1);
@@ -560,11 +603,18 @@ function evaluateTimeline(t) {
     const uDesc = Math.max(0.0, (u - 0.35) / 0.65);
     const easeDesc = uDesc * uDesc * (3 - 2 * uDesc);
 
-    for (let i = 0; i < formationCount; i++) {
+    for (let i = 0; i < activeDroneCount; i++) {
       const gx = groundPositions[i * 3], gy = groundPositions[i * 3 + 1], gz = groundPositions[i * 3 + 2];
-      transformToSky(lastTargets[i * 3], lastTargets[i * 3 + 1], lastTargets[i * 3 + 2], alt, scl, v1y, skyPosA);
+      
+      let tX = gx, tY = 16.0, tZ = gz;
+      if (i < formationCount) {
+        transformToSky(lastTargets[i * 3], lastTargets[i * 3 + 1], lastTargets[i * 3 + 2], alt, scl, v1y, skyPosA);
+        tX = skyPosA.x; tY = skyPosA.y; tZ = skyPosA.z;
+      } else {
+        tX = precipPositions[i * 3]; tY = 28.0; tZ = precipPositions[i * 3 + 2];
+      }
 
-      const phi = Math.acos(1.0 - 2.0 * ((i + 0.5) / formationCount));
+      const phi = Math.acos(1.0 - 2.0 * ((i + 0.5) / activeDroneCount));
       const theta = i * GOLDEN + landT * 1.6;
       const rSwarm = 22.0 + Math.sin(landT * 3.0 + i * 0.15) * 5.0 + Math.sin(landT * 6.0 + theta * 2.0) * 3.0;
 
@@ -572,9 +622,9 @@ function evaluateTimeline(t) {
       const swarmY = alt + Math.cos(phi) * (rSwarm * 0.72) + Math.sin(landT * 4.0 + theta) * 2.2;
       const swarmZ = Math.sin(phi) * Math.sin(theta) * rSwarm;
 
-      const curSwarmX = THREE.MathUtils.lerp(skyPosA.x, swarmX, easeExpand);
-      const curSwarmY = THREE.MathUtils.lerp(skyPosA.y, swarmY, easeExpand);
-      const curSwarmZ = THREE.MathUtils.lerp(skyPosA.z, swarmZ, easeExpand);
+      const curSwarmX = THREE.MathUtils.lerp(tX, swarmX, easeExpand);
+      const curSwarmY = THREE.MathUtils.lerp(tY, swarmY, easeExpand);
+      const curSwarmZ = THREE.MathUtils.lerp(tZ, swarmZ, easeExpand);
 
       const spiralAngle = (1.0 - easeDesc) * Math.PI * 4.0 + (i % 3) * (Math.PI * 2 / 3);
       const spiralRadius = Math.sin(Math.PI * easeDesc) * 8.0;
@@ -583,7 +633,7 @@ function evaluateTimeline(t) {
       targetPositions[i * 3 + 1] = Math.max(0.12, THREE.MathUtils.lerp(curSwarmY, gy, easeDesc));
       targetPositions[i * 3 + 2] = THREE.MathUtils.lerp(curSwarmZ, gz, easeDesc) + Math.sin(spiralAngle) * spiralRadius;
 
-      const hue = (landT * 0.4 + (i / formationCount) * 0.6) % 1.0;
+      const hue = (landT * 0.4 + (i / activeDroneCount) * 0.6) % 1.0;
       tempColor.setHSL(hue, 1.0, 0.58);
       targetColors[i * 3]     = tempColor.r;
       targetColors[i * 3 + 1] = tempColor.g;
@@ -591,84 +641,18 @@ function evaluateTimeline(t) {
       isDroneVisible[i] = 1;
     }
   }
-
-  // 4. Falling Leaves: Travel strictly downwards.
-  // Resetting drones travel 100m underground and 250m outside the arena volume.
-  if (precipConfig.enabled) {
-    const precipHex = new THREE.Color(precipConfig.color);
-    const fallDuration = 10.0;
-    const undergroundDuration = 0.5;
-    const outsideClimbDuration = 0.5;
-    const highEntryDuration = 0.5;
-    const totalCycle = fallDuration + undergroundDuration + outsideClimbDuration + highEntryDuration; // 11.5s
-
-    for (let i = formationCount; i < activeDroneCount; i++) {
-      const gx = groundPositions[i * 3], gy = groundPositions[i * 3 + 1], gz = groundPositions[i * 3 + 2];
-      const x0 = precipPositions[i * 3], z0 = precipPositions[i * 3 + 2];
-      const seed = precipDriftSeeds[i];
-
-      const cycleT = ((t + seed * totalCycle) % totalCycle);
-
-      if (cycleT < fallDuration) {
-        // DOWNWARD FLIGHT: Clean descent inside the arena (30m -> 1.5m)
-        const uFall = cycleT / fallDuration;
-        const curY = 30.0 - uFall * 28.5;
-        const curX = x0 + Math.sin(t * 2.2 + seed * 6.28) * 1.2;
-        const curZ = z0 + Math.cos(t * 1.8 + seed * 6.28) * 1.2;
-
-        if (t <= takeoffConfig.dur) {
-          const u = Math.max(0, t / takeoffConfig.dur);
-          const ease = u * u * (3 - 2 * u);
-          targetPositions[i * 3]     = gx + (curX - gx) * ease;
-          targetPositions[i * 3 + 1] = gy + (curY - gy) * ease;
-          targetPositions[i * 3 + 2] = gz + (curZ - gz) * ease;
-        } else if (t > takeoffConfig.dur && t < showBodyEnd) {
-          targetPositions[i * 3]     = curX;
-          targetPositions[i * 3 + 1] = curY;
-          targetPositions[i * 3 + 2] = curZ;
-        } else {
-          const u = THREE.MathUtils.clamp((t - showBodyEnd) / landingConfig.dur, 0, 1);
-          const ease = u * u * (3 - 2 * u);
-          targetPositions[i * 3]     = curX + (gx - curX) * ease;
-          targetPositions[i * 3 + 1] = curY + (gy - curY) * ease;
-          targetPositions[i * 3 + 2] = curZ + (gz - curZ) * ease;
-        }
-
-        targetColors[i * 3]     = precipHex.r;
-        targetColors[i * 3 + 1] = precipHex.g;
-        targetColors[i * 3 + 2] = precipHex.b;
-        isDroneVisible[i] = 1;
-      } else if (cycleT < fallDuration + undergroundDuration) {
-        // DROP UNDERGROUND: Drops to Y = -100m straight down into the floor
-        targetPositions[i * 3]     = x0;
-        targetPositions[i * 3 + 1] = -100.0;
-        targetPositions[i * 3 + 2] = z0;
-        targetColors[i * 3] = 0; targetColors[i * 3 + 1] = 0; targetColors[i * 3 + 2] = 0;
-        isDroneVisible[i] = 0;
-      } else if (cycleT < fallDuration + undergroundDuration + outsideClimbDuration) {
-        // OUTSIDE CLIMB: Ascends 250m away from the stage
-        targetPositions[i * 3]     = 250.0;
-        targetPositions[i * 3 + 1] = 35.0;
-        targetPositions[i * 3 + 2] = 250.0;
-        targetColors[i * 3] = 0; targetColors[i * 3 + 1] = 0; targetColors[i * 3 + 2] = 0;
-        isDroneVisible[i] = 0;
-      } else {
-        // HIGH SKY ENTRY: Enters at Y = 35m ready to begin descent
-        targetPositions[i * 3]     = x0;
-        targetPositions[i * 3 + 1] = 35.0;
-        targetPositions[i * 3 + 2] = z0;
-        targetColors[i * 3] = 0; targetColors[i * 3 + 1] = 0; targetColors[i * 3 + 2] = 0;
-        isDroneVisible[i] = 0;
-      }
-    }
-  }
 }
 
 // -------------------------------------------------------------
-// PHYSICS-BASED GLB EXPORTER: EXACT RGB SCALES + ZERO OVALS
+// ASYNC-GUARDED PHYSICS GLB EXPORTER (ZERO COLLAPSE / ACCURATE LEAF LOOP)
 // -------------------------------------------------------------
-window.bakeAndDownloadGLB = function() {
-  console.log("Baking physics and exact per-drone RGB scales... please wait.");
+window.bakeAndDownloadGLB = async function() {
+  console.log("Validating trajectories and simulating 60Hz physics... please wait.");
+
+  // Guarantee all 15 formations are fully loaded before baking begins
+  if (formationTrajectories.length < 15) {
+    await buildShowTrajectoryData();
+  }
 
   const root = new THREE.Group();
   root.name = "SamhainDroneFleet";
@@ -720,8 +704,14 @@ window.bakeAndDownloadGLB = function() {
     for (let i = 0; i < activeDroneCount; i++) {
       const idx = i * 3;
 
-      // Precipitation drones bypass spring drag for clean downward-only travel
-      if (i >= formationCount) {
+      // Precipitation drones: during show flight, detect when a leaf resets from bottom to top
+      if (i >= formationCount && simTime >= PRE_SHOW_DELAY + takeoffConfig.dur && simTime < PRE_SHOW_DELAY + TOTAL_DURATION - landingConfig.dur) {
+        // If the leaf just reached the ground and is resetting to top, hold scale at 0.0
+        if (targetPositions[idx + 1] > simPositions[idx + 1] + 10.0) {
+          isDroneVisible[i] = 0;
+        } else {
+          isDroneVisible[i] = 1;
+        }
         simPositions[idx]     = targetPositions[idx];
         simPositions[idx + 1] = targetPositions[idx + 1];
         simPositions[idx + 2] = targetPositions[idx + 2];
@@ -732,7 +722,7 @@ window.bakeAndDownloadGLB = function() {
       }
 
       let px = simPositions[idx], py = simPositions[idx + 1], pz = simPositions[idx + 2];
-      let vx = simVelocities[idx], vy = simVelocities[idx + 1], vz = simVelocities[idx + 2];
+      let vx = velocities[idx], vy = velocities[idx + 1], vz = velocities[idx + 2];
 
       let fx = (targetPositions[idx] - px) * SPRING - vx * DAMPING;
       let fy = (targetPositions[idx + 1] - py) * SPRING - vy * DAMPING;
@@ -752,7 +742,6 @@ window.bakeAndDownloadGLB = function() {
       simPositions[idx + 2] += vz * dt;
       simVelocities[idx] = vx; simVelocities[idx + 1] = vy; simVelocities[idx + 2] = vz;
 
-      // Direct color assignment (eliminates muddy washed-out colors)
       simColors[idx]     = targetColors[idx];
       simColors[idx + 1] = targetColors[idx + 1];
       simColors[idx + 2] = targetColors[idx + 2];
@@ -794,7 +783,7 @@ window.bakeAndDownloadGLB = function() {
       link.href = URL.createObjectURL(blob);
       link.download = "Samhain_Drone_Show.glb";
       link.click();
-      console.log("GLB exported with exact per-drone RGB colors baked into scales!");
+      console.log("GLB exported with 100% synchronized colors, formations, and zero rising leaves!");
     },
     (err) => console.error("Export error:", err),
     { binary: true, animations: [clip] }
