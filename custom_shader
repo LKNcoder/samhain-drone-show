@@ -52,25 +52,30 @@ Shader "Custom/DroneSamhainEmissive"
                 float4x4 M = GetObjectToWorldMatrix();
                 float3 worldCenter = mul(M, float4(0.0, 0.0, 0.0, 1.0)).xyz;
 
-                // 2. Add unscaled sphere vertices directly (always round 0.25m spheres)
-                float3 worldPos = worldCenter + input.positionOS.xyz;
-                output.positionCS = TransformWorldToHClip(worldPos);
-
-                // 3. Extract unnormalized (R, G, B) scale track from matrix columns
+                // 2. Extract unnormalized (R, G, B) scale track from matrix columns
                 float3 col0 = float3(M._m00, M._m10, M._m20);
                 float3 col1 = float3(M._m01, M._m11, M._m21);
                 float3 col2 = float3(M._m02, M._m12, M._m22);
 
-                output.colorRGB = float3(length(col0), length(col1), length(col2));
+                float sX = length(col0);
+                float sY = length(col1);
+                float sZ = length(col2);
+                float maxScale = max(sX, max(sY, sZ));
+
+                // 3. If scale is near zero (leaf resetting), collapse vertices to zero area
+                float isVisible = step(0.04, maxScale);
+                float3 worldPos = worldCenter + (input.positionOS.xyz * isVisible);
+
+                output.positionCS = TransformWorldToHClip(worldPos);
+                output.colorRGB   = float3(sX, sY, sZ);
 
                 return output;
             }
 
             half4 frag(Varyings input) : SV_Target
             {
-                // Discard pixels when leaf drones are resetting
                 half maxVal = max(input.colorRGB.r, max(input.colorRGB.g, input.colorRGB.b));
-                if (maxVal < 0.03)
+                if (maxVal < 0.04)
                 {
                     discard;
                 }
