@@ -105,75 +105,63 @@ function resampleEquidistant(orderedPts, targetCount) {
   return resampled;
 }
 
-// Full 18-meter procedural vector fallbacks (guarantees no circle collapse)
+// Procedural 18-meter open generators: bold symbols without circular frames
 function generateProceduralShape(tileNum, out, count, swatchOut, altitude) {
   for (let i = 0; i < count; i++) {
     const u = i / count;
     let x = 0, y = altitude, z = 0, swatch = 0;
 
     switch (tileNum) {
-      case 29: { // Celtic Knot (Triquetra 3-leaf loops)
+      case 29: { // Celtic Knot: 3 bold interlaced petals (18m wide)
         const tLoop = u * Math.PI * 6.0;
-        const rKnot = 8.5 * (1.0 + 0.45 * Math.sin(3.0 * (u * Math.PI * 2.0)));
+        const rKnot = 8.5 * (1.0 + 0.5 * Math.sin(3.0 * (u * Math.PI * 2.0)));
         x = Math.cos(tLoop) * rKnot;
         y = altitude + Math.sin(tLoop) * rKnot;
         swatch = (y > altitude) ? 1 : 0;
         break;
       }
-      case 30: { // Sigil (Pentacle star inside outer ring)
-        if (u < 0.45) {
-          const theta = (u / 0.45) * Math.PI * 2.0;
-          x = Math.cos(theta) * 9.0;
-          y = altitude + Math.sin(theta) * 9.0;
-          swatch = 0;
-        } else {
-          const starT = ((u - 0.45) / 0.55) * 5.0;
-          const seg = Math.floor(starT) % 5;
-          const f = starT - Math.floor(starT);
-          const order = [0, 2, 4, 1, 3, 0];
-          const a1 = order[seg] * (Math.PI * 2 / 5) - Math.PI / 2;
-          const a2 = order[seg + 1] * (Math.PI * 2 / 5) - Math.PI / 2;
-          x = Math.cos(a1) * 8.5 + (Math.cos(a2) * 8.5 - Math.cos(a1) * 8.5) * f;
-          y = altitude + Math.sin(a1) * 8.5 + (Math.sin(a2) * 8.5 - Math.sin(a1) * 8.5) * f;
-          swatch = 1;
-        }
+      case 30: { // Sigil: Open 5-point star (18m wide, no bounding circle)
+        const starT = u * 5.0;
+        const seg = Math.floor(starT) % 5;
+        const f = starT - Math.floor(starT);
+        const order = [0, 2, 4, 1, 3, 0];
+        const a1 = order[seg] * (Math.PI * 2 / 5) - Math.PI / 2;
+        const a2 = order[seg + 1] * (Math.PI * 2 / 5) - Math.PI / 2;
+        x = Math.cos(a1) * 9.0 + (Math.cos(a2) * 9.0 - Math.cos(a1) * 9.0) * f;
+        y = altitude + Math.sin(a1) * 9.0 + (Math.sin(a2) * 9.0 - Math.sin(a1) * 9.0) * f;
+        swatch = 1;
         break;
       }
-      case 31: { // Solar Wheel (Center disc + 8 radiating spokes + rim)
-        if (u < 0.4) {
-          const theta = (u / 0.4) * Math.PI * 2.0;
-          x = Math.cos(theta) * 9.0;
-          y = altitude + Math.sin(theta) * 9.0;
-          swatch = 1;
-        } else if (u < 0.65) {
-          const theta = ((u - 0.4) / 0.25) * Math.PI * 2.0;
+      case 31: { // Solar Wheel: 8 radiant expanding sun rays (18m wide)
+        if (u < 0.25) {
+          const theta = (u / 0.25) * Math.PI * 2.0;
           x = Math.cos(theta) * 3.5;
           y = altitude + Math.sin(theta) * 3.5;
           swatch = 0;
         } else {
-          const spokeIdx = Math.floor(((u - 0.65) / 0.35) * 8);
-          const spokeF = (((u - 0.65) / 0.35) * 8) - spokeIdx;
+          const spokeIdx = Math.floor(((u - 0.25) / 0.75) * 8);
+          const spokeF = (((u - 0.25) / 0.75) * 8) - spokeIdx;
           const theta = spokeIdx * (Math.PI / 4);
           const rad = 3.5 + spokeF * 5.5;
           x = Math.cos(theta) * rad;
           y = altitude + Math.sin(theta) * rad;
-          swatch = 0;
+          swatch = 1;
         }
         break;
       }
-      case 33: { // Deer Head (Head, ears, and branching antlers - PURPLE)
-        if (u < 0.35) {
+      case 33: { // DEER HEAD: Large stag with branching antlers (18m wide, PURPLE)
+        if (u < 0.35) { // Snout & jaw
           const tH = (u / 0.35) * Math.PI * 2.0;
           x = Math.sin(tH) * 3.2;
           y = altitude - 4.5 + Math.cos(tH) * 5.0;
           swatch = 0;
-        } else if (u < 0.50) {
+        } else if (u < 0.50) { // Ears
           const sign = (u < 0.425) ? -1 : 1;
           const tE = ((u - 0.35) % 0.075) / 0.075;
           x = sign * (2.8 + tE * 3.0);
           y = altitude + 0.8 + Math.sin(tE * Math.PI) * 2.5;
           swatch = 0;
-        } else {
+        } else { // Antlers
           const sign = (u < 0.75) ? -1 : 1;
           const tA = ((u - 0.5) % 0.25) / 0.25;
           const mainX = sign * (1.6 + Math.pow(tA, 0.8) * 7.5);
@@ -185,28 +173,28 @@ function generateProceduralShape(tileNum, out, count, swatchOut, altitude) {
         }
         break;
       }
-      case 34: { // Cross (Celtic High Cross with halo ring - TEAL)
-        if (u < 0.45) {
-          const theta = (u / 0.45) * Math.PI * 2.0;
-          x = Math.cos(theta) * 5.2;
-          y = altitude + 1.8 + Math.sin(theta) * 5.2;
+      case 34: { // CROSS: Celtic High Cross (18m tall, 14m wide, TEAL)
+        if (u < 0.35) { // Central halo ring
+          const theta = (u / 0.35) * Math.PI * 2.0;
+          x = Math.cos(theta) * 4.5;
+          y = altitude + 1.8 + Math.sin(theta) * 4.5;
           swatch = 1;
-        } else if (u < 0.75) {
-          const tV = (u - 0.45) / 0.30;
-          x = (Math.sin(tV * 30.0) > 0 ? 1 : -1) * 1.3;
+        } else if (u < 0.70) { // Vertical beam
+          const tV = (u - 0.35) / 0.35;
+          x = (Math.sin(tV * 35.0) > 0 ? 1 : -1) * 1.3;
           y = altitude - 7.5 + tV * 17.0;
           swatch = 0;
-        } else {
-          const tH = (u - 0.75) / 0.25;
-          x = -7.5 + tH * 15.0;
-          y = altitude + 1.8 + (Math.sin(tH * 30.0) > 0 ? 1 : -1) * 1.2;
+        } else { // Horizontal crossbar
+          const tH = (u - 0.70) / 0.30;
+          x = -7.0 + tH * 14.0;
+          y = altitude + 1.8 + (Math.sin(tH * 35.0) > 0 ? 1 : -1) * 1.2;
           swatch = 0;
         }
         break;
       }
       default: {
         const theta = i * GOLDEN;
-        const r = Math.sqrt((i + 0.5) / count) * 9.0;
+        const r = Math.sqrt((i + 0.5) / count) * 8.5;
         x = Math.cos(theta) * r;
         y = altitude + Math.sin(theta) * r;
         swatch = 0;
@@ -237,8 +225,9 @@ export function sampleImageToDrones(imgElement, out, count, swatchOut, scale = 0
   const cornerAlpha = (imgData[3] + imgData[511 * 4 + 3] + imgData[(511 * 512) * 4 + 3]) / 3;
   const isTransparentBg = cornerAlpha < 50;
 
-  for (let y = 10; y < 502; y++) {
-    for (let x = 10; x < 502; x++) {
+  // Crop outer 16 pixels to filter out square tile borders and enclosing rings
+  for (let y = 16; y < 496; y++) {
+    for (let x = 16; x < 496; x++) {
       const idx = (y * 512 + x) * 4;
       const r = imgData[idx], g = imgData[idx + 1], b = imgData[idx + 2], a = imgData[idx + 3];
       const lum = r * 0.299 + g * 0.587 + b * 0.114;
@@ -257,20 +246,17 @@ export function sampleImageToDrones(imgElement, out, count, swatchOut, scale = 0
   const spanY = maxY - minY;
   const maxSpan = Math.max(spanX, spanY);
 
-  // If image contrast is too low or bounds are tiny, fall back to procedural geometry
-  if (maxSpan < 60 || !isFinite(minX)) {
+  if (maxSpan < 70 || !isFinite(minX)) {
     generateProceduralShape(tileNum, out, count, swatchOut, altitude);
     return;
   }
 
-  // Normalize shape so it reliably spans 18 meters wide
   const autoScale = 18.0 / maxSpan;
-
   const visited = new Uint8Array(512 * 512);
   const islands = [];
 
-  for (let y = 10; y < 502; y++) {
-    for (let x = 10; x < 502; x++) {
+  for (let y = 16; y < 496; y++) {
+    for (let x = 16; x < 496; x++) {
       const idx = y * 512 + x;
       if (binary[idx] === 1 && !visited[idx]) {
         const islandPixels = [];
@@ -287,7 +273,7 @@ export function sampleImageToDrones(imgElement, out, count, swatchOut, scale = 0
           ];
 
           for (const n of neighbors) {
-            if (n.x >= 10 && n.x < 502 && n.y >= 10 && n.y < 502) {
+            if (n.x >= 16 && n.x < 496 && n.y >= 16 && n.y < 496) {
               const nIdx = n.y * 512 + n.x;
               if (binary[nIdx] === 1 && !visited[nIdx]) {
                 visited[nIdx] = 1;
@@ -297,7 +283,7 @@ export function sampleImageToDrones(imgElement, out, count, swatchOut, scale = 0
           }
         }
 
-        if (islandPixels.length >= 6) {
+        if (islandPixels.length >= 8) {
           const edge = [];
           for (const p of islandPixels) {
             const top   = binary[(p.y - 1) * 512 + p.x];
