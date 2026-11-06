@@ -3,6 +3,7 @@ Shader "Custom/DroneSamhainEmissive"
     Properties
     {
         _BaseIntensity ("Emission Brightness", Range(0.5, 3.0)) = 1.0
+        _DroneRadiusScale ("Drone Size Multiplier", Range(0.2, 3.0)) = 1.0
     }
 
     SubShader
@@ -42,6 +43,7 @@ Shader "Custom/DroneSamhainEmissive"
 
             CBUFFER_START(UnityPerMaterial)
                 float _BaseIntensity;
+                float _DroneRadiusScale;
             CBUFFER_END
 
             Varyings vert(Attributes input)
@@ -62,12 +64,15 @@ Shader "Custom/DroneSamhainEmissive"
                 float sZ = length(col2);
                 float maxScale = max(sX, max(sY, sZ));
 
-                // 3. If scale is near zero (leaf resetting), collapse vertices to zero area
+                // 3. If scale is near zero (leaf rising invisibly), collapse vertices to zero area
                 float isVisible = step(0.04, maxScale);
-                float3 worldPos = worldCenter + (input.positionOS.xyz * isVisible);
+                float3 worldPos = worldCenter + (input.positionOS.xyz * (_DroneRadiusScale * isVisible));
+
+                // 4. Subtract the 0.002 minimum scale epsilon so zero color channels are pure 0.0
+                float3 decodedRGB = max(0.0, float3(sX, sY, sZ) - 0.002);
 
                 output.positionCS = TransformWorldToHClip(worldPos);
-                output.colorRGB   = float3(sX, sY, sZ);
+                output.colorRGB   = decodedRGB;
 
                 return output;
             }
@@ -75,7 +80,7 @@ Shader "Custom/DroneSamhainEmissive"
             half4 frag(Varyings input) : SV_Target
             {
                 half maxVal = max(input.colorRGB.r, max(input.colorRGB.g, input.colorRGB.b));
-                if (maxVal < 0.04)
+                if (maxVal < 0.03)
                 {
                     discard;
                 }
