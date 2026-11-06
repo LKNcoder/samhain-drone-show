@@ -79,7 +79,7 @@ body.xr-active #hud { display: none !important; }
 <div id="hud">
   <button id="btn-play">Pause</button>
   <select id="scene-select" title="Jump to Formation"></select>
-  <input id="time-scrub" type="range" min="0" max="170" step="0.1" value="0">
+  <input id="time-scrub" type="range" min="0" max="206" step="0.1" value="0">
   <span id="hud-status">Loading formations...</span>
   <button id="btn-export" class="primary">Export GLB</button>
 </div>
@@ -194,6 +194,7 @@ function initPrecipPositions() {
     precipPositions[i * 3]     = Math.cos(angle) * r;
     precipPositions[i * 3 + 1] = 1.5 + ((i * 37) % 100) / 100.0 * 28.5;
     precipPositions[i * 3 + 2] = Math.sin(angle) * r;
+    // Stratified phase seed so leaves are evenly distributed across the fall/rise cycle
     if (i >= formationCount && i < activeDroneCount) {
       precipDriftSeeds[i] = ((i - formationCount) + 0.5) / precipConfig.count;
     } else {
@@ -254,23 +255,32 @@ function assignMinimalPaths(currentPos, rawTargets, rawSwatches, count) {
   return { positions: assigned, swatches: assignedSwatches };
 }
 
-// 15 Samhain Formations with anatomically mapped multi-swatch palettes
+// 19 Samhain Formations in a cohesive narrative sequence with multi-swatch anatomical palettes
 const SHOW_SCENES = [
-  { tNum: 16, name: "1. Wheat",        palette: ["#ffd54f", "#9c5628", "#fff176"], motion: "vortex" },
-  { tNum: 25, name: "2. Scythe",       palette: ["#b0bec5", "#9c5628", "#ffb300"], motion: "cascade_wave" },
-  { tNum: 28, name: "3. Leaf & Acorn", palette: ["#e51c23", "#794022", "#d4883a"], motion: "celtic_swirl" },
-  { tNum: 26, name: "4. Tree",         palette: ["#794022", "#b8652a", "#ffb74d"], motion: "explosion" },
-  { tNum: 27, name: "5. Owl",          palette: ["#ffffff", "#ffab00", "#8d4e28"], motion: "helix" },
-  { tNum: 18, name: "6. Pumpkin",      palette: ["#ff6d00", "#00e676", "#ff9100"], motion: "vortex" },
-  { tNum: 24, name: "7. Candle",       palette: ["#ffffff", "#ff2a00", "#ffb300", "#ffee58"], motion: "explosion" },
-  { tNum: 19, name: "8. Ghost",        palette: ["#ffffff", "#80d8ff"], motion: "celtic_swirl" },
-  { tNum: 32, name: "9. Key",          palette: ["#ffd700", "#ff9100"], motion: "helix" },
-  { tNum: 29, name: "10. Knot",        palette: ["#00e676", "#00b0ff"], motion: "cascade_wave" },
-  { tNum: 30, name: "11. Sigil",       palette: ["#ff1744", "#ff9100"], motion: "vortex" },
-  { tNum: 31, name: "12. Triskelion",  palette: ["#ffd54f", "#ff6d00"], motion: "celtic_swirl" },
-  { tNum: 33, name: "13. Deer Head",   palette: ["#9c27b0", "#e040fb", "#ffd54f"], motion: "helix" },
-  { tNum: 34, name: "14. Cross",       palette: ["#00bfa5", "#00e5ff"], motion: "celtic_swirl" },
-  { tNum: 17, name: "15. Finale",      palette: ["#ffffff", "#ffd54f", "#ff6d00", "#d50000"], motion: "vortex", isLast: true }
+  // Act I: The Autumn Harvest
+  { tNum: 16, name: "1. Wheat",         palette: ["#ffd54f", "#9c5628", "#fff176"], motion: "vortex" },
+  { tNum: 25, name: "2. Scythe",        palette: ["#b0bec5", "#9c5628", "#ffb300"], motion: "cascade_wave" },
+  { tNum: 28, name: "3. Leaf & Acorn",  palette: ["#e51c23", "#794022", "#d4883a"], motion: "celtic_swirl" },
+  { tNum: 26, name: "4. Tree",          palette: ["#794022", "#b8652a", "#ffb74d"], motion: "explosion" },
+  // Act II: Guardians of the Night Sky
+  { tNum: 27, name: "5. Owl",           palette: ["#ffffff", "#ffab00", "#8d4e28"], motion: "winged_sweep" },
+  { tNum: 20, name: "6. Raven",         palette: ["#2979ff", "#ffd600", "#9c5628", "#00e5ff"], motion: "helix" },
+  // Act III: The Samhain Hearth & Witchcraft
+  { tNum: 18, name: "7. Pumpkin",       palette: ["#ff6d00", "#00e676", "#ff9100"], motion: "vortex" },
+  { tNum: 24, name: "8. Candle",        palette: ["#ffffff", "#ff2a00", "#ffb300", "#ffee58"], motion: "fire_spiral" },
+  { tNum: 21, name: "9. Cauldron",      palette: ["#2979ff", "#ffffff", "#ff2a00", "#9c5628", "#ffee58"], motion: "cauldron_vortex" },
+  { tNum: 23, name: "10. Witch",        palette: ["#00e676", "#ffffff", "#9c5628", "#d4883a", "#ffffff"], motion: "lunar_arc" },
+  { tNum: 32, name: "11. Key",          palette: ["#ffd700", "#ff9100"], motion: "celtic_swirl" },
+  // Act IV: Beyond the Veil
+  { tNum: 19, name: "12. Ghost",        palette: ["#ffffff", "#80d8ff"], motion: "cascade_wave" },
+  { tNum: 22, name: "13. Skull",        palette: ["#ffffff", "#e51c23", "#8d4e28", "#ffb300", "#90a4ae"], motion: "explosion" },
+  // Act V: Sacred Celtic Lore & Samhain Blessing
+  { tNum: 29, name: "14. Knot",         palette: ["#00e676", "#00b0ff"], motion: "celtic_swirl" },
+  { tNum: 30, name: "15. Sigil",        palette: ["#ff1744", "#ff9100"], motion: "vortex" },
+  { tNum: 31, name: "16. Triskelion",   palette: ["#ffd54f", "#ff6d00"], motion: "helix" },
+  { tNum: 33, name: "17. Deer Head",    palette: ["#9c27b0", "#e040fb", "#ffd54f"], motion: "winged_sweep" },
+  { tNum: 34, name: "18. Cross",        palette: ["#00bfa5", "#00e5ff"], motion: "celtic_swirl" },
+  { tNum: 17, name: "19. Finale",       palette: ["#ffffff", "#ffd54f", "#ff6d00", "#d50000"], motion: "vortex", isLast: true }
 ];
 
 const timelineData = {
@@ -290,7 +300,7 @@ const timelineData = {
   }))
 };
 
-let TOTAL_DURATION = 170.0;
+let TOTAL_DURATION = 206.0;
 function recalculateTimelineDuration() {
   let formTotal = 0;
   for (const b of timelineData.formationBlocks) formTotal += b.dur + (b.transDur || 0);
@@ -378,6 +388,9 @@ const skyPosA = new THREE.Vector3();
 const skyPosB = new THREE.Vector3();
 const localScratchPoints = new Float32Array(MAX_DRONES * 3);
 
+// Continuous physical 2-phase leaf cycle:
+// Phase 1 (0 <= cyclePhase < FALL_FRAC): drifts downward from 30m to 1.5m (visible in 0.06 <= uFall <= 0.92).
+// Phase 2 (FALL_FRAC <= cyclePhase < 1.0): physically flies back up from 1.5m to 30m (100% invisible).
 const LEAF_FALL_DUR = 9.0;
 const LEAF_RISE_DUR = 4.0;
 const LEAF_CYCLE_DUR = LEAF_FALL_DUR + LEAF_RISE_DUR;
@@ -390,12 +403,14 @@ function evaluateLeafDrone(i, tInShow, outPos, outColor, outVis) {
   const cyclePhase = ((tInShow / LEAF_CYCLE_DUR) + seed) % 1.0;
 
   if (cyclePhase < LEAF_FALL_FRAC) {
-    const uFall = cyclePhase / LEAF_FALL_FRAC;
+    const uFall = cyclePhase / LEAF_FALL_FRAC; // 0.0 at ceiling (30m) -> 1.0 at ground (1.5m)
     const swayPhase = uFall * Math.PI * 3.0 + seed * Math.PI * 2.0;
     outPos[i * 3]     = x0 + Math.sin(swayPhase) * 1.5;
     outPos[i * 3 + 1] = 30.0 - uFall * 28.5;
     outPos[i * 3 + 2] = z0 + Math.cos(swayPhase * 0.85) * 1.5;
 
+    // Buffer zones at top (uFall < 0.06) and bottom (uFall > 0.92) ensure the drone
+    // is completely dark/zero-scale before reversing vertical direction.
     if (uFall >= 0.06 && uFall <= 0.92) {
       const c = leafColors[i % leafColors.length];
       outColor[i * 3]     = c.r;
@@ -409,6 +424,7 @@ function evaluateLeafDrone(i, tInShow, outPos, outColor, outVis) {
       outVis[i] = 0;
     }
   } else {
+    // Physical upward return flight: completely invisible (dark in preview, 0 scale in GLB)
     const uRise = (cyclePhase - LEAF_FALL_FRAC) / (1.0 - LEAF_FALL_FRAC);
     const easeRise = uRise * uRise * (3.0 - 2.0 * uRise);
     const endSway = Math.PI * 3.0 + seed * Math.PI * 2.0;
@@ -434,6 +450,7 @@ function evaluateTimeline(t) {
   const showBodyEnd = TOTAL_DURATION - landingConfig.dur;
   if (formationTrajectories.length === 0) return;
 
+  // 1. Takeoff Phase: Drones lift off from ground pad into formation 1 & initial leaf cycle positions
   if (t <= takeoffConfig.dur) {
     activePhaseLabel = "Takeoff";
     const u = Math.max(0, t / takeoffConfig.dur);
@@ -463,6 +480,7 @@ function evaluateTimeline(t) {
       isDroneVisible[i] = 1;
     }
 
+    // Precipitation Drones: Ascend invisibly from ground pad into their tInShow=0 cycle positions
     if (precipConfig.enabled) {
       for (let i = formationCount; i < activeDroneCount; i++) {
         const gx = groundPositions[i * 3], gy = groundPositions[i * 3 + 1], gz = groundPositions[i * 3 + 2];
@@ -472,6 +490,7 @@ function evaluateTimeline(t) {
         targetPositions[i * 3]     = gx + (tx - gx) * ease;
         targetPositions[i * 3 + 1] = gy + (ty - gy) * ease;
         targetPositions[i * 3 + 2] = gz + (tz - gz) * ease;
+        // Keep rising leaf drones dark during takeoff so they only appear as they drift down
         targetColors[i * 3]     = 0.0;
         targetColors[i * 3 + 1] = 0.0;
         targetColors[i * 3 + 2] = 0.0;
@@ -479,6 +498,7 @@ function evaluateTimeline(t) {
       }
     }
   }
+  // 2. Main Formation Blocks & Transitions (All 19 Formations)
   else if (t > takeoffConfig.dur && t < showBodyEnd) {
     const showT = t - takeoffConfig.dur;
     let curT = 0;
@@ -503,7 +523,7 @@ function evaluateTimeline(t) {
 
         localScratchPoints.set(currTargets.subarray(0, formationCount * 3));
 
-        if (b.tileNum === 16) {
+        if (b.tileNum === 16) { // Wheat sway
           for (let j = 0; j < formationCount; j++) {
             const py = localScratchPoints[j * 3 + 1], px = localScratchPoints[j * 3];
             const yNorm = Math.max(0, Math.min(1, (py - 8) / 16));
@@ -511,7 +531,7 @@ function evaluateTimeline(t) {
             localScratchPoints[j * 3] += sway * env;
             localScratchPoints[j * 3 + 1] -= Math.abs(sway) * 0.12 * yNorm * env;
           }
-        } else if (b.tileNum === 25) {
+        } else if (b.tileNum === 25) { // Scythe cutting swing
           const swingPhase = uBlock * Math.PI * 2.0;
           const cutMotion = Math.sin(swingPhase) * 0.35;
           const cosCut = Math.cos(cutMotion), sinCut = Math.sin(cutMotion);
@@ -520,14 +540,14 @@ function evaluateTimeline(t) {
             localScratchPoints[j * 3]     = lx * cosCut - ly * sinCut;
             localScratchPoints[j * 3 + 1] = 14.0 + (lx * sinCut + ly * cosCut);
           }
-        } else if (b.tileNum === 28) {
+        } else if (b.tileNum === 28) { // Leaf flutter
           for (let j = 0; j < formationCount; j++) {
             const py = localScratchPoints[j * 3 + 1];
             const amp = (currSwatches && currSwatches[j] === 0) ? 0.75 : 0.25;
             localScratchPoints[j * 3] += Math.sin(tScene * 3.2 + py * 0.4) * amp * env;
             localScratchPoints[j * 3 + 2] += Math.cos(tScene * 2.8 + py * 0.3) * (amp * 0.75) * env;
           }
-        } else if (b.tileNum === 26) {
+        } else if (b.tileNum === 26) { // Tree branch sway
           for (let j = 0; j < formationCount; j++) {
             const py = localScratchPoints[j * 3 + 1];
             if (py > 15.5) {
@@ -535,7 +555,7 @@ function evaluateTimeline(t) {
               localScratchPoints[j * 3] += Math.sin(tScene * 2.2 + py * 0.25) * (yNorm * 0.7) * env;
             }
           }
-        } else if (b.tileNum === 27) {
+        } else if (b.tileNum === 27) { // Owl head/body tilt while branch stays steady
           const rockAngle = Math.sin(uBlock * Math.PI * 2.0) * 0.12;
           const ca = Math.cos(rockAngle), sa = Math.sin(rockAngle);
           for (let j = 0; j < formationCount; j++) {
@@ -547,13 +567,44 @@ function evaluateTimeline(t) {
               localScratchPoints[j * 3 + 1] = 10.5 + (lx * sa + ly * ca);
             }
           }
-        } else if (b.tileNum === 18) {
+        } else if (b.tileNum === 20) { // Raven: Beak cawing (open/close) + wing feathers flapping while branch & legs stay still
+          const cawPulse = Math.pow(Math.max(0, Math.sin(uBlock * Math.PI * 4.0)), 1.15);
+          const cawAngle = cawPulse * 0.25 * env;
+          const flap = Math.sin(uBlock * Math.PI * 6.0) * env;
+          const flapZ = Math.cos(uBlock * Math.PI * 6.0) * env;
+
+          for (let j = 0; j < formationCount; j++) {
+            const sw = currSwatches ? currSwatches[j] : 0;
+            const px = localScratchPoints[j * 3], py = localScratchPoints[j * 3 + 1];
+
+            if (sw === 1 && py > 20.0) {
+              // Beak (hinged at base x = -4.22; upper beak py >= 23.24 rotates UP, lower beak py < 23.24 rotates DOWN)
+              const hx = -4.22;
+              const isUpper = py >= 23.24;
+              const hy = isUpper ? 23.55 : 23.05;
+              // Because dx = px - hx < 0 (beak points left), negative angle lifts y upward and positive angle drops y downward
+              const ang = isUpper ? -cawAngle : (cawAngle * 1.15);
+              const ca = Math.cos(ang), sa = Math.sin(ang);
+              const dx = px - hx, dy = py - hy;
+              localScratchPoints[j * 3]     = hx + dx * ca - dy * sa;
+              localScratchPoints[j * 3 + 1] = hy + dx * sa + dy * ca;
+            } else if (sw === 3) {
+              // Layered wing feathers flap in Y and Z around the wing shoulder (-1.5, 19.8)
+              const span = Math.max(0.25, (px - (-1.5)) * 0.26);
+              localScratchPoints[j * 3 + 1] += flap * span * 1.45;
+              localScratchPoints[j * 3 + 2] += flapZ * span * 1.15;
+            } else if (sw === 0 && py > 18.5) {
+              // Subtle head/throat lift synchronized with the caw
+              localScratchPoints[j * 3 + 1] += cawPulse * 0.20 * env;
+            }
+          }
+        } else if (b.tileNum === 18) { // Pumpkin heartbeat pulse
           const wobble = 1.0 + Math.sin(uBlock * Math.PI * 4.0) * 0.04;
           for (let j = 0; j < formationCount; j++) {
             localScratchPoints[j * 3]     *= wobble;
             localScratchPoints[j * 3 + 1] = alt + (localScratchPoints[j * 3 + 1] - alt) * wobble;
           }
-        } else if (b.tileNum === 24) {
+        } else if (b.tileNum === 24) { // Candle flame flicker (both outer red & inner yellow core)
           for (let j = 0; j < formationCount; j++) {
             const sw = currSwatches ? currSwatches[j] : 0;
             if (sw === 1 || sw === 3) {
@@ -561,13 +612,37 @@ function evaluateTimeline(t) {
               localScratchPoints[j * 3] += Math.sin(tScene * 5.5 + py * 1.5) * 0.4 * env;
             }
           }
-        } else if (b.tileNum === 19) {
-          const floatY = Math.sin(uBlock * Math.PI * 2.0) * 0.8;
+        } else if (b.tileNum === 21) { // Cauldron: White steam billowing upward + campfire flames flickering
           for (let j = 0; j < formationCount; j++) {
-            localScratchPoints[j * 3 + 1] += floatY;
-            localScratchPoints[j * 3] += Math.sin(tScene * 2.5 + localScratchPoints[j * 3 + 1] * 0.3) * 0.5 * env;
+            const sw = currSwatches ? currSwatches[j] : 0;
+            const px = localScratchPoints[j * 3], py = localScratchPoints[j * 3 + 1];
+            if (sw === 1) {
+              // White rising steam & boiling surface bubbles
+              const steamH = Math.max(0.1, (py - 18.0) / 6.5);
+              localScratchPoints[j * 3]     += Math.sin(tScene * 3.8 + py * 0.85) * (0.2 + steamH * 0.55) * env;
+              localScratchPoints[j * 3 + 1] += (Math.sin(tScene * 3.2 - py * 0.65 + px * 0.4) * 0.38 + steamH * 0.48) * env;
+              localScratchPoints[j * 3 + 2] += Math.cos(tScene * 2.8 + py * 0.7) * (0.35 * steamH) * env;
+            } else if (sw === 2 || sw === 4) {
+              // Red/yellow campfire flames flickering beneath cauldron
+              localScratchPoints[j * 3]     += Math.sin(tScene * 7.5 + py * 2.2) * 0.35 * env;
+              localScratchPoints[j * 3 + 1] += Math.abs(Math.sin(tScene * 9.0 + px * 1.4)) * 0.32 * env;
+            }
           }
-        } else if (b.tileNum === 32) {
+        } else if (b.tileNum === 23) { // Witch on Broomstick: Witch & broom bob up and down while white Crescent Moon stays motionless
+          const bobY = Math.sin(uBlock * Math.PI * 4.0) * 0.95 * env;
+          const pitch = Math.cos(uBlock * Math.PI * 4.0) * 0.045 * env;
+          for (let j = 0; j < formationCount; j++) {
+            const sw = currSwatches ? currSwatches[j] : 0;
+            if (sw !== 4) { // Swatch 4 is the Crescent Moon — keep it 100% motionless!
+              const px = localScratchPoints[j * 3];
+              localScratchPoints[j * 3 + 1] += bobY + px * pitch;
+              if (sw === 3) {
+                // Subtle broom bristle flutter in the night wind
+                localScratchPoints[j * 3 + 1] += Math.sin(tScene * 8.0 + px * 1.5) * 0.18 * env;
+              }
+            }
+          }
+        } else if (b.tileNum === 32) { // Key wobble
           const wobble = Math.sin(uBlock * Math.PI * 2.0) * 0.1;
           const cosW = Math.cos(wobble), sinW = Math.sin(wobble);
           for (let j = 0; j < formationCount; j++) {
@@ -575,9 +650,29 @@ function evaluateTimeline(t) {
             localScratchPoints[j * 3]     = lx * cosW - ly * sinW;
             localScratchPoints[j * 3 + 1] = alt + (lx * sinW + ly * cosW);
           }
+        } else if (b.tileNum === 19) { // Ghost float & sway
+          const floatY = Math.sin(uBlock * Math.PI * 2.0) * 0.8;
+          for (let j = 0; j < formationCount; j++) {
+            localScratchPoints[j * 3 + 1] += floatY;
+            localScratchPoints[j * 3] += Math.sin(tScene * 2.5 + localScratchPoints[j * 3 + 1] * 0.3) * 0.5 * env;
+          }
+        } else if (b.tileNum === 22) { // Skull: Eerie hover + crimson oak leaf rustle
+          const skullHover = Math.sin(uBlock * Math.PI * 2.0) * 0.4 * env;
+          for (let j = 0; j < formationCount; j++) {
+            const sw = currSwatches ? currSwatches[j] : 0;
+            const px = localScratchPoints[j * 3], py = localScratchPoints[j * 3 + 1];
+            if (sw === 1) {
+              // Crimson oak leaves rustling around the skull base
+              localScratchPoints[j * 3]     += Math.sin(tScene * 3.6 + py * 0.5) * 0.32 * env;
+              localScratchPoints[j * 3 + 2] += Math.cos(tScene * 3.0 + px * 0.4) * 0.35 * env;
+            } else if (sw === 0 || sw === 4) {
+              localScratchPoints[j * 3 + 1] += skullHover;
+            }
+          }
         } else if (b.tileNum === 29 || b.tileNum === 30 || b.tileNum === 31 || b.tileNum === 34) {
+          // Full continuous 360-degree rotation for Celtic symbols & Brigid's Cross
           const dir = (b.tileNum === 31 || b.tileNum === 34) ? -1 : 1;
-          const spinA = Math.sin(uBlock * Math.PI * 2.0) * 0.32 * dir;
+          const spinA = uBlock * Math.PI * 2.0 * dir;
           const cosS = Math.cos(spinA), sinS = Math.sin(spinA);
           for (let j = 0; j < formationCount; j++) {
             const lx = localScratchPoints[j * 3], ly = localScratchPoints[j * 3 + 1] - alt;
@@ -585,6 +680,7 @@ function evaluateTimeline(t) {
             localScratchPoints[j * 3 + 1] = alt + (lx * sinS + ly * cosS);
           }
         } else if (b.tileNum === 33) {
+          // Deer Head: Upright & stationary with gentle breathing hover
           const breathe = Math.sin(uBlock * Math.PI * 2.0) * 0.4;
           for (let j = 0; j < formationCount; j++) {
             localScratchPoints[j * 3 + 1] += breathe;
@@ -661,6 +757,30 @@ function evaluateTimeline(t) {
             const phase = progress * Math.PI * 2.5 - waveX * Math.PI * 2.0;
             midY += Math.sin(phase) * (arc * 7.5);
             midZ += Math.cos(phase) * (arc * 6.0);
+          } else if (motionStyle === "winged_sweep") {
+            const wingSide = midX >= 0 ? 1.0 : -1.0;
+            const wingSpan = Math.sin(progress * Math.PI * 2.0 + Math.abs(midX) * 0.25);
+            midX += wingSide * (arc * 6.0);
+            midY += wingSpan * (arc * 6.5);
+            midZ += Math.cos(progress * Math.PI * 2.0 + (j % 16) * 0.35) * (arc * 6.5);
+          } else if (motionStyle === "fire_spiral") {
+            const spin = progress * Math.PI * 3.0 + (j % 16) * (Math.PI / 8);
+            const rad = arc * (4.0 + (j % 7) * 0.85);
+            midX += Math.cos(spin) * rad;
+            midY += arc * 5.0 + Math.sin(spin * 1.5) * (arc * 2.5);
+            midZ += Math.sin(spin) * rad;
+          } else if (motionStyle === "cauldron_vortex") {
+            const rDist = Math.sqrt(midX * midX + (midY - interpAlt) * (midY - interpAlt));
+            const swirlA = Math.atan2(midY - interpAlt, midX) - progress * Math.PI * 2.4;
+            const rMod = rDist * (1.0 + arc * 0.42);
+            midX = Math.cos(swirlA) * rMod;
+            midY = interpAlt + Math.sin(swirlA) * rMod + Math.sin(progress * Math.PI * 2.0 + j * 0.15) * (arc * 3.5);
+            midZ += Math.cos(swirlA * 2.0) * (arc * 6.0);
+          } else if (motionStyle === "lunar_arc") {
+            const flightPhase = progress * Math.PI - (j / formationCount) * 0.6;
+            midX += Math.cos(flightPhase * 2.0) * (arc * 7.5);
+            midY += arc * 7.0 + Math.sin(j * 0.25) * (arc * 2.0);
+            midZ += Math.sin(progress * Math.PI * 2.0 + (j % 9) * 0.4) * (arc * 7.5);
           }
 
           targetPositions[j * 3]     = midX;
@@ -688,6 +808,7 @@ function evaluateTimeline(t) {
       curT = transEnd;
     }
 
+    // Precipitation Drones (Falling Leaves): drift down lit, physically fly back up invisibly
     if (precipConfig.enabled) {
       const tInShow = t - takeoffConfig.dur;
       for (let i = formationCount; i < activeDroneCount; i++) {
@@ -695,6 +816,7 @@ function evaluateTimeline(t) {
       }
     }
   }
+  // 3. Finale Undulating Swarm & Helix Landing
   else {
     activePhaseLabel = "Finale Swarm & Landing";
     const landT = t - showBodyEnd;
@@ -750,6 +872,9 @@ function evaluateTimeline(t) {
   }
 }
 
+// -------------------------------------------------------------
+// PHYSICS GLB EXPORTER WITH SCALE-ENCODED COLOR & INVISIBLE LEAF RETURN
+// -------------------------------------------------------------
 window.bakeAndDownloadGLB = async function() {
   const statusEl = document.getElementById("hud-status");
   const exportBtn = document.getElementById("btn-export");
@@ -759,6 +884,7 @@ window.bakeAndDownloadGLB = async function() {
   await new Promise(r => setTimeout(r, 30));
   await buildShowTrajectoryData();
 
+  // Save live state so baking doesn't disturb the interactive preview
   const savedPlayhead = playheadTime;
   const savedTargetPos = new Float32Array(targetPositions);
   const savedTargetCol = new Float32Array(targetColors);
@@ -777,9 +903,9 @@ window.bakeAndDownloadGLB = async function() {
     root.add(drone);
   }
 
-  const SPRING = 7.5;
-  const DAMPING = 4.0;
-  const MAX_DRONE_SPEED = 8.5;
+  const SPRING = 11.5;
+  const DAMPING = 5.2;
+  const MAX_DRONE_SPEED = 14.5;
 
   const simPositions = new Float32Array(activeDroneCount * 3);
   const simVelocities = new Float32Array(activeDroneCount * 3);
@@ -835,6 +961,7 @@ window.bakeAndDownloadGLB = async function() {
       simPositions[idx + 2] += vz * dt;
       simVelocities[idx] = vx; simVelocities[idx + 1] = vy; simVelocities[idx + 2] = vz;
 
+      // Double-lock for falling leaf drones: never visible while ascending
       if (i >= formationCount && inShowBody && vy > -0.15) {
         isDroneVisible[i] = 0;
       }
@@ -860,12 +987,14 @@ window.bakeAndDownloadGLB = async function() {
         if (isDroneVisible[i] === 1) {
           let r = simColors[idx], g = simColors[idx + 1], b = simColors[idx + 2];
           const maxC = Math.max(r, g, b);
+          // Ensure visible drones always exceed the 0.04 shader visibility threshold on their brightest channel
           if (maxC < 0.06) {
             const boost = maxC > 0.0001 ? (0.06 / maxC) : 1.0;
             r = Math.max(0.06, r * boost);
             g = g * boost;
             b = b * boost;
           }
+          // Keep zero channels near 0.002 so saturated colors (red, orange, brown, green, purple) never wash out to white
           scales[i][frameIdx * 3]     = Math.max(0.002, r);
           scales[i][frameIdx * 3 + 1] = Math.max(0.002, g);
           scales[i][frameIdx * 3 + 2] = Math.max(0.002, b);
@@ -879,6 +1008,7 @@ window.bakeAndDownloadGLB = async function() {
     }
   }
 
+  // Restore live state
   playheadTime = savedPlayhead;
   targetPositions.set(savedTargetPos);
   targetColors.set(savedTargetCol);
@@ -913,6 +1043,7 @@ window.bakeAndDownloadGLB = async function() {
   );
 };
 
+// HUD Controls Setup
 const btnPlay = document.getElementById("btn-play");
 const sceneSelect = document.getElementById("scene-select");
 const timeScrub = document.getElementById("time-scrub");
@@ -938,7 +1069,7 @@ if (sceneSelect) {
 
   const optLand = document.createElement("option");
   optLand.value = String(TOTAL_DURATION - landingConfig.dur);
-  optLand.textContent = `16. Finale Swarm & Landing (${Math.round(TOTAL_DURATION - landingConfig.dur)}s)`;
+  optLand.textContent = `20. Finale Swarm & Landing (${Math.round(TOTAL_DURATION - landingConfig.dur)}s)`;
   sceneSelect.appendChild(optLand);
 
   sceneSelect.addEventListener("change", () => {
@@ -970,7 +1101,7 @@ if (btnExport) {
 (async () => {
   await buildShowTrajectoryData();
   evaluateTimeline(0);
-  if (hudStatus) hudStatus.textContent = "Ready — 15 Formations Loaded";
+  if (hudStatus) hudStatus.textContent = "Ready — 19 Formations Loaded";
 })();
 
 renderer.xr.addEventListener("sessionstart", () => {
@@ -983,9 +1114,9 @@ renderer.xr.addEventListener("sessionend", () => {
   document.body.classList.remove("xr-active");
 });
 
-const SPRING = 7.5;
-const DAMPING = 4.0;
-const MAX_DRONE_SPEED = 8.5;
+const SPRING = 11.5;
+const DAMPING = 5.2;
+const MAX_DRONE_SPEED = 14.5;
 
 let prevTime = performance.now();
 renderer.setAnimationLoop(now => {
@@ -1025,7 +1156,7 @@ renderer.setAnimationLoop(now => {
   if (timeScrub && document.activeElement !== timeScrub) {
     timeScrub.value = String(playheadTime);
   }
-  if (hudStatus && formationTrajectories.length === 15 && (!btnExport || !btnExport.disabled)) {
+  if (hudStatus && formationTrajectories.length === timelineData.formationBlocks.length && (!btnExport || !btnExport.disabled)) {
     hudStatus.textContent = `${activePhaseLabel} (${playheadTime.toFixed(1)}s / ${TOTAL_DURATION.toFixed(0)}s)`;
   }
 
@@ -1057,6 +1188,7 @@ renderer.setAnimationLoop(now => {
     currentPositions[idx + 2] += vz * dt;
     velocities[idx] = vx; velocities[idx + 1] = vy; velocities[idx + 2] = vz;
 
+    // Guarantee falling leaf drones are never visible while rising
     if (i >= formationCount && inShowBody && vy > -0.15) {
       isDroneVisible[i] = 0;
     }
