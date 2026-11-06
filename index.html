@@ -12,11 +12,58 @@ body {
   overflow: hidden;
   background: #02040d;
   color: #e8efff;
-  font: 14px/1.4 system-ui, sans-serif;
+  font: 13px/1.4 system-ui, -apple-system, sans-serif;
   user-select: none;
 }
 canvas { display: block; }
 #panel, #vr-tip { display: none !important; }
+body.xr-active #hud { display: none !important; }
+#hud {
+  position: fixed;
+  top: 12px;
+  left: 12px;
+  z-index: 20;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  background: rgba(8, 12, 26, 0.84);
+  border: 1px solid rgba(255, 160, 60, 0.28);
+  border-radius: 10px;
+  backdrop-filter: blur(8px);
+  max-width: calc(100vw - 24px);
+}
+#hud button, #hud select {
+  background: #162038;
+  color: #f0f4ff;
+  border: 1px solid rgba(255, 180, 90, 0.35);
+  border-radius: 6px;
+  padding: 5px 10px;
+  font: inherit;
+  cursor: pointer;
+}
+#hud button:hover, #hud select:hover {
+  background: #223052;
+}
+#hud button.primary {
+  background: #d95b00;
+  border-color: #ff9100;
+  font-weight: 600;
+}
+#hud button.primary:hover {
+  background: #f06a00;
+}
+#hud input[type="range"] {
+  width: 180px;
+  accent-color: #ff9100;
+  cursor: pointer;
+}
+#hud-status {
+  color: #ffd54f;
+  font-variant-numeric: tabular-nums;
+  min-width: 170px;
+}
 </style>
 <script type="importmap">
 {
@@ -29,6 +76,13 @@ canvas { display: block; }
 </head>
 <body>
 <div id="panel"></div>
+<div id="hud">
+  <button id="btn-play">Pause</button>
+  <select id="scene-select" title="Jump to Formation"></select>
+  <input id="time-scrub" type="range" min="0" max="170" step="0.1" value="0">
+  <span id="hud-status">Loading formations...</span>
+  <button id="btn-export" class="primary">Export GLB</button>
+</div>
 
 <script type="module">
 import * as THREE from "three";
@@ -39,7 +93,7 @@ import {
   SHAPE_PAGES,
   findShapeById,
   GOLDEN
-} from "./shapes.js?v=samhain_final_suite_v31";
+} from "./shapes.js?v=samhain_final_suite_v32";
 
 const MAX_DRONES = 2000;
 let activeDroneCount = 800;
@@ -50,11 +104,12 @@ let landingConfig = { dur: 24.0, style: "climactic_helix" };
 
 let precipConfig = {
   enabled: true,
-  type: "snow",
+  type: "leaves",
   count: 60,
   speed: 2.4,
   angle: 18.0,
-  color: "#ff6d00"
+  color: "#ff6d00",
+  palette: ["#ff6d00", "#e51c23", "#ffab00"]
 };
 
 const scene = new THREE.Scene();
@@ -132,11 +187,18 @@ updateGroundPositions(activeDroneCount);
 const precipPositions = new Float32Array(MAX_DRONES * 3);
 const precipDriftSeeds = new Float32Array(MAX_DRONES);
 function initPrecipPositions() {
+  const formationCount = Math.max(50, activeDroneCount - precipConfig.count);
   for (let i = 0; i < MAX_DRONES; i++) {
-    precipPositions[i * 3]     = (Math.random() - 0.5) * 36;
-    precipPositions[i * 3 + 1] = 1.5 + Math.random() * 28;
-    precipPositions[i * 3 + 2] = (Math.random() - 0.5) * 36;
-    precipDriftSeeds[i]        = Math.random();
+    const r = 4.0 + Math.sqrt(((i * 73) % 100) / 100.0) * 17.0;
+    const angle = i * GOLDEN * 3.0;
+    precipPositions[i * 3]     = Math.cos(angle) * r;
+    precipPositions[i * 3 + 1] = 1.5 + ((i * 37) % 100) / 100.0 * 28.5;
+    precipPositions[i * 3 + 2] = Math.sin(angle) * r;
+    if (i >= formationCount && i < activeDroneCount) {
+      precipDriftSeeds[i] = ((i - formationCount) + 0.5) / precipConfig.count;
+    } else {
+      precipDriftSeeds[i] = (i % 60) / 60.0;
+    }
   }
 }
 initPrecipPositions();
@@ -162,7 +224,7 @@ const dronePoints = new THREE.Points(
     map: glowTexture,
     vertexColors: true,
     transparent: true,
-    alphaTest: 0.05,
+    alphaTest: 0.01,
     blending: THREE.AdditiveBlending,
     depthWrite: false
   })
@@ -192,29 +254,29 @@ function assignMinimalPaths(currentPos, rawTargets, rawSwatches, count) {
   return { positions: assigned, swatches: assignedSwatches };
 }
 
-// 15 Formations with exact narrative palettes:
-// Deer Head is Royal Purple, Cross is Electric Teal
+// 15 Samhain Formations with anatomically mapped multi-swatch palettes
 const SHOW_SCENES = [
-  { tNum: 16, palette: ["#ffd54f", "#8d4e28"], motion: "vortex" },          // 1. Wheat
-  { tNum: 25, palette: ["#cfd8dc", "#5d4037"], motion: "cascade_wave" },     // 2. Scythe
-  { tNum: 28, palette: ["#d50000", "#8d4e28"], motion: "celtic_swirl" },    // 3. Leaf
-  { tNum: 26, palette: ["#5d4037", "#8d6e63"], motion: "explosion" },       // 4. Tree
-  { tNum: 27, palette: ["#ffffff", "#ffab00", "#5d4037"], motion: "helix" }, // 5. Owl
-  { tNum: 18, palette: ["#ff6d00"], motion: "vortex" },                      // 6. Pumpkin (Deep Orange)
-  { tNum: 24, palette: ["#ffffff", "#ff3d00", "#ffd600"], motion: "explosion" }, // 7. Candle
-  { tNum: 19, palette: ["#ffffff"], motion: "celtic_swirl" },                 // 8. Ghost
-  { tNum: 32, palette: ["#ffd700", "#ffb300"], motion: "helix" },            // 9. Key
-  { tNum: 29, palette: ["#00e676", "#00b0ff"], motion: "cascade_wave" },     // 10. Knot (Rotates)
-  { tNum: 30, palette: ["#ff1744", "#d50000"], motion: "vortex" },           // 11. Sigil (Rotates)
-  { tNum: 31, palette: ["#ffd54f", "#ff9100"], motion: "celtic_swirl" },     // 12. Solar Wheel (Rotates)
-  { tNum: 33, palette: ["#9c27b0", "#e040fb"], motion: "helix" },            // 13. DEER HEAD (PURPLE / UPRIGHT)
-  { tNum: 34, palette: ["#00e5ff", "#00bfa5"], motion: "celtic_swirl" },     // 14. CROSS (TEAL / ROTATES)
-  { tNum: 17, palette: ["#ffffff", "#ffd54f", "#ff6d00", "#d50000"], motion: "vortex", isLast: true } // 15. Finale
+  { tNum: 16, name: "1. Wheat",        palette: ["#ffd54f", "#9c5628", "#fff176"], motion: "vortex" },
+  { tNum: 25, name: "2. Scythe",       palette: ["#b0bec5", "#9c5628", "#ffb300"], motion: "cascade_wave" },
+  { tNum: 28, name: "3. Leaf & Acorn", palette: ["#e51c23", "#794022", "#d4883a"], motion: "celtic_swirl" },
+  { tNum: 26, name: "4. Tree",         palette: ["#794022", "#b8652a", "#ffb74d"], motion: "explosion" },
+  { tNum: 27, name: "5. Owl",          palette: ["#ffffff", "#ffab00", "#8d4e28"], motion: "helix" },
+  { tNum: 18, name: "6. Pumpkin",      palette: ["#ff6d00", "#00e676", "#ff9100"], motion: "vortex" },
+  { tNum: 24, name: "7. Candle",       palette: ["#ffffff", "#ff2a00", "#ffb300", "#ffee58"], motion: "explosion" },
+  { tNum: 19, name: "8. Ghost",        palette: ["#ffffff", "#80d8ff"], motion: "celtic_swirl" },
+  { tNum: 32, name: "9. Key",          palette: ["#ffd700", "#ff9100"], motion: "helix" },
+  { tNum: 29, name: "10. Knot",        palette: ["#00e676", "#00b0ff"], motion: "cascade_wave" },
+  { tNum: 30, name: "11. Sigil",       palette: ["#ff1744", "#ff9100"], motion: "vortex" },
+  { tNum: 31, name: "12. Triskelion",  palette: ["#ffd54f", "#ff6d00"], motion: "celtic_swirl" },
+  { tNum: 33, name: "13. Deer Head",   palette: ["#9c27b0", "#e040fb", "#ffd54f"], motion: "helix" },
+  { tNum: 34, name: "14. Cross",       palette: ["#00bfa5", "#00e5ff"], motion: "celtic_swirl" },
+  { tNum: 17, name: "15. Finale",      palette: ["#ffffff", "#ffd54f", "#ff6d00", "#d50000"], motion: "vortex", isLast: true }
 ];
 
 const timelineData = {
   formationBlocks: SHOW_SCENES.map((sc, idx) => ({
     id: `s_${idx}`,
+    name: sc.name,
     shapeId: `samhainTile${sc.tNum}`,
     tileNum: sc.tNum,
     dur: sc.isLast ? 10.0 : 5.0,
@@ -238,38 +300,48 @@ recalculateTimelineDuration();
 
 let formationTrajectories = [];
 let formationSwatchStore = [];
+let buildPromise = null;
 
 async function buildShowTrajectoryData() {
-  const formationCount = precipConfig.enabled ? Math.max(50, activeDroneCount - precipConfig.count) : activeDroneCount;
-  formationTrajectories = [];
-  formationSwatchStore = [];
+  if (buildPromise) return buildPromise;
+  buildPromise = (async () => {
+    const formationCount = precipConfig.enabled ? Math.max(50, activeDroneCount - precipConfig.count) : activeDroneCount;
+    const traj = [];
+    const swat = [];
 
-  let prevSlots = groundPositions;
+    let prevSlots = groundPositions;
 
-  for (let i = 0; i < timelineData.formationBlocks.length; i++) {
-    const b = timelineData.formationBlocks[i];
-    const raw = new Float32Array(formationCount * 3);
-    const swatches = new Uint8Array(formationCount);
+    for (let i = 0; i < timelineData.formationBlocks.length; i++) {
+      const b = timelineData.formationBlocks[i];
+      const raw = new Float32Array(formationCount * 3);
+      const swatches = new Uint8Array(formationCount);
 
-    const shape = findShapeById(b.shapeId);
-    if (shape) await shape.gen(raw, formationCount, swatches);
+      const shape = findShapeById(b.shapeId);
+      if (shape) await shape.gen(raw, formationCount, swatches);
 
-    const result = assignMinimalPaths(prevSlots, raw, swatches, formationCount);
-    formationTrajectories.push(result.positions);
-    formationSwatchStore.push(result.swatches);
-    prevSlots = result.positions;
-  }
+      const result = assignMinimalPaths(prevSlots, raw, swatches, formationCount);
+      traj.push(result.positions);
+      swat.push(result.swatches);
+      prevSlots = result.positions;
+    }
+
+    formationTrajectories = traj;
+    formationSwatchStore = swat;
+  })();
+  return buildPromise;
 }
 
 let playheadTime = 0.0;
-const PRE_SHOW_DELAY = 10.0;
-const POST_SHOW_DELAY = 10.0;
+const PRE_SHOW_DELAY = 3.0;
+const POST_SHOW_DELAY = 6.0;
 let showState = "PRE_SHOW";
 let pauseCountdown = PRE_SHOW_DELAY;
+let isPaused = false;
 
 const tempColor = new THREE.Color();
 const prevBlockColor = new THREE.Color();
 const nextBlockColor = new THREE.Color();
+const leafColors = precipConfig.palette.map(hex => new THREE.Color(hex));
 
 function applyDirectColor(block) {
   const pal = block.palette || ["#ffffff"];
@@ -306,13 +378,64 @@ const skyPosA = new THREE.Vector3();
 const skyPosB = new THREE.Vector3();
 const localScratchPoints = new Float32Array(MAX_DRONES * 3);
 
+const LEAF_FALL_DUR = 9.0;
+const LEAF_RISE_DUR = 4.0;
+const LEAF_CYCLE_DUR = LEAF_FALL_DUR + LEAF_RISE_DUR;
+const LEAF_FALL_FRAC = LEAF_FALL_DUR / LEAF_CYCLE_DUR;
+
+function evaluateLeafDrone(i, tInShow, outPos, outColor, outVis) {
+  const x0 = precipPositions[i * 3];
+  const z0 = precipPositions[i * 3 + 2];
+  const seed = precipDriftSeeds[i];
+  const cyclePhase = ((tInShow / LEAF_CYCLE_DUR) + seed) % 1.0;
+
+  if (cyclePhase < LEAF_FALL_FRAC) {
+    const uFall = cyclePhase / LEAF_FALL_FRAC;
+    const swayPhase = uFall * Math.PI * 3.0 + seed * Math.PI * 2.0;
+    outPos[i * 3]     = x0 + Math.sin(swayPhase) * 1.5;
+    outPos[i * 3 + 1] = 30.0 - uFall * 28.5;
+    outPos[i * 3 + 2] = z0 + Math.cos(swayPhase * 0.85) * 1.5;
+
+    if (uFall >= 0.06 && uFall <= 0.92) {
+      const c = leafColors[i % leafColors.length];
+      outColor[i * 3]     = c.r;
+      outColor[i * 3 + 1] = c.g;
+      outColor[i * 3 + 2] = c.b;
+      outVis[i] = 1;
+    } else {
+      outColor[i * 3]     = 0.0;
+      outColor[i * 3 + 1] = 0.0;
+      outColor[i * 3 + 2] = 0.0;
+      outVis[i] = 0;
+    }
+  } else {
+    const uRise = (cyclePhase - LEAF_FALL_FRAC) / (1.0 - LEAF_FALL_FRAC);
+    const easeRise = uRise * uRise * (3.0 - 2.0 * uRise);
+    const endSway = Math.PI * 3.0 + seed * Math.PI * 2.0;
+    const startSway = seed * Math.PI * 2.0;
+    const sx = THREE.MathUtils.lerp(Math.sin(endSway), Math.sin(startSway), easeRise) * 1.5;
+    const sz = THREE.MathUtils.lerp(Math.cos(endSway * 0.85), Math.cos(startSway * 0.85), easeRise) * 1.5;
+
+    outPos[i * 3]     = x0 + sx;
+    outPos[i * 3 + 1] = 1.5 + easeRise * 28.5;
+    outPos[i * 3 + 2] = z0 + sz;
+
+    outColor[i * 3]     = 0.0;
+    outColor[i * 3 + 1] = 0.0;
+    outColor[i * 3 + 2] = 0.0;
+    outVis[i] = 0;
+  }
+}
+
+let activePhaseLabel = "Takeoff";
+
 function evaluateTimeline(t) {
   const formationCount = precipConfig.enabled ? Math.max(50, activeDroneCount - precipConfig.count) : activeDroneCount;
   const showBodyEnd = TOTAL_DURATION - landingConfig.dur;
   if (formationTrajectories.length === 0) return;
 
-  // 1. Takeoff Phase: ALL 800 DRONES LIFT OFF TOGETHER FROM THE GROUND
   if (t <= takeoffConfig.dur) {
+    activePhaseLabel = "Takeoff";
     const u = Math.max(0, t / takeoffConfig.dur);
     const ease = u * u * (3 - 2 * u);
     const firstTargets = formationTrajectories[0];
@@ -321,8 +444,8 @@ function evaluateTimeline(t) {
     const alt = b0.altitude || 16.0;
     const scl = b0.scale || 1.0;
     const v0y = THREE.MathUtils.degToRad(b0.rotStartY || 0);
+    const pal0 = b0.palette || ["#ffd54f"];
 
-    // Drones 0..739: Lift off into Wheat formation
     for (let i = 0; i < formationCount; i++) {
       const gx = groundPositions[i * 3], gy = groundPositions[i * 3 + 1], gz = groundPositions[i * 3 + 2];
       transformToSky(firstTargets[i * 3], firstTargets[i * 3 + 1], firstTargets[i * 3 + 2], alt, scl, v0y, skyPosA);
@@ -331,33 +454,31 @@ function evaluateTimeline(t) {
       targetPositions[i * 3 + 1] = gy + (skyPosA.y - gy) * ease;
       targetPositions[i * 3 + 2] = gz + (skyPosA.z - gz) * ease;
 
-      if (firstSwatches) droneSwatchIndices[i] = firstSwatches[i];
-      tempColor.setHSL(0.08, 1.0, 0.55);
-      targetColors[i * 3]     = tempColor.r * (0.3 + 0.7 * ease);
-      targetColors[i * 3 + 1] = tempColor.g * (0.3 + 0.7 * ease);
-      targetColors[i * 3 + 2] = tempColor.b * (0.3 + 0.7 * ease);
+      const sw = firstSwatches ? firstSwatches[i] : 0;
+      droneSwatchIndices[i] = sw;
+      tempColor.set(pal0[sw % pal0.length]);
+      targetColors[i * 3]     = tempColor.r * (0.25 + 0.75 * ease);
+      targetColors[i * 3 + 1] = tempColor.g * (0.25 + 0.75 * ease);
+      targetColors[i * 3 + 2] = tempColor.b * (0.25 + 0.75 * ease);
       isDroneVisible[i] = 1;
     }
 
-    // Drones 740..799: Lift off from ground into sky ceiling (NO FALLING YET)
     if (precipConfig.enabled) {
-      const precipHex = new THREE.Color(precipConfig.color);
       for (let i = formationCount; i < activeDroneCount; i++) {
         const gx = groundPositions[i * 3], gy = groundPositions[i * 3 + 1], gz = groundPositions[i * 3 + 2];
-        const x0 = precipPositions[i * 3], z0 = precipPositions[i * 3 + 2];
+        evaluateLeafDrone(i, 0.0, targetPositions, targetColors, isDroneVisible);
+        const tx = targetPositions[i * 3], ty = targetPositions[i * 3 + 1], tz = targetPositions[i * 3 + 2];
 
-        targetPositions[i * 3]     = gx + (x0 - gx) * ease;
-        targetPositions[i * 3 + 1] = gy + (30.0 - gy) * ease;
-        targetPositions[i * 3 + 2] = gz + (z0 - gz) * ease;
-
-        targetColors[i * 3]     = precipHex.r * (0.3 + 0.7 * ease);
-        targetColors[i * 3 + 1] = precipHex.g * (0.3 + 0.7 * ease);
-        targetColors[i * 3 + 2] = precipHex.b * (0.3 + 0.7 * ease);
-        isDroneVisible[i] = 1;
+        targetPositions[i * 3]     = gx + (tx - gx) * ease;
+        targetPositions[i * 3 + 1] = gy + (ty - gy) * ease;
+        targetPositions[i * 3 + 2] = gz + (tz - gz) * ease;
+        targetColors[i * 3]     = 0.0;
+        targetColors[i * 3 + 1] = 0.0;
+        targetColors[i * 3 + 2] = 0.0;
+        isDroneVisible[i] = 0;
       }
     }
   }
-  // 2. Main Formation Blocks & Transitions (ALL 15 ANIMATIONS)
   else if (t > takeoffConfig.dur && t < showBodyEnd) {
     const showT = t - takeoffConfig.dur;
     let curT = 0;
@@ -374,6 +495,7 @@ function evaluateTimeline(t) {
       const v1y = THREE.MathUtils.degToRad(b.rotEndY || 0);
 
       if (showT >= formStart && showT < formEnd) {
+        activePhaseLabel = b.name;
         const uBlock = (showT - formStart) / b.dur;
         const curRotY = v0y + (v1y - v0y) * uBlock;
         const tScene = showT - formStart;
@@ -381,7 +503,7 @@ function evaluateTimeline(t) {
 
         localScratchPoints.set(currTargets.subarray(0, formationCount * 3));
 
-        if (b.tileNum === 16) { // Wheat sway
+        if (b.tileNum === 16) {
           for (let j = 0; j < formationCount; j++) {
             const py = localScratchPoints[j * 3 + 1], px = localScratchPoints[j * 3];
             const yNorm = Math.max(0, Math.min(1, (py - 8) / 16));
@@ -389,22 +511,23 @@ function evaluateTimeline(t) {
             localScratchPoints[j * 3] += sway * env;
             localScratchPoints[j * 3 + 1] -= Math.abs(sway) * 0.12 * yNorm * env;
           }
-        } else if (b.tileNum === 25) { // Scythe cutting swing
-          const swingPhase = uBlock * Math.PI * 4.0;
-          const cutMotion = Math.sin(swingPhase) * 0.65;
+        } else if (b.tileNum === 25) {
+          const swingPhase = uBlock * Math.PI * 2.0;
+          const cutMotion = Math.sin(swingPhase) * 0.35;
           const cosCut = Math.cos(cutMotion), sinCut = Math.sin(cutMotion);
           for (let j = 0; j < formationCount; j++) {
-            const lx = localScratchPoints[j * 3], ly = localScratchPoints[j * 3 + 1] - 8.0;
+            const lx = localScratchPoints[j * 3], ly = localScratchPoints[j * 3 + 1] - 14.0;
             localScratchPoints[j * 3]     = lx * cosCut - ly * sinCut;
-            localScratchPoints[j * 3 + 1] = 8.0 + (lx * sinCut + ly * cosCut);
+            localScratchPoints[j * 3 + 1] = 14.0 + (lx * sinCut + ly * cosCut);
           }
-        } else if (b.tileNum === 28) { // Leaf flutter
+        } else if (b.tileNum === 28) {
           for (let j = 0; j < formationCount; j++) {
             const py = localScratchPoints[j * 3 + 1];
-            localScratchPoints[j * 3] += Math.sin(tScene * 3.5 + py * 0.4) * 0.8 * env;
-            localScratchPoints[j * 3 + 2] += Math.cos(tScene * 3.0 + py * 0.3) * 0.6 * env;
+            const amp = (currSwatches && currSwatches[j] === 0) ? 0.75 : 0.25;
+            localScratchPoints[j * 3] += Math.sin(tScene * 3.2 + py * 0.4) * amp * env;
+            localScratchPoints[j * 3 + 2] += Math.cos(tScene * 2.8 + py * 0.3) * (amp * 0.75) * env;
           }
-        } else if (b.tileNum === 26) { // Tree branch sway
+        } else if (b.tileNum === 26) {
           for (let j = 0; j < formationCount; j++) {
             const py = localScratchPoints[j * 3 + 1];
             if (py > 15.5) {
@@ -412,38 +535,40 @@ function evaluateTimeline(t) {
               localScratchPoints[j * 3] += Math.sin(tScene * 2.2 + py * 0.25) * (yNorm * 0.7) * env;
             }
           }
-        } else if (b.tileNum === 27) { // Owl head tilt
-          const rockAngle = Math.sin(uBlock * Math.PI * 4.0) * 0.14;
+        } else if (b.tileNum === 27) {
+          const rockAngle = Math.sin(uBlock * Math.PI * 2.0) * 0.12;
           const ca = Math.cos(rockAngle), sa = Math.sin(rockAngle);
           for (let j = 0; j < formationCount; j++) {
             const py = localScratchPoints[j * 3 + 1];
-            if (py > 10.5) {
-              const lx = localScratchPoints[j * 3], ly = py - 10.0;
+            const isBranch = currSwatches && currSwatches[j] === 2;
+            if (!isBranch && py > 10.5) {
+              const lx = localScratchPoints[j * 3], ly = py - 10.5;
               localScratchPoints[j * 3]     = lx * ca - ly * sa;
-              localScratchPoints[j * 3 + 1] = 10.0 + (lx * sa + ly * ca);
+              localScratchPoints[j * 3 + 1] = 10.5 + (lx * sa + ly * ca);
             }
           }
-        } else if (b.tileNum === 18) { // Pumpkin heartbeat pulse
+        } else if (b.tileNum === 18) {
           const wobble = 1.0 + Math.sin(uBlock * Math.PI * 4.0) * 0.04;
           for (let j = 0; j < formationCount; j++) {
             localScratchPoints[j * 3]     *= wobble;
             localScratchPoints[j * 3 + 1] = alt + (localScratchPoints[j * 3 + 1] - alt) * wobble;
           }
-        } else if (b.tileNum === 24) { // Candle flame flicker
+        } else if (b.tileNum === 24) {
           for (let j = 0; j < formationCount; j++) {
-            if (currSwatches && currSwatches[j] === 1) {
+            const sw = currSwatches ? currSwatches[j] : 0;
+            if (sw === 1 || sw === 3) {
               const py = localScratchPoints[j * 3 + 1];
-              localScratchPoints[j * 3] += Math.sin(tScene * 5.5 + py * 1.5) * 0.45 * env;
+              localScratchPoints[j * 3] += Math.sin(tScene * 5.5 + py * 1.5) * 0.4 * env;
             }
           }
-        } else if (b.tileNum === 19) { // Ghost float & sway
+        } else if (b.tileNum === 19) {
           const floatY = Math.sin(uBlock * Math.PI * 2.0) * 0.8;
           for (let j = 0; j < formationCount; j++) {
             localScratchPoints[j * 3 + 1] += floatY;
             localScratchPoints[j * 3] += Math.sin(tScene * 2.5 + localScratchPoints[j * 3 + 1] * 0.3) * 0.5 * env;
           }
-        } else if (b.tileNum === 32) { // Key wobble
-          const wobble = Math.sin(uBlock * Math.PI * 2.0) * 0.08;
+        } else if (b.tileNum === 32) {
+          const wobble = Math.sin(uBlock * Math.PI * 2.0) * 0.1;
           const cosW = Math.cos(wobble), sinW = Math.sin(wobble);
           for (let j = 0; j < formationCount; j++) {
             const lx = localScratchPoints[j * 3], ly = localScratchPoints[j * 3 + 1] - alt;
@@ -451,9 +576,8 @@ function evaluateTimeline(t) {
             localScratchPoints[j * 3 + 1] = alt + (lx * sinW + ly * cosW);
           }
         } else if (b.tileNum === 29 || b.tileNum === 30 || b.tileNum === 31 || b.tileNum === 34) {
-          // Knot, Sigil, Solar Wheel, and CROSS rotate 360 degrees
           const dir = (b.tileNum === 31 || b.tileNum === 34) ? -1 : 1;
-          const spinA = uBlock * Math.PI * 2.0 * dir;
+          const spinA = Math.sin(uBlock * Math.PI * 2.0) * 0.32 * dir;
           const cosS = Math.cos(spinA), sinS = Math.sin(spinA);
           for (let j = 0; j < formationCount; j++) {
             const lx = localScratchPoints[j * 3], ly = localScratchPoints[j * 3 + 1] - alt;
@@ -461,7 +585,6 @@ function evaluateTimeline(t) {
             localScratchPoints[j * 3 + 1] = alt + (lx * sinS + ly * cosS);
           }
         } else if (b.tileNum === 33) {
-          // DEER HEAD: Upright & stationary (breathing hover ONLY)
           const breathe = Math.sin(uBlock * Math.PI * 2.0) * 0.4;
           for (let j = 0; j < formationCount; j++) {
             localScratchPoints[j * 3 + 1] += breathe;
@@ -482,6 +605,7 @@ function evaluateTimeline(t) {
       } else if (showT >= formEnd && showT < transEnd) {
         const nextIdx = (i + 1 < timelineData.formationBlocks.length) ? i + 1 : 0;
         const nextB = timelineData.formationBlocks[nextIdx];
+        activePhaseLabel = `${b.name} → ${nextB.name}`;
         const nextTargets = formationTrajectories[nextIdx];
         const nextSwatches = formationSwatchStore[nextIdx];
 
@@ -564,32 +688,15 @@ function evaluateTimeline(t) {
       curT = transEnd;
     }
 
-    // Precipitation Drones (Leaves): ONLY active during the show body (t >= 20s)
     if (precipConfig.enabled) {
-      const precipHex = new THREE.Color(precipConfig.color);
-      const fallDuration = 10.0;
       const tInShow = t - takeoffConfig.dur;
-
       for (let i = formationCount; i < activeDroneCount; i++) {
-        const x0 = precipPositions[i * 3], z0 = precipPositions[i * 3 + 2];
-        const seed = precipDriftSeeds[i];
-        const cycleT = (tInShow + seed * fallDuration) % fallDuration;
-        const uFall = cycleT / fallDuration;
-
-        // Leaf travels downward cleanly
-        targetPositions[i * 3]     = x0 + Math.sin(t * 2.2 + seed * 6.28) * 1.2;
-        targetPositions[i * 3 + 1] = 30.0 - uFall * 28.5; // 30m down to 1.5m
-        targetPositions[i * 3 + 2] = z0 + Math.cos(t * 1.8 + seed * 6.28) * 1.2;
-
-        targetColors[i * 3]     = precipHex.r;
-        targetColors[i * 3 + 1] = precipHex.g;
-        targetColors[i * 3 + 2] = precipHex.b;
-        isDroneVisible[i] = 1;
+        evaluateLeafDrone(i, tInShow, targetPositions, targetColors, isDroneVisible);
       }
     }
   }
-  // 3. Finale Undulating Swarm & Helix Landing: ALL 800 DRONES LAND TOGETHER
   else {
+    activePhaseLabel = "Finale Swarm & Landing";
     const landT = t - showBodyEnd;
     const u = THREE.MathUtils.clamp(landT / landingConfig.dur, 0, 1);
     const lastTargets = formationTrajectories[formationTrajectories.length - 1];
@@ -605,13 +712,13 @@ function evaluateTimeline(t) {
 
     for (let i = 0; i < activeDroneCount; i++) {
       const gx = groundPositions[i * 3], gy = groundPositions[i * 3 + 1], gz = groundPositions[i * 3 + 2];
-      
+
       let tX = gx, tY = 16.0, tZ = gz;
       if (i < formationCount) {
         transformToSky(lastTargets[i * 3], lastTargets[i * 3 + 1], lastTargets[i * 3 + 2], alt, scl, v1y, skyPosA);
         tX = skyPosA.x; tY = skyPosA.y; tZ = skyPosA.z;
       } else {
-        tX = precipPositions[i * 3]; tY = 28.0; tZ = precipPositions[i * 3 + 2];
+        tX = precipPositions[i * 3]; tY = 20.0; tZ = precipPositions[i * 3 + 2];
       }
 
       const phi = Math.acos(1.0 - 2.0 * ((i + 0.5) / activeDroneCount));
@@ -643,16 +750,20 @@ function evaluateTimeline(t) {
   }
 }
 
-// -------------------------------------------------------------
-// ASYNC-GUARDED PHYSICS GLB EXPORTER (ZERO COLLAPSE / ACCURATE LEAF LOOP)
-// -------------------------------------------------------------
 window.bakeAndDownloadGLB = async function() {
-  console.log("Validating trajectories and simulating 60Hz physics... please wait.");
+  const statusEl = document.getElementById("hud-status");
+  const exportBtn = document.getElementById("btn-export");
+  if (statusEl) statusEl.textContent = "Baking 60Hz GLB physics...";
+  if (exportBtn) exportBtn.disabled = true;
 
-  // Guarantee all 15 formations are fully loaded before baking begins
-  if (formationTrajectories.length < 15) {
-    await buildShowTrajectoryData();
-  }
+  await new Promise(r => setTimeout(r, 30));
+  await buildShowTrajectoryData();
+
+  const savedPlayhead = playheadTime;
+  const savedTargetPos = new Float32Array(targetPositions);
+  const savedTargetCol = new Float32Array(targetColors);
+  const savedVisible   = new Uint8Array(isDroneVisible);
+  const savedSwatches  = new Uint8Array(droneSwatchIndices);
 
   const root = new THREE.Group();
   root.name = "SamhainDroneFleet";
@@ -689,44 +800,26 @@ window.bakeAndDownloadGLB = async function() {
   const totalSubsteps = totalFrames * physicsSubsteps;
   let frameIdx = 0;
   const formationCount = precipConfig.enabled ? Math.max(50, activeDroneCount - precipConfig.count) : activeDroneCount;
+  const showBodyEnd = TOTAL_DURATION - landingConfig.dur;
+
+  evaluateTimeline(0.0);
+  simColors.set(targetColors.subarray(0, activeDroneCount * 3));
 
   for (let s = 0; s < totalSubsteps; s++) {
     const simTime = s * dt;
+    const showTime = THREE.MathUtils.clamp(simTime - PRE_SHOW_DELAY, 0.0, TOTAL_DURATION);
+    evaluateTimeline(showTime);
 
-    if (simTime < PRE_SHOW_DELAY) {
-      evaluateTimeline(0.0);
-    } else if (simTime < PRE_SHOW_DELAY + TOTAL_DURATION) {
-      evaluateTimeline(simTime - PRE_SHOW_DELAY);
-    } else {
-      evaluateTimeline(TOTAL_DURATION);
-    }
+    const inShowBody = (showTime > takeoffConfig.dur && showTime < showBodyEnd);
 
     for (let i = 0; i < activeDroneCount; i++) {
       const idx = i * 3;
-
-      // Precipitation drones: during show flight, detect when a leaf resets from bottom to top
-      if (i >= formationCount && simTime >= PRE_SHOW_DELAY + takeoffConfig.dur && simTime < PRE_SHOW_DELAY + TOTAL_DURATION - landingConfig.dur) {
-        // If the leaf just reached the ground and is resetting to top, hold scale at 0.0
-        if (targetPositions[idx + 1] > simPositions[idx + 1] + 10.0) {
-          isDroneVisible[i] = 0;
-        } else {
-          isDroneVisible[i] = 1;
-        }
-        simPositions[idx]     = targetPositions[idx];
-        simPositions[idx + 1] = targetPositions[idx + 1];
-        simPositions[idx + 2] = targetPositions[idx + 2];
-        simColors[idx]     = targetColors[idx];
-        simColors[idx + 1] = targetColors[idx + 1];
-        simColors[idx + 2] = targetColors[idx + 2];
-        continue;
-      }
-
       let px = simPositions[idx], py = simPositions[idx + 1], pz = simPositions[idx + 2];
-      let vx = velocities[idx], vy = velocities[idx + 1], vz = velocities[idx + 2];
+      let vx = simVelocities[idx], vy = simVelocities[idx + 1], vz = simVelocities[idx + 2];
 
-      let fx = (targetPositions[idx] - px) * SPRING - vx * DAMPING;
-      let fy = (targetPositions[idx + 1] - py) * SPRING - vy * DAMPING;
-      let fz = (targetPositions[idx + 2] - pz) * SPRING - vz * DAMPING;
+      const fx = (targetPositions[idx] - px) * SPRING - vx * DAMPING;
+      const fy = (targetPositions[idx + 1] - py) * SPRING - vy * DAMPING;
+      const fz = (targetPositions[idx + 2] - pz) * SPRING - vz * DAMPING;
 
       vx += fx * dt; vy += fy * dt; vz += fz * dt;
 
@@ -742,21 +835,40 @@ window.bakeAndDownloadGLB = async function() {
       simPositions[idx + 2] += vz * dt;
       simVelocities[idx] = vx; simVelocities[idx + 1] = vy; simVelocities[idx + 2] = vz;
 
-      simColors[idx]     = targetColors[idx];
-      simColors[idx + 1] = targetColors[idx + 1];
-      simColors[idx + 2] = targetColors[idx + 2];
+      if (i >= formationCount && inShowBody && vy > -0.15) {
+        isDroneVisible[i] = 0;
+      }
+
+      if (isDroneVisible[i] === 0) {
+        simColors[idx]     = 0.0;
+        simColors[idx + 1] = 0.0;
+        simColors[idx + 2] = 0.0;
+      } else {
+        simColors[idx]     += (targetColors[idx] - simColors[idx]) * Math.min(1.0, 10.0 * dt);
+        simColors[idx + 1] += (targetColors[idx + 1] - simColors[idx + 1]) * Math.min(1.0, 10.0 * dt);
+        simColors[idx + 2] += (targetColors[idx + 2] - simColors[idx + 2]) * Math.min(1.0, 10.0 * dt);
+      }
     }
 
     if (s % physicsSubsteps === 0 && frameIdx < totalFrames) {
       for (let i = 0; i < activeDroneCount; i++) {
-        positions[i][frameIdx * 3]     = simPositions[i * 3];
-        positions[i][frameIdx * 3 + 1] = simPositions[i * 3 + 1];
-        positions[i][frameIdx * 3 + 2] = -simPositions[i * 3 + 2];
+        const idx = i * 3;
+        positions[i][frameIdx * 3]     = simPositions[idx];
+        positions[i][frameIdx * 3 + 1] = simPositions[idx + 1];
+        positions[i][frameIdx * 3 + 2] = -simPositions[idx + 2];
 
         if (isDroneVisible[i] === 1) {
-          scales[i][frameIdx * 3]     = Math.max(0.04, simColors[i * 3]);
-          scales[i][frameIdx * 3 + 1] = Math.max(0.04, simColors[i * 3 + 1]);
-          scales[i][frameIdx * 3 + 2] = Math.max(0.04, simColors[i * 3 + 2]);
+          let r = simColors[idx], g = simColors[idx + 1], b = simColors[idx + 2];
+          const maxC = Math.max(r, g, b);
+          if (maxC < 0.06) {
+            const boost = maxC > 0.0001 ? (0.06 / maxC) : 1.0;
+            r = Math.max(0.06, r * boost);
+            g = g * boost;
+            b = b * boost;
+          }
+          scales[i][frameIdx * 3]     = Math.max(0.002, r);
+          scales[i][frameIdx * 3 + 1] = Math.max(0.002, g);
+          scales[i][frameIdx * 3 + 2] = Math.max(0.002, b);
         } else {
           scales[i][frameIdx * 3]     = 0.0;
           scales[i][frameIdx * 3 + 1] = 0.0;
@@ -766,6 +878,12 @@ window.bakeAndDownloadGLB = async function() {
       frameIdx++;
     }
   }
+
+  playheadTime = savedPlayhead;
+  targetPositions.set(savedTargetPos);
+  targetColors.set(savedTargetCol);
+  isDroneVisible.set(savedVisible);
+  droneSwatchIndices.set(savedSwatches);
 
   const tracks = [];
   for (let i = 0; i < activeDroneCount; i++) {
@@ -783,16 +901,76 @@ window.bakeAndDownloadGLB = async function() {
       link.href = URL.createObjectURL(blob);
       link.download = "Samhain_Drone_Show.glb";
       link.click();
-      console.log("GLB exported with 100% synchronized colors, formations, and zero rising leaves!");
+      if (statusEl) statusEl.textContent = "GLB exported!";
+      if (exportBtn) exportBtn.disabled = false;
     },
-    (err) => console.error("Export error:", err),
+    (err) => {
+      console.error("Export error:", err);
+      if (statusEl) statusEl.textContent = "Export failed (see console)";
+      if (exportBtn) exportBtn.disabled = false;
+    },
     { binary: true, animations: [clip] }
   );
 };
 
+const btnPlay = document.getElementById("btn-play");
+const sceneSelect = document.getElementById("scene-select");
+const timeScrub = document.getElementById("time-scrub");
+const hudStatus = document.getElementById("hud-status");
+const btnExport = document.getElementById("btn-export");
+
+if (timeScrub) timeScrub.max = String(TOTAL_DURATION);
+
+if (sceneSelect) {
+  const optTakeoff = document.createElement("option");
+  optTakeoff.value = "0";
+  optTakeoff.textContent = "0. Takeoff (0s)";
+  sceneSelect.appendChild(optTakeoff);
+
+  let accumT = takeoffConfig.dur;
+  for (const b of timelineData.formationBlocks) {
+    const opt = document.createElement("option");
+    opt.value = String(accumT + 0.5);
+    opt.textContent = `${b.name} (${Math.round(accumT)}s)`;
+    sceneSelect.appendChild(opt);
+    accumT += b.dur + (b.transDur || 0);
+  }
+
+  const optLand = document.createElement("option");
+  optLand.value = String(TOTAL_DURATION - landingConfig.dur);
+  optLand.textContent = `16. Finale Swarm & Landing (${Math.round(TOTAL_DURATION - landingConfig.dur)}s)`;
+  sceneSelect.appendChild(optLand);
+
+  sceneSelect.addEventListener("change", () => {
+    showState = "RUNNING";
+    playheadTime = parseFloat(sceneSelect.value);
+    evaluateTimeline(playheadTime);
+  });
+}
+
+if (btnPlay) {
+  btnPlay.addEventListener("click", () => {
+    isPaused = !isPaused;
+    btnPlay.textContent = isPaused ? "Play" : "Pause";
+  });
+}
+
+if (timeScrub) {
+  timeScrub.addEventListener("input", () => {
+    showState = "RUNNING";
+    playheadTime = parseFloat(timeScrub.value);
+    evaluateTimeline(playheadTime);
+  });
+}
+
+if (btnExport) {
+  btnExport.addEventListener("click", () => window.bakeAndDownloadGLB());
+}
+
 (async () => {
   await buildShowTrajectoryData();
   evaluateTimeline(0);
+  if (hudStatus) hudStatus.textContent = "Ready — 15 Formations Loaded";
 })();
 
 renderer.xr.addEventListener("sessionstart", () => {
@@ -814,42 +992,56 @@ renderer.setAnimationLoop(now => {
   const dt = Math.min(0.05, (now - prevTime) / 1000);
   prevTime = now;
 
-  if (showState === "PRE_SHOW") {
-    pauseCountdown -= dt;
-    evaluateTimeline(0.0);
-    if (pauseCountdown <= 0) {
-      showState = "RUNNING";
-      playheadTime = 0.0;
-    }
-  } else if (showState === "RUNNING") {
-    playheadTime += dt;
-    if (playheadTime >= TOTAL_DURATION) {
-      playheadTime = TOTAL_DURATION;
+  if (!isPaused) {
+    if (showState === "PRE_SHOW") {
+      pauseCountdown -= dt;
+      evaluateTimeline(0.0);
+      if (pauseCountdown <= 0) {
+        showState = "RUNNING";
+        playheadTime = 0.0;
+      }
+    } else if (showState === "RUNNING") {
+      playheadTime += dt;
+      if (playheadTime >= TOTAL_DURATION) {
+        playheadTime = TOTAL_DURATION;
+        evaluateTimeline(TOTAL_DURATION);
+        showState = "POST_SHOW";
+        pauseCountdown = POST_SHOW_DELAY;
+      } else {
+        evaluateTimeline(playheadTime);
+      }
+    } else if (showState === "POST_SHOW") {
+      pauseCountdown -= dt;
       evaluateTimeline(TOTAL_DURATION);
-      showState = "POST_SHOW";
-      pauseCountdown = POST_SHOW_DELAY;
-    } else {
-      evaluateTimeline(playheadTime);
+      if (pauseCountdown <= 0) {
+        showState = "RUNNING";
+        playheadTime = 0.0;
+      }
     }
-  } else if (showState === "POST_SHOW") {
-    pauseCountdown -= dt;
-    evaluateTimeline(TOTAL_DURATION);
-    if (pauseCountdown <= 0) {
-      showState = "RUNNING";
-      playheadTime = 0.0;
-    }
+  } else {
+    evaluateTimeline(playheadTime);
+  }
+
+  if (timeScrub && document.activeElement !== timeScrub) {
+    timeScrub.value = String(playheadTime);
+  }
+  if (hudStatus && formationTrajectories.length === 15 && (!btnExport || !btnExport.disabled)) {
+    hudStatus.textContent = `${activePhaseLabel} (${playheadTime.toFixed(1)}s / ${TOTAL_DURATION.toFixed(0)}s)`;
   }
 
   dronePoints.material.size = Math.max(0.02, BASE_DRONE_SIZE * stageGroup.scale.x);
+  const formationCount = precipConfig.enabled ? Math.max(50, activeDroneCount - precipConfig.count) : activeDroneCount;
+  const showBodyEnd = TOTAL_DURATION - landingConfig.dur;
+  const inShowBody = (playheadTime > takeoffConfig.dur && playheadTime < showBodyEnd);
 
   for (let i = 0; i < activeDroneCount; i++) {
     const idx = i * 3;
     let px = currentPositions[idx], py = currentPositions[idx + 1], pz = currentPositions[idx + 2];
     let vx = velocities[idx], vy = velocities[idx + 1], vz = velocities[idx + 2];
 
-    let fx = (targetPositions[idx] - px) * SPRING - vx * DAMPING;
-    let fy = (targetPositions[idx + 1] - py) * SPRING - vy * DAMPING;
-    let fz = (targetPositions[idx + 2] - pz) * SPRING - vz * DAMPING;
+    const fx = (targetPositions[idx] - px) * SPRING - vx * DAMPING;
+    const fy = (targetPositions[idx + 1] - py) * SPRING - vy * DAMPING;
+    const fz = (targetPositions[idx + 2] - pz) * SPRING - vz * DAMPING;
 
     vx += fx * dt; vy += fy * dt; vz += fz * dt;
 
@@ -865,9 +1057,19 @@ renderer.setAnimationLoop(now => {
     currentPositions[idx + 2] += vz * dt;
     velocities[idx] = vx; velocities[idx + 1] = vy; velocities[idx + 2] = vz;
 
-    currentColors[idx]     += (targetColors[idx] - currentColors[idx]) * 7.0 * dt;
-    currentColors[idx + 1] += (targetColors[idx + 1] - currentColors[idx + 1]) * 7.0 * dt;
-    currentColors[idx + 2] += (targetColors[idx + 2] - currentColors[idx + 2]) * 7.0 * dt;
+    if (i >= formationCount && inShowBody && vy > -0.15) {
+      isDroneVisible[i] = 0;
+    }
+
+    if (isDroneVisible[i] === 0) {
+      currentColors[idx]     = 0.0;
+      currentColors[idx + 1] = 0.0;
+      currentColors[idx + 2] = 0.0;
+    } else {
+      currentColors[idx]     += (targetColors[idx] - currentColors[idx]) * Math.min(1.0, 7.0 * dt);
+      currentColors[idx + 1] += (targetColors[idx + 1] - currentColors[idx + 1]) * Math.min(1.0, 7.0 * dt);
+      currentColors[idx + 2] += (targetColors[idx + 2] - currentColors[idx + 2]) * Math.min(1.0, 7.0 * dt);
+    }
   }
 
   droneGeometry.attributes.position.needsUpdate = true;
