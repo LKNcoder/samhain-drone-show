@@ -105,107 +105,15 @@ function resampleEquidistant(orderedPts, targetCount) {
   return resampled;
 }
 
-// Procedural 18-meter vector geometries (instant execution, zero network delay)
+// Emergency fallback only if all network/local image loads fail
 export function generateProceduralShape(tileNum, out, count, swatchOut, altitude) {
   for (let i = 0; i < count; i++) {
-    const u = i / count;
-    let x = 0, y = altitude, z = 0, swatch = 0;
-
-    switch (tileNum) {
-      case 29: { // Celtic Knot: 3 interlaced loops (18m wide)
-        const tLoop = u * Math.PI * 6.0;
-        const rKnot = 8.5 * (1.0 + 0.5 * Math.sin(3.0 * (u * Math.PI * 2.0)));
-        x = Math.cos(tLoop) * rKnot;
-        y = altitude + Math.sin(tLoop) * rKnot;
-        swatch = (y > altitude) ? 1 : 0;
-        break;
-      }
-      case 30: { // Sigil: 5-point star (18m wide)
-        const starT = u * 5.0;
-        const seg = Math.floor(starT) % 5;
-        const f = starT - Math.floor(starT);
-        const order = [0, 2, 4, 1, 3, 0];
-        const a1 = order[seg] * (Math.PI * 2 / 5) - Math.PI / 2;
-        const a2 = order[seg + 1] * (Math.PI * 2 / 5) - Math.PI / 2;
-        x = Math.cos(a1) * 9.0 + (Math.cos(a2) * 9.0 - Math.cos(a1) * 9.0) * f;
-        y = altitude + Math.sin(a1) * 9.0 + (Math.sin(a2) * 9.0 - Math.sin(a1) * 9.0) * f;
-        swatch = 1;
-        break;
-      }
-      case 31: { // Solar Wheel: 8 radiating spokes (18m wide)
-        if (u < 0.25) {
-          const theta = (u / 0.25) * Math.PI * 2.0;
-          x = Math.cos(theta) * 3.5;
-          y = altitude + Math.sin(theta) * 3.5;
-          swatch = 0;
-        } else {
-          const spokeIdx = Math.floor(((u - 0.25) / 0.75) * 8);
-          const spokeF = (((u - 0.25) / 0.75) * 8) - spokeIdx;
-          const theta = spokeIdx * (Math.PI / 4);
-          const rad = 3.5 + spokeF * 5.5;
-          x = Math.cos(theta) * rad;
-          y = altitude + Math.sin(theta) * rad;
-          swatch = 1;
-        }
-        break;
-      }
-      case 33: { // DEER HEAD: Stag head with branching antlers (18m wide, PURPLE)
-        if (u < 0.35) {
-          const tH = (u / 0.35) * Math.PI * 2.0;
-          x = Math.sin(tH) * 3.2;
-          y = altitude - 4.5 + Math.cos(tH) * 5.0;
-          swatch = 0;
-        } else if (u < 0.50) {
-          const sign = (u < 0.425) ? -1 : 1;
-          const tE = ((u - 0.35) % 0.075) / 0.075;
-          x = sign * (2.8 + tE * 3.0);
-          y = altitude + 0.8 + Math.sin(tE * Math.PI) * 2.5;
-          swatch = 0;
-        } else {
-          const sign = (u < 0.75) ? -1 : 1;
-          const tA = ((u - 0.5) % 0.25) / 0.25;
-          const mainX = sign * (1.6 + Math.pow(tA, 0.8) * 7.5);
-          const mainY = altitude + 1.2 + tA * 8.5;
-          const tine = (Math.sin(tA * Math.PI * 4.0) > 0.4) ? sign * 1.8 : 0;
-          x = mainX + tine;
-          y = mainY;
-          swatch = 1;
-        }
-        break;
-      }
-      case 34: { // CROSS: Celtic High Cross (18m tall, 14m wide, TEAL)
-        if (u < 0.35) {
-          const theta = (u / 0.35) * Math.PI * 2.0;
-          x = Math.cos(theta) * 4.5;
-          y = altitude + 1.8 + Math.sin(theta) * 4.5;
-          swatch = 1;
-        } else if (u < 0.70) {
-          const tV = (u - 0.35) / 0.35;
-          x = (Math.sin(tV * 35.0) > 0 ? 1 : -1) * 1.3;
-          y = altitude - 7.5 + tV * 17.0;
-          swatch = 0;
-        } else {
-          const tH = (u - 0.70) / 0.30;
-          x = -7.0 + tH * 14.0;
-          y = altitude + 1.8 + (Math.sin(tH * 35.0) > 0 ? 1 : -1) * 1.2;
-          swatch = 0;
-        }
-        break;
-      }
-      default: {
-        const theta = i * GOLDEN;
-        const r = Math.sqrt((i + 0.5) / count) * 8.5;
-        x = Math.cos(theta) * r;
-        y = altitude + Math.sin(theta) * r;
-        swatch = 0;
-        break;
-      }
-    }
-
-    out[i * 3]     = x;
-    out[i * 3 + 1] = y;
-    out[i * 3 + 2] = z;
-    if (swatchOut) swatchOut[i] = swatch;
+    const theta = i * GOLDEN;
+    const r = Math.sqrt((i + 0.5) / count) * 8.5;
+    out[i * 3]     = Math.cos(theta) * r;
+    out[i * 3 + 1] = altitude + Math.sin(theta) * r;
+    out[i * 3 + 2] = 0;
+    if (swatchOut) swatchOut[i] = i % 2;
   }
 }
 
@@ -222,7 +130,7 @@ export function sampleImageToDrones(imgElement, out, count, swatchOut, scale = 0
   const binary = new Uint8Array(512 * 512);
 
   let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
-  const cornerAlpha = (imgData[3] + imgData[511 * 4 + 3] + imgData[(511 * 512) * 4 + 3]) / 3;
+  const cornerAlpha = (imgData[16 * 512 * 4 + 16 * 4 + 3] + imgData[16 * 512 * 4 + 495 * 4 + 3] + imgData[495 * 512 * 4 + 16 * 4 + 3]) / 3;
   const isTransparentBg = cornerAlpha < 50;
 
   for (let y = 16; y < 496; y++) {
@@ -244,7 +152,7 @@ export function sampleImageToDrones(imgElement, out, count, swatchOut, scale = 0
   const spanY = maxY - minY;
   const maxSpan = Math.max(spanX, spanY);
 
-  if (maxSpan < 70 || !isFinite(minX)) {
+  if (maxSpan < 40 || !isFinite(minX)) {
     generateProceduralShape(tileNum, out, count, swatchOut, altitude);
     return;
   }
@@ -260,10 +168,15 @@ export function sampleImageToDrones(imgElement, out, count, swatchOut, scale = 0
         const islandPixels = [];
         const queue = [{ x, y }];
         visited[idx] = 1;
+        let ix0 = x, ix1 = x, iy0 = y, iy1 = y;
 
         while (queue.length > 0) {
           const pt = queue.pop();
           islandPixels.push(pt);
+          if (pt.x < ix0) ix0 = pt.x;
+          if (pt.x > ix1) ix1 = pt.x;
+          if (pt.y < iy0) iy0 = pt.y;
+          if (pt.y > iy1) iy1 = pt.y;
 
           const neighbors = [
             { x: pt.x + 1, y: pt.y }, { x: pt.x - 1, y: pt.y },
@@ -295,8 +208,18 @@ export function sampleImageToDrones(imgElement, out, count, swatchOut, scale = 0
           let totalLoopLen = 0;
           for (const loop of allLoops) totalLoopLen += loop.length;
 
-          let weight = totalLoopLen * 2.2 + Math.sqrt(islandPixels.length) * 4.0;
-          islands.push({ pixels: islandPixels, loops: allLoops, totalLoopLen, weight });
+          const weight = totalLoopLen * 2.2 + Math.sqrt(islandPixels.length) * 4.0;
+          islands.push({
+            pixels: islandPixels,
+            loops: allLoops,
+            totalLoopLen,
+            weight,
+            pixelCount: islandPixels.length,
+            x0: ix0,
+            x1: ix1,
+            y0: iy0,
+            y1: iy1
+          });
         }
       }
     }
@@ -333,10 +256,11 @@ export function sampleImageToDrones(imgElement, out, count, swatchOut, scale = 0
     const isl = islands[k];
     const islDroneCount = quotas[k].base;
     const edgeCount = Math.min(Math.round(isl.totalLoopLen * 1.5), Math.round(islDroneCount * 0.75));
-    const fillCount = islDroneCount - edgeCount;
+    const fillCount = Math.max(0, islDroneCount - edgeCount);
 
     if (isl.loops.length > 0 && edgeCount > 0 && isl.totalLoopLen > 0) {
-      for (const loop of isl.loops) {
+      for (let lIdx = 0; lIdx < isl.loops.length; lIdx++) {
+        const loop = isl.loops[lIdx];
         const loopDrones = Math.max(2, Math.round((loop.length / isl.totalLoopLen) * edgeCount));
         const resampled = resampleEquidistant(loop, loopDrones);
 
@@ -345,7 +269,9 @@ export function sampleImageToDrones(imgElement, out, count, swatchOut, scale = 0
           out[ptr * 3]     = (p.x - cx) * autoScale;
           out[ptr * 3 + 1] = altitude - (p.y - cy) * autoScale;
           out[ptr * 3 + 2] = 0.0;
-          if (swatchOut) swatchOut[ptr] = getSemanticSwatch(p.x, p.y, tileNum, minY, maxY, minX, maxX);
+          if (swatchOut) {
+            swatchOut[ptr] = getSemanticSwatch(p.x, p.y, tileNum, minY, maxY, minX, maxX, isl, lIdx);
+          }
           ptr++;
         }
       }
@@ -354,47 +280,133 @@ export function sampleImageToDrones(imgElement, out, count, swatchOut, scale = 0
     if (isl.pixels.length > 0 && fillCount > 0) {
       const stepF = isl.pixels.length / fillCount;
       for (let i = 0; i < fillCount && ptr < count; i++) {
-        const p = isl.pixels[Math.floor(i * stepF) % isl.pixels.length];
+        const p = isl.pixels[Math.floor((i + 0.5) * stepF) % isl.pixels.length];
         out[ptr * 3]     = (p.x - cx) * autoScale;
         out[ptr * 3 + 1] = altitude - (p.y - cy) * autoScale;
         out[ptr * 3 + 2] = 0.0;
-        if (swatchOut) swatchOut[ptr] = getSemanticSwatch(p.x, p.y, tileNum, minY, maxY, minX, maxX);
+        if (swatchOut) {
+          swatchOut[ptr] = getSemanticSwatch(p.x, p.y, tileNum, minY, maxY, minX, maxX, isl, 0);
+        }
         ptr++;
       }
     }
   }
 
   while (ptr < count) {
-    const ref = Math.floor(Math.random() * Math.max(1, ptr));
-    out[ptr * 3]     = out[ref * 3] + (Math.random() - 0.5) * 0.12;
-    out[ptr * 3 + 1] = out[ref * 3 + 1] + (Math.random() - 0.5) * 0.12;
+    const ref = ptr > 0 ? (ptr % Math.max(1, ptr)) : 0;
+    const srcIdx = Math.floor((ptr - ref) * 0.73) % Math.max(1, ptr);
+    out[ptr * 3]     = out[srcIdx * 3] + (Math.random() - 0.5) * 0.1;
+    out[ptr * 3 + 1] = out[srcIdx * 3 + 1] + (Math.random() - 0.5) * 0.1;
     out[ptr * 3 + 2] = 0.0;
-    if (swatchOut) swatchOut[ptr] = swatchOut[ref];
+    if (swatchOut) swatchOut[ptr] = swatchOut[srcIdx];
     ptr++;
   }
 }
 
-function getSemanticSwatch(px, py, tileNum, minY = 0, maxY = 512, minX = 0, maxX = 512) {
+// Island-aware & coordinate-accurate semantic color swatch assignment for all 15 tiles
+function getSemanticSwatch(px, py, tileNum, minY = 0, maxY = 512, minX = 0, maxX = 512, isl = null, loopIdx = 0) {
   const normY = (py - minY) / Math.max(1, maxY - minY);
+  const normX = (px - minX) / Math.max(1, maxX - minX);
+  const pCount = isl ? isl.pixelCount : 5000;
+  const ix0 = isl ? isl.x0 : minX;
+  const ix1 = isl ? isl.x1 : maxX;
+  const iy0 = isl ? isl.y0 : minY;
+  const iy1 = isl ? isl.y1 : maxY;
+
   switch (tileNum) {
-    case 24: return (normY < 0.38) ? 1 : (normY > 0.88 ? 2 : 0);
-    case 18: return 0;
-    case 25: return (normY > 0.70) ? 1 : 0;
-    case 26: return (normY > 0.65) ? 0 : 1;
-    case 19: return 0;
-    case 16: return (normY > 0.65) ? 1 : 0;
-    case 27: return (normY > 0.78) ? 2 : (normY >= 0.28 && normY <= 0.52 ? 1 : 0);
-    case 28: return (normY > 0.75) ? 1 : 0;
-    case 32: return (normY < 0.45) ? 1 : 0;
-    case 29: case 30: case 31: case 34: return (normY > 0.5) ? 1 : 0;
-    case 33: return (normY < 0.42) ? 1 : 0;
-    case 17:
-      if (normY > 0.74) return 1;
-      if (normY < 0.30) return 0;
-      if (normY >= 0.14 && normY < 0.48) return 1;
-      if (normY >= 0.48 && normY <= 0.74) return 2;
-      return 3;
-    default: return 0;
+    case 16: { // 1. Wheat: 0 = Harvest Gold Kernels, 1 = Brown Stem & Sheath Leaves, 2 = Pale Gold Upper Awns
+      if (iy1 > 420) return 1;
+      if (pCount < 550 && py < 300) return 2;
+      return 0;
+    }
+    case 25: { // 2. Scythe: 0 = Metallic Steel Blade, 1 = Wood Brown Handle, 2 = Brass/Gold Collar Ring
+      if (iy0 > 330) return 1;
+      if (pCount < 2000) return 2;
+      return 0;
+    }
+    case 28: { // 3. Oak Leaf & Acorns: 0 = Crimson Red Leaf, 1 = Dark Brown Branch & Acorn Caps, 2 = Tan Acorn Nuts
+      if (pCount > 10000) {
+        const branchLineY = 330.0 - (px - 205.0) * 0.42;
+        return (py > branchLineY) ? 1 : 0;
+      }
+      return (pCount < 3000) ? 1 : 2;
+    }
+    case 26: { // 4. Tree: 0 = Deep Bark Brown Trunk & Roots, 1 = Bronze Boughs, 2 = Amber Twig Tips
+      if (normY > 0.58 || (normY > 0.40 && Math.abs(normX - 0.5) < 0.14)) return 0;
+      if (normY < 0.25 || normX < 0.18 || normX > 0.82) return 2;
+      return 1;
+    }
+    case 27: { // 5. Owl on Branch: 0 = Snowy White Owl, 1 = Golden Amber Eyes/Beak/Talons, 2 = Brown Branch
+      if (ix0 < 100 || ix1 > 395 || pCount < 450) return 2;
+      if (pCount < 1500 && iy0 > 350) return 1;
+      if (iy0 > 395) return 0;
+      if (pCount > 20000) {
+        const dLeftEye  = Math.hypot(px - 224, py - 128);
+        const dRightEye = Math.hypot(px - 285, py - 128);
+        const dBeak     = Math.hypot(px - 254, (py - 156) * 0.85);
+        if (dLeftEye <= 22 || dRightEye <= 22 || dBeak <= 16) return 1;
+      }
+      return 0;
+    }
+    case 18: { // 6. Pumpkin: 0 = Deep Pumpkin Orange, 1 = Lush Vine Green Stem, 2 = Warm Orange Rib Highlight
+      if (iy0 < 100) return 1;
+      if (pCount > 25000 || pCount < 12000) return 0;
+      return 2;
+    }
+    case 24: { // 7. Candle: 0 = White Candlestick, 1 = Red Outer Flame, 2 = Gold Holder Base, 3 = Yellow Inner Flame Core
+      if (iy1 < 190) {
+        const coreDist = ((px - 260.0) / 28.0) ** 2 + ((py - 146.0) / 44.0) ** 2;
+        if (loopIdx > 0 || coreDist <= 1.0) return 3;
+        return 1;
+      }
+      if (iy0 > 395) return 2;
+      if (py < 190 && px >= 248 && px <= 268) return 3;
+      return 0;
+    }
+    case 19: { // 8. Ghost: 0 = Spectral White Sheet, 1 = Icy Blue Floating Wisps
+      return (pCount < 1500) ? 1 : 0;
+    }
+    case 32: { // 9. Key: 0 = Bright Gold Bow/Collar/Bit, 1 = Rich Amber Shaft
+      return (iy0 > 200 && iy1 < 330) ? 1 : 0;
+    }
+    case 29: { // 10. Celtic Triquetra Knot: 0 = Emerald Triquetra Lobes, 1 = Electric Blue Interwoven Circle
+      return (pCount > 8500) ? 0 : 1;
+    }
+    case 30: { // 11. Celtic Shield Sigil: 0 = Crimson Outer Loops, 1 = Fiery Amber Inner Lattice
+      return (pCount < 6200) ? 1 : 0;
+    }
+    case 31: { // 12. Celtic Triskelion: 0 = Bright Solar Gold Center, 1 = Deep Orange Outer Spirals
+      return (Math.hypot(px - 256, py - 265) < 115) ? 0 : 1;
+    }
+    case 33: { // 13. Deer Head: 0 = Royal Purple Head/Ears/Neck, 1 = Luminous Violet Antlers, 2 = Glowing Gold Eyes
+      if (iy0 < 100) return 1;
+      if (pCount > 13000) {
+        if (Math.hypot(px - 205, py - 280) <= 22 || Math.hypot(px - 304, py - 280) <= 22) {
+          return 2;
+        }
+      }
+      return 0;
+    }
+    case 34: { // 14. Brigid's Cross: 0 = Deep Electric Teal Arms, 1 = Bright Cyan Woven Square & Tying Bands
+      if (
+        (px >= 188 && px <= 325 && py >= 188 && py <= 325) ||
+        (py >= 90 && py <= 108) ||
+        (py >= 402 && py <= 420) ||
+        (px >= 92 && px <= 110) ||
+        (px >= 401 && px <= 420)
+      ) {
+        return 1;
+      }
+      return 0;
+    }
+    case 17: { // 15. Finale ("BLESSED SAMHAIN"): 4-stop warm Samhain fire gradient
+      if (py < 248) {
+        return (normY < 0.22) ? 0 : 1;
+      }
+      return (normY < 0.78) ? 2 : 3;
+    }
+    default:
+      return 0;
   }
 }
 
@@ -435,11 +447,6 @@ export const SHAPE_PAGES = [
       tileNum,
       filename,
       gen: async (out, n, swatchOut) => {
-        // Tiles 29, 30, 31, 33, 34 generate procedurally immediately (zero network delays)
-        if (tileNum >= 29 && tileNum <= 34 && tileNum !== 32) {
-          generateProceduralShape(tileNum, out, n, swatchOut, 16);
-          return;
-        }
         const img = await loadTileImage(filename);
         if (img) {
           sampleImageToDrones(img, out, n, swatchOut, 0.048, 16, tileNum);
