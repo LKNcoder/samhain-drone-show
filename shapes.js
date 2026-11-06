@@ -105,14 +105,14 @@ function resampleEquidistant(orderedPts, targetCount) {
   return resampled;
 }
 
-// Procedural 18-meter open generators: bold symbols without circular frames
-function generateProceduralShape(tileNum, out, count, swatchOut, altitude) {
+// Procedural 18-meter vector geometries (instant execution, zero network delay)
+export function generateProceduralShape(tileNum, out, count, swatchOut, altitude) {
   for (let i = 0; i < count; i++) {
     const u = i / count;
     let x = 0, y = altitude, z = 0, swatch = 0;
 
     switch (tileNum) {
-      case 29: { // Celtic Knot: 3 bold interlaced petals (18m wide)
+      case 29: { // Celtic Knot: 3 interlaced loops (18m wide)
         const tLoop = u * Math.PI * 6.0;
         const rKnot = 8.5 * (1.0 + 0.5 * Math.sin(3.0 * (u * Math.PI * 2.0)));
         x = Math.cos(tLoop) * rKnot;
@@ -120,7 +120,7 @@ function generateProceduralShape(tileNum, out, count, swatchOut, altitude) {
         swatch = (y > altitude) ? 1 : 0;
         break;
       }
-      case 30: { // Sigil: Open 5-point star (18m wide, no bounding circle)
+      case 30: { // Sigil: 5-point star (18m wide)
         const starT = u * 5.0;
         const seg = Math.floor(starT) % 5;
         const f = starT - Math.floor(starT);
@@ -132,7 +132,7 @@ function generateProceduralShape(tileNum, out, count, swatchOut, altitude) {
         swatch = 1;
         break;
       }
-      case 31: { // Solar Wheel: 8 radiant expanding sun rays (18m wide)
+      case 31: { // Solar Wheel: 8 radiating spokes (18m wide)
         if (u < 0.25) {
           const theta = (u / 0.25) * Math.PI * 2.0;
           x = Math.cos(theta) * 3.5;
@@ -149,19 +149,19 @@ function generateProceduralShape(tileNum, out, count, swatchOut, altitude) {
         }
         break;
       }
-      case 33: { // DEER HEAD: Large stag with branching antlers (18m wide, PURPLE)
-        if (u < 0.35) { // Snout & jaw
+      case 33: { // DEER HEAD: Stag head with branching antlers (18m wide, PURPLE)
+        if (u < 0.35) {
           const tH = (u / 0.35) * Math.PI * 2.0;
           x = Math.sin(tH) * 3.2;
           y = altitude - 4.5 + Math.cos(tH) * 5.0;
           swatch = 0;
-        } else if (u < 0.50) { // Ears
+        } else if (u < 0.50) {
           const sign = (u < 0.425) ? -1 : 1;
           const tE = ((u - 0.35) % 0.075) / 0.075;
           x = sign * (2.8 + tE * 3.0);
           y = altitude + 0.8 + Math.sin(tE * Math.PI) * 2.5;
           swatch = 0;
-        } else { // Antlers
+        } else {
           const sign = (u < 0.75) ? -1 : 1;
           const tA = ((u - 0.5) % 0.25) / 0.25;
           const mainX = sign * (1.6 + Math.pow(tA, 0.8) * 7.5);
@@ -174,17 +174,17 @@ function generateProceduralShape(tileNum, out, count, swatchOut, altitude) {
         break;
       }
       case 34: { // CROSS: Celtic High Cross (18m tall, 14m wide, TEAL)
-        if (u < 0.35) { // Central halo ring
+        if (u < 0.35) {
           const theta = (u / 0.35) * Math.PI * 2.0;
           x = Math.cos(theta) * 4.5;
           y = altitude + 1.8 + Math.sin(theta) * 4.5;
           swatch = 1;
-        } else if (u < 0.70) { // Vertical beam
+        } else if (u < 0.70) {
           const tV = (u - 0.35) / 0.35;
           x = (Math.sin(tV * 35.0) > 0 ? 1 : -1) * 1.3;
           y = altitude - 7.5 + tV * 17.0;
           swatch = 0;
-        } else { // Horizontal crossbar
+        } else {
           const tH = (u - 0.70) / 0.30;
           x = -7.0 + tH * 14.0;
           y = altitude + 1.8 + (Math.sin(tH * 35.0) > 0 ? 1 : -1) * 1.2;
@@ -225,13 +225,11 @@ export function sampleImageToDrones(imgElement, out, count, swatchOut, scale = 0
   const cornerAlpha = (imgData[3] + imgData[511 * 4 + 3] + imgData[(511 * 512) * 4 + 3]) / 3;
   const isTransparentBg = cornerAlpha < 50;
 
-  // Crop outer 16 pixels to filter out square tile borders and enclosing rings
   for (let y = 16; y < 496; y++) {
     for (let x = 16; x < 496; x++) {
       const idx = (y * 512 + x) * 4;
       const r = imgData[idx], g = imgData[idx + 1], b = imgData[idx + 2], a = imgData[idx + 3];
       const lum = r * 0.299 + g * 0.587 + b * 0.114;
-
       const isForeground = isTransparentBg ? (a > 40) : (lum > 45 || (r + g + b > 80));
 
       if (isForeground) {
@@ -378,7 +376,6 @@ export function sampleImageToDrones(imgElement, out, count, swatchOut, scale = 0
 
 function getSemanticSwatch(px, py, tileNum, minY = 0, maxY = 512, minX = 0, maxX = 512) {
   const normY = (py - minY) / Math.max(1, maxY - minY);
-
   switch (tileNum) {
     case 24: return (normY < 0.38) ? 1 : (normY > 0.88 ? 2 : 0);
     case 18: return 0;
@@ -405,18 +402,11 @@ export function loadTileImage(filename) {
   return new Promise((resolve) => {
     const numMatch = filename.match(/\d+/);
     const tileNum = numMatch ? numMatch[0] : "";
-
     const candidates = [
       `./samhain-tile${tileNum}.png`,
-      `./samhain-tile${tileNum}.svg`,
       `${ASSET_BASE_URL}samhain-tile${tileNum}.png`,
-      `${ASSET_BASE_URL}samhain-tile${tileNum}.svg`,
       `./tile${tileNum}.png`,
-      `./tile${tileNum}.svg`,
-      `${ASSET_BASE_URL}tile${tileNum}.png`,
-      `${ASSET_BASE_URL}tile${tileNum}.svg`,
-      `./${filename}`,
-      `${ASSET_BASE_URL}${filename}`
+      `${ASSET_BASE_URL}tile${tileNum}.png`
     ];
 
     let idx = 0;
@@ -428,19 +418,14 @@ export function loadTileImage(filename) {
       const img = new Image();
       img.crossOrigin = "anonymous";
       img.onload = () => resolve(img);
-      img.onerror = () => {
-        idx++;
-        tryNext();
-      };
+      img.onerror = () => { idx++; tryNext(); };
       img.src = candidates[idx];
     }
     tryNext();
   });
 }
 
-const TILE_ORDER = [
-  16, 25, 28, 26, 27, 18, 24, 19, 32, 29, 30, 31, 33, 34, 17
-];
+const TILE_ORDER = [16, 25, 28, 26, 27, 18, 24, 19, 32, 29, 30, 31, 33, 34, 17];
 
 export const SHAPE_PAGES = [
   TILE_ORDER.map((tileNum) => {
@@ -450,6 +435,11 @@ export const SHAPE_PAGES = [
       tileNum,
       filename,
       gen: async (out, n, swatchOut) => {
+        // Tiles 29, 30, 31, 33, 34 generate procedurally immediately (zero network delays)
+        if (tileNum >= 29 && tileNum <= 34 && tileNum !== 32) {
+          generateProceduralShape(tileNum, out, n, swatchOut, 16);
+          return;
+        }
         const img = await loadTileImage(filename);
         if (img) {
           sampleImageToDrones(img, out, n, swatchOut, 0.048, 16, tileNum);
