@@ -315,7 +315,7 @@ export function sampleImageToDrones(imgElement, out, count, swatchOut, scale = 0
 }
 
 // Island-aware & coordinate-accurate semantic color swatch assignment for all 19 tiles
-function getSemanticSwatch(px, py, tileNum, minY = 0, maxY = 512, minX = 0, maxX = 512, isl = null, loopIdx = 0) {
+export function getSemanticSwatch(px, py, tileNum, minY = 0, maxY = 512, minX = 0, maxX = 512, isl = null, loopIdx = 0) {
   const normY = (py - minY) / Math.max(1, maxY - minY);
   const normX = (px - minX) / Math.max(1, maxX - minX);
   const pCount = isl ? isl.pixelCount : 5000;
@@ -337,11 +337,9 @@ function getSemanticSwatch(px, py, tileNum, minY = 0, maxY = 512, minX = 0, maxX
     }
     case 28: { // 3. Oak Leaf & Acorns: 0 = Crimson Red Leaf, 1 = Dark Brown Branch & Acorn Caps, 2 = Tan Acorn Nuts
       if (pCount > 10000) {
-        // Diagonal line separating the oak leaf blade above from the wooden twig below
         const branchLineY = 330.0 - (px - 205.0) * 0.42;
         return (py > branchLineY) ? 1 : 0;
       }
-      // Separate acorn islands: smaller islands are the textured caps (1), larger are the smooth nuts (2)
       return (pCount < 3000) ? 1 : 2;
     }
     case 26: { // 4. Tree: 0 = Deep Bark Brown Trunk & Roots, 1 = Bronze Boughs, 2 = Amber Twig Tips
@@ -350,13 +348,9 @@ function getSemanticSwatch(px, py, tileNum, minY = 0, maxY = 512, minX = 0, maxX
       return 1;
     }
     case 27: { // 5. Owl on Branch: 0 = Snowy White Owl, 1 = Golden Amber Eyes/Beak/Talons, 2 = Brown Branch
-      // Left branch & twigs (ix0 < 100), right branch (ix1 > 395), and center branch segment between claws (pCount < 450)
       if (ix0 < 100 || ix1 > 395 || pCount < 450) return 2;
-      // Left and right gripping talons/claws
       if (pCount < 1500 && iy0 > 350) return 1;
-      // Tail feathers hanging below the branch
       if (iy0 > 395) return 0;
-      // Inside main head/torso island: highlight the two eyes and central beak in golden amber
       if (pCount > 20000) {
         const dLeftEye  = Math.hypot(px - 224, py - 128);
         const dRightEye = Math.hypot(px - 285, py - 128);
@@ -366,62 +360,42 @@ function getSemanticSwatch(px, py, tileNum, minY = 0, maxY = 512, minX = 0, maxX
       return 0;
     }
     case 20: { // 6. Raven on Branch: 0 = Vibrant Blue Body, 1 = Yellow Beak & Legs, 2 = Brown Branch, 3 = Cyan-Blue Wing Feathers
-      // Branch segments (left upper branch, bottom main branch, small bark islands)
       if (ix0 < 80 || iy1 > 455 || pCount < 800 || iy0 > 375) return 2;
-      // Separate wing feather islands
       if (pCount < 10000) return 3;
-      // Inside main raven body island (Isl 0):
-      // Upper & lower beak (horizontal mouth slit is at py = 89)
       if (py >= 62 && py <= 104 && px <= 156 - (py - 64) * 0.12) return 1;
-      // Legs & talons gripping branch
       if (py >= 312 && px <= 305 && py > 312 + (px - 245) * 0.25) return 1;
-      // Upper wing shoulder feathers inside Isl 0
       if (px >= 205 && px <= 355 && py >= 140 && py <= 238 && py >= 140 + (px - 220) * 0.42) return 3;
       return 0;
     }
     case 18: { // 7. Pumpkin: 0 = Deep Pumpkin Orange, 1 = Lush Vine Green Stem, 2 = Warm Orange Rib Highlight
-      // Stem islands start near the top of the canvas (iy0 < 100)
       if (iy0 < 100) return 1;
       if (pCount > 25000 || pCount < 12000) return 0;
       return 2;
     }
     case 24: { // 8. Candle: 0 = White Candlestick, 1 = Red Outer Flame, 2 = Gold Holder Base, 3 = Yellow Inner Flame Core
       if (iy1 < 190) {
-        // Flame island: inner teardrop loop or central core ellipse gets bright yellow (3), outer gets fiery red (1)
         const coreDist = ((px - 260.0) / 28.0) ** 2 + ((py - 146.0) / 44.0) ** 2;
         if (loopIdx > 0 || coreDist <= 1.0) return 3;
         return 1;
       }
-      // Bottom saucer / holder dish
       if (iy0 > 395) return 2;
-      // Tiny glowing wick tip at the very top of the candlestick island
       if (py < 190 && px >= 248 && px <= 268) return 3;
-      // Wax candlestick body is 100% pure white
       return 0;
     }
     case 21: { // 9. Cauldron: 0 = Vibrant Blue Cauldron, 1 = White Rising Steam & Bubbles, 2 = Red-Orange Fire, 3 = Brown Wood Logs, 4 = Yellow Inner Fire Core
-      // Steam plumes, bubbles & boiling rim surface
       if (iy1 < 210) return 1;
-      // Campfire wood logs at base
       if (iy0 >= 408) return 3;
-      // Flames between cauldron bottom and wood logs
       if (iy0 >= 345 && iy1 <= 418 && ix0 > 175 && ix1 < 330) {
         if (Math.abs(px - 253) < 26 && py > 372) return 4;
         return 2;
       }
-      // Cauldron pot, rim, handles & feet
       return 0;
     }
     case 23: { // 10. Witch on Broomstick: 0 = Emerald Green Cloak & Hat, 1 = White Skin (Face & Hand), 2 = Brown Broomstick, 3 = Golden Straw Bristles, 4 = Motionless White Crescent Moon
-      // Crescent Moon at top-left (separate swatch 4 so it stays motionless while the witch bobs)
       if (ix1 < 180 && iy1 < 180) return 4;
-      // Witch's face profile (nose, chin, cheek)
       if (ix0 >= 310 && iy0 >= 110 && iy1 <= 175 && pCount < 2000) return 1;
-      // Witch's hand gripping broomstick
       if (ix0 >= 358 && ix1 <= 406 && iy0 >= 245 && iy1 <= 280 && pCount < 600) return 1;
-      // Broom bristles (lower-left brush tail)
       if (ix1 < 155 && iy0 > 325) return 3;
-      // Broom binding cuff & wooden broomstick shaft segments (back, middle, and front tip)
       if (
         (ix1 < 200 && iy0 > 325) ||
         ix0 > 390 ||
@@ -430,7 +404,6 @@ function getSemanticSwatch(px, py, tileNum, minY = 0, maxY = 512, minX = 0, maxX
       ) {
         return 2;
       }
-      // Witch's pointed hat, flowing cloak, cape & boots
       return 0;
     }
     case 32: { // 11. Key: 0 = Bright Gold Bow/Collar/Bit, 1 = Rich Amber Shaft
@@ -440,20 +413,16 @@ function getSemanticSwatch(px, py, tileNum, minY = 0, maxY = 512, minX = 0, maxX
       return (pCount < 1500) ? 1 : 0;
     }
     case 22: { // 13. Skull with Oak Leaves & Acorns: 0 = Bone White Skull, 1 = Crimson Oak Leaves, 2 = Dark Brown Twig & Acorn Caps, 3 = Golden Tan Acorn Nuts, 4 = Muted Bone Cranial Suture Shadow
-      // Left oak leaf cluster & woody twig (Isl 6)
       if (ix0 < 60 && iy0 > 310) {
         if ((px > 152 && py > 348) || (px > 120 && Math.abs(py - (392 - (px - 120) * 0.36)) < 9)) {
-          return 2; // Woody twig stem & bud
+          return 2;
         }
-        return 1; // Crimson oak leaf lobes
+        return 1;
       }
-      // Right oak leaf (Isl 18)
       if (ix0 > 400) return 1;
-      // Four acorn islands at bottom-left (Isl 24..27)
       if (iy0 >= 398 && ix1 < 245) {
-        return (pCount < 450) ? 2 : 3; // 2 = dark brown cap, 3 = golden-tan nut
+        return (pCount < 450) ? 2 : 3;
       }
-      // Subtle cranial suture shadow on back-left of skull so eye sockets, nasal cavity & teeth pop
       if (px > 115 && px < 222 && py > 135 && py < 305) return 4;
       return 0;
     }
@@ -467,10 +436,10 @@ function getSemanticSwatch(px, py, tileNum, minY = 0, maxY = 512, minX = 0, maxX
       return (Math.hypot(px - 256, py - 265) < 115) ? 0 : 1;
     }
     case 33: { // 17. Deer Head: 0 = Royal Purple Head/Ears/Neck, 1 = Luminous Violet Antlers, 2 = Glowing Gold Eyes
-      if (iy0 < 100) return 1; // Left & Right Antler islands
+      if (iy0 < 100) return 1;
       if (pCount > 13000) {
         if (Math.hypot(px - 205, py - 280) <= 22 || Math.hypot(px - 304, py - 280) <= 22) {
-          return 2; // Stag eyes
+          return 2;
         }
       }
       return 0;
@@ -525,7 +494,7 @@ export function loadTileImage(filename) {
   });
 }
 
-const TILE_ORDER = [16, 25, 28, 26, 27, 20, 18, 24, 21, 23, 32, 19, 22, 29, 30, 31, 33, 34, 17];
+export const TILE_ORDER = [16, 25, 28, 26, 27, 20, 18, 24, 21, 23, 32, 19, 22, 29, 30, 31, 33, 34, 17];
 
 export const SHAPE_PAGES = [
   TILE_ORDER.map((tileNum) => {
