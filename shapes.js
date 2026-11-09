@@ -254,10 +254,21 @@ export function sampleImageToDrones(imgElement, out, count, swatchOut, scale = 0
     allocatedSum += baseQuota;
   }
 
-  quotas.sort((a, b) => b.remainder - a.remainder);
-  let remDrones = count - allocatedSum;
-  for (let i = 0; i < quotas.length && remDrones > 0; i++, remDrones--) {
-    quotas[i].base++;
+  if (allocatedSum <= count) {
+    quotas.sort((a, b) => b.remainder - a.remainder);
+    let remDrones = count - allocatedSum;
+    for (let i = 0; i < quotas.length && remDrones > 0; i++, remDrones--) {
+      quotas[i].base++;
+    }
+  } else {
+    quotas.sort((a, b) => b.base - a.base);
+    let excess = allocatedSum - count;
+    for (let i = 0; excess > 0; i = (i + 1) % quotas.length) {
+      if (quotas[i].base > 4) {
+        quotas[i].base--;
+        excess--;
+      }
+    }
   }
   quotas.sort((a, b) => a.index - b.index);
 
@@ -267,15 +278,19 @@ export function sampleImageToDrones(imgElement, out, count, swatchOut, scale = 0
     const islDroneCount = quotas[k].base;
     const edgeRatio = (tileNum === 22 && isl.pixelCount > 7000) ? 0.92 : 0.75;
     const edgeCount = Math.min(Math.round(isl.totalLoopLen * 1.5), Math.round(islDroneCount * edgeRatio));
-    const fillCount = Math.max(0, islDroneCount - edgeCount);
+    let islPlaced = 0;
 
     if (isl.loops.length > 0 && edgeCount > 0 && isl.totalLoopLen > 0) {
       for (let lIdx = 0; lIdx < isl.loops.length; lIdx++) {
+        const remEdge = edgeCount - islPlaced;
+        if (remEdge <= 0) break;
         const loop = isl.loops[lIdx];
-        const loopDrones = Math.max(2, Math.round((loop.length / isl.totalLoopLen) * edgeCount));
+        const loopDrones = (lIdx === isl.loops.length - 1)
+          ? remEdge
+          : Math.min(remEdge, Math.max(2, Math.round((loop.length / isl.totalLoopLen) * edgeCount)));
         const resampled = resampleEquidistant(loop, loopDrones);
 
-        for (let i = 0; i < resampled.length && ptr < count; i++) {
+        for (let i = 0; i < resampled.length && islPlaced < islDroneCount && ptr < count; i++) {
           const p = resampled[i];
           out[ptr * 3]     = (p.x - cx) * autoScale;
           out[ptr * 3 + 1] = altitude - (p.y - cy) * autoScale;
@@ -284,10 +299,12 @@ export function sampleImageToDrones(imgElement, out, count, swatchOut, scale = 0
             swatchOut[ptr] = getSemanticSwatch(p.x, p.y, tileNum, minY, maxY, minX, maxX, isl, lIdx);
           }
           ptr++;
+          islPlaced++;
         }
       }
     }
 
+    const fillCount = Math.max(0, islDroneCount - islPlaced);
     if (isl.pixels.length > 0 && fillCount > 0) {
       const stepF = isl.pixels.length / fillCount;
       for (let i = 0; i < fillCount && ptr < count; i++) {
