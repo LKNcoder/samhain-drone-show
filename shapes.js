@@ -426,8 +426,8 @@ export function getSemanticSwatch(px, py, tileNum, minY = 0, maxY = 512, minX = 
       if (px > 115 && px < 222 && py > 135 && py < 305) return 4;
       return 0;
     }
-    case 29: { // 14. Celtic Triquetra Knot: 0 = Emerald Triquetra Lobes, 1 = Electric Blue Interwoven Circle
-      return (pCount > 8500) ? 0 : 1;
+    case 29: { // 14. Celtic Triquetra Knot: 0 = Emerald Triquetra Lobes & Inner Ribbon, 1 = Electric Blue Interwoven Circle
+      return (pCount > 8500 || (ix0 > 175 && ix1 < 255 && iy0 > 265 && iy1 < 365)) ? 0 : 1;
     }
     case 30: { // 15. Celtic Shield Sigil: 0 = Crimson Outer Loops, 1 = Fiery Amber Inner Lattice
       return (pCount < 6200) ? 1 : 0;
@@ -435,7 +435,7 @@ export function getSemanticSwatch(px, py, tileNum, minY = 0, maxY = 512, minX = 
     case 31: { // 16. Celtic Triskelion: 0 = Bright Solar Gold Center, 1 = Deep Orange Outer Spirals
       return (Math.hypot(px - 256, py - 265) < 115) ? 0 : 1;
     }
-    case 33: { // 17. Deer Head: 0 = Royal Purple Head/Ears/Neck, 1 = Luminous Violet Antlers, 2 = Glowing Gold Eyes
+    case 33: { // 17. Deer Head: 0 = Royal Purple Head/Ears/Neck, 1 = Luminous Violet Antlers, 2 = Rose-Pink Eyes
       if (iy0 < 100) return 1;
       if (pCount > 13000) {
         if (Math.hypot(px - 205, py - 280) <= 22 || Math.hypot(px - 304, py - 280) <= 22) {
