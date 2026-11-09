@@ -608,10 +608,11 @@ const glowCanvas = document.createElement("canvas");
 glowCanvas.width = 64; glowCanvas.height = 64;
 const glowCtx = glowCanvas.getContext("2d");
 const grad = glowCtx.createRadialGradient(32, 32, 1, 32, 32, 32);
+// Neutral white radial glow so browser preview displays true RGB colors matching Unity 1:1
 grad.addColorStop(0, "rgba(255,255,255,1)");
-grad.addColorStop(0.25, "rgba(255,220,180,0.9)");
-grad.addColorStop(0.6, "rgba(255,140,0,0.2)");
-grad.addColorStop(1, "rgba(255,100,0,0)");
+grad.addColorStop(0.28, "rgba(255,255,255,0.88)");
+grad.addColorStop(0.62, "rgba(255,255,255,0.22)");
+grad.addColorStop(1, "rgba(255,255,255,0)");
 glowCtx.fillStyle = grad;
 glowCtx.fillRect(0, 0, 64, 64);
 const glowTexture = new THREE.CanvasTexture(glowCanvas);
@@ -709,32 +710,32 @@ function assignMinimalPaths(currentPos, rawTargets, rawSwatches, count) {
   return { positions: assigned, swatches: assignedSwatches };
 }
 
-// 19 Samhain Formations in a cohesive narrative sequence with multi-swatch anatomical palettes
+// 19 Samhain Formations in a cohesive narrative sequence with channel-pure anatomical palettes
 const SHOW_SCENES = [
   // Act I: The Autumn Harvest
-  { tNum: 16, name: "1. Wheat",         palette: ["#ffd54f", "#9c5628", "#fff176"], motion: "vortex" },
-  { tNum: 25, name: "2. Scythe",        palette: ["#b0bec5", "#9c5628", "#ffb300"], motion: "cascade_wave" },
-  { tNum: 28, name: "3. Leaf & Acorn",  palette: ["#e51c23", "#794022", "#d4883a"], motion: "celtic_swirl" },
-  { tNum: 26, name: "4. Tree",          palette: ["#794022", "#b8652a", "#ffb74d"], motion: "explosion" },
+  { tNum: 16, name: "1. Wheat",         palette: ["#ffcc00", "#9c5628", "#ffe54c"], motion: "vortex" },
+  { tNum: 25, name: "2. Scythe",        palette: ["#cfd8dc", "#8d4e28", "#ff9900"], motion: "cascade_wave" },
+  { tNum: 28, name: "3. Leaf & Acorn",  palette: ["#e51c23", "#794022", "#d47a22"], motion: "celtic_swirl" },
+  { tNum: 26, name: "4. Tree",          palette: ["#794022", "#b85d19", "#ff8000"], motion: "explosion" },
   // Act II: Guardians of the Night Sky
-  { tNum: 27, name: "5. Owl",           palette: ["#ffffff", "#ffab00", "#8d4e28"], motion: "winged_sweep" },
-  { tNum: 20, name: "6. Raven",         palette: ["#2979ff", "#ffd600", "#9c5628", "#00e5ff"], motion: "helix" },
+  { tNum: 27, name: "5. Owl",           palette: ["#ffffff", "#ff9900", "#8d4e28"], motion: "winged_sweep" },
+  { tNum: 20, name: "6. Raven",         palette: ["#1e6bff", "#ffcc00", "#8d4e28", "#00d8ff"], motion: "helix" },
   // Act III: The Samhain Hearth & Witchcraft
-  { tNum: 18, name: "7. Pumpkin",       palette: ["#ff6d00", "#00e676", "#ff9100"], motion: "vortex" },
-  { tNum: 24, name: "8. Candle",        palette: ["#ffffff", "#ff2a00", "#ffb300", "#ffee58"], motion: "fire_spiral" },
-  { tNum: 21, name: "9. Cauldron",      palette: ["#2979ff", "#ffffff", "#ff2a00", "#9c5628", "#ffee58"], motion: "cauldron_vortex" },
-  { tNum: 23, name: "10. Witch",        palette: ["#00e676", "#ffffff", "#9c5628", "#d4883a", "#ffffff"], motion: "lunar_arc" },
-  { tNum: 32, name: "11. Key",          palette: ["#ffd700", "#ff9100"], motion: "celtic_swirl" },
+  { tNum: 18, name: "7. Pumpkin",       palette: ["#ff4500", "#18e600", "#ff6a00"], motion: "vortex" },
+  { tNum: 24, name: "8. Candle",        palette: ["#ffffff", "#ff2200", "#ff9900", "#ffe033"], motion: "fire_spiral" },
+  { tNum: 21, name: "9. Cauldron",      palette: ["#1e6bff", "#ffffff", "#ff2200", "#8d4e28", "#ffe033"], motion: "cauldron_vortex" },
+  { tNum: 23, name: "10. Witch",        palette: ["#18e600", "#ffffff", "#8d4e28", "#d47a22", "#ffffff"], motion: "lunar_arc" },
+  { tNum: 32, name: "11. Key",          palette: ["#ffc400", "#ff6a00"], motion: "celtic_swirl" },
   // Act IV: Beyond the Veil
-  { tNum: 19, name: "12. Ghost",        palette: ["#ffffff", "#80d8ff"], motion: "cascade_wave" },
-  { tNum: 22, name: "13. Skull",        palette: ["#ffffff", "#e51c23", "#8d4e28", "#ffb300", "#90a4ae"], motion: "explosion" },
+  { tNum: 19, name: "12. Ghost",        palette: ["#ffffff", "#66d9ff"], motion: "cascade_wave" },
+  { tNum: 22, name: "13. Skull",        palette: ["#ffffff", "#e51c23", "#8d4e28", "#ff9900", "#90a4ae"], motion: "explosion" },
   // Act V: Sacred Celtic Lore & Samhain Blessing
-  { tNum: 29, name: "14. Knot",         palette: ["#00e676", "#00b0ff"], motion: "celtic_swirl" },
-  { tNum: 30, name: "15. Sigil",        palette: ["#ff1744", "#ff9100"], motion: "vortex" },
-  { tNum: 31, name: "16. Triskelion",   palette: ["#ffd54f", "#ff6d00"], motion: "helix" },
-  { tNum: 33, name: "17. Deer Head",    palette: ["#9c27b0", "#e040fb", "#ffd54f"], motion: "winged_sweep" },
+  { tNum: 29, name: "14. Knot",         palette: ["#18e600", "#00b0ff"], motion: "celtic_swirl" },
+  { tNum: 30, name: "15. Sigil",        palette: ["#ff1744", "#ff6a00"], motion: "vortex" },
+  { tNum: 31, name: "16. Triskelion",   palette: ["#ffc400", "#ff4500"], motion: "helix" },
+  { tNum: 33, name: "17. Deer Head",    palette: ["#9c27b0", "#e040fb", "#ffc400"], motion: "winged_sweep" },
   { tNum: 34, name: "18. Cross",        palette: ["#00bfa5", "#00e5ff"], motion: "celtic_swirl" },
-  { tNum: 17, name: "19. Finale",       palette: ["#ffffff", "#ffd54f", "#ff6d00", "#d50000"], motion: "vortex", isLast: true }
+  { tNum: 17, name: "19. Finale",       palette: ["#ffffff", "#ffc400", "#ff4500", "#d50000"], motion: "vortex", isLast: true }
 ];
 
 const timelineData = {
@@ -1423,9 +1424,10 @@ window.bakeAndDownloadGLB = async function() {
         simColors[idx + 1] = 0.0;
         simColors[idx + 2] = 0.0;
       } else {
-        simColors[idx]     += (targetColors[idx] - simColors[idx]) * Math.min(1.0, 10.0 * dt);
-        simColors[idx + 1] += (targetColors[idx + 1] - simColors[idx + 1]) * Math.min(1.0, 10.0 * dt);
-        simColors[idx + 2] += (targetColors[idx + 2] - simColors[idx + 2]) * Math.min(1.0, 10.0 * dt);
+        const colorStep = Math.min(1.0, 18.0 * dt);
+        simColors[idx]     += (targetColors[idx] - simColors[idx]) * colorStep;
+        simColors[idx + 1] += (targetColors[idx + 1] - simColors[idx + 1]) * colorStep;
+        simColors[idx + 2] += (targetColors[idx + 2] - simColors[idx + 2]) * colorStep;
       }
     }
 
@@ -1438,12 +1440,19 @@ window.bakeAndDownloadGLB = async function() {
 
         if (isDroneVisible[i] === 1) {
           let r = simColors[idx], g = simColors[idx + 1], b = simColors[idx + 2];
-          const maxC = Math.max(r, g, b);
+          let maxC = Math.max(r, g, b);
           if (maxC < 0.06) {
             const boost = maxC > 0.0001 ? (0.06 / maxC) : 1.0;
             r = Math.max(0.06, r * boost);
             g = g * boost;
             b = b * boost;
+            maxC = Math.max(r, g, b);
+          }
+          // Preserve dominant-to-secondary channel ratio against Unity URP Linear->sRGB lift
+          if (maxC > 0.0001) {
+            r = Math.pow(Math.max(0, r / maxC), 1.30) * maxC;
+            g = Math.pow(Math.max(0, g / maxC), 1.30) * maxC;
+            b = Math.pow(Math.max(0, b / maxC), 1.30) * maxC;
           }
           scales[i][frameIdx * 3]     = Math.max(0.002, r);
           scales[i][frameIdx * 3 + 1] = Math.max(0.002, g);
