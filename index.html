@@ -319,7 +319,7 @@ function getSemanticSwatchLocal(px, py, tileNum, minY = 0, maxY = 512, minX = 0,
       return 0;
     }
     case 29: {
-      return (pCount > 8500) ? 0 : 1;
+      return (pCount > 8500 || (ix0 > 175 && ix1 < 255 && iy0 > 265 && iy1 < 365)) ? 0 : 1;
     }
     case 30: {
       return (pCount < 6200) ? 1 : 0;
@@ -733,7 +733,7 @@ const SHOW_SCENES = [
   { tNum: 29, name: "14. Knot",         palette: ["#18e600", "#00b0ff"], motion: "celtic_swirl" },
   { tNum: 30, name: "15. Sigil",        palette: ["#ff1744", "#ff6a00"], motion: "vortex" },
   { tNum: 31, name: "16. Triskelion",   palette: ["#ffc400", "#ff4500"], motion: "helix" },
-  { tNum: 33, name: "17. Deer Head",    palette: ["#9c27b0", "#e040fb", "#ffc400"], motion: "winged_sweep" },
+  { tNum: 33, name: "17. Deer Head",    palette: ["#9c27b0", "#e040fb", "#ff69b4"], motion: "winged_sweep" },
   { tNum: 34, name: "18. Cross",        palette: ["#00bfa5", "#00e5ff"], motion: "celtic_swirl" },
   { tNum: 17, name: "19. Finale",       palette: ["#ffffff", "#ffc400", "#ff4500", "#d50000"], motion: "vortex", isLast: true }
 ];
