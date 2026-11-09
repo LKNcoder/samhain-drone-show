@@ -466,9 +466,17 @@ function sampleImageToDronesLocal(imgElement, out, count, swatchOut, scale = 0.0
     quotas.push({ base: baseQuota, remainder: rawQuota - baseQuota, index: i });
     allocatedSum += baseQuota;
   }
-  quotas.sort((a, b) => b.remainder - a.remainder);
-  let remDrones = count - allocatedSum;
-  for (let i = 0; i < quotas.length && remDrones > 0; i++, remDrones--) quotas[i].base++;
+  if (allocatedSum <= count) {
+    quotas.sort((a, b) => b.remainder - a.remainder);
+    let remDrones = count - allocatedSum;
+    for (let i = 0; i < quotas.length && remDrones > 0; i++, remDrones--) quotas[i].base++;
+  } else {
+    quotas.sort((a, b) => b.base - a.base);
+    let excess = allocatedSum - count;
+    for (let i = 0; excess > 0; i = (i + 1) % quotas.length) {
+      if (quotas[i].base > 4) { quotas[i].base--; excess--; }
+    }
+  }
   quotas.sort((a, b) => a.index - b.index);
 
   let ptr = 0;
@@ -477,24 +485,30 @@ function sampleImageToDronesLocal(imgElement, out, count, swatchOut, scale = 0.0
     const islDroneCount = quotas[k].base;
     const edgeRatio = (tileNum === 22 && isl.pixelCount > 7000) ? 0.92 : 0.75;
     const edgeCount = Math.min(Math.round(isl.totalLoopLen * 1.5), Math.round(islDroneCount * edgeRatio));
-    const fillCount = Math.max(0, islDroneCount - edgeCount);
+    let islPlaced = 0;
 
     if (isl.loops.length > 0 && edgeCount > 0 && isl.totalLoopLen > 0) {
       for (let lIdx = 0; lIdx < isl.loops.length; lIdx++) {
+        const remEdge = edgeCount - islPlaced;
+        if (remEdge <= 0) break;
         const loop = isl.loops[lIdx];
-        const loopDrones = Math.max(2, Math.round((loop.length / isl.totalLoopLen) * edgeCount));
+        const loopDrones = (lIdx === isl.loops.length - 1)
+          ? remEdge
+          : Math.min(remEdge, Math.max(2, Math.round((loop.length / isl.totalLoopLen) * edgeCount)));
         const resampled = resampleEquidistantLocal(loop, loopDrones);
-        for (let i = 0; i < resampled.length && ptr < count; i++) {
+        for (let i = 0; i < resampled.length && islPlaced < islDroneCount && ptr < count; i++) {
           const p = resampled[i];
           out[ptr * 3]     = (p.x - cx) * autoScale;
           out[ptr * 3 + 1] = altitude - (p.y - cy) * autoScale;
           out[ptr * 3 + 2] = 0.0;
           if (swatchOut) swatchOut[ptr] = getSemanticSwatchLocal(p.x, p.y, tileNum, minY, maxY, minX, maxX, isl, lIdx);
           ptr++;
+          islPlaced++;
         }
       }
     }
 
+    const fillCount = Math.max(0, islDroneCount - islPlaced);
     if (isl.pixels.length > 0 && fillCount > 0) {
       const stepF = isl.pixels.length / fillCount;
       for (let i = 0; i < fillCount && ptr < count; i++) {
@@ -659,6 +673,8 @@ function initPrecipPositions() {
 }
 initPrecipPositions();
 
+currentColors.fill(1.0);
+targetColors.fill(1.0);
 for (let i = 0; i < MAX_DRONES; i++) {
   currentPositions[i * 3]     = groundPositions[i * 3];
   currentPositions[i * 3 + 1] = groundPositions[i * 3 + 1];
@@ -904,18 +920,21 @@ function evaluateTimeline(t) {
   const showBodyEnd = TOTAL_DURATION - landingConfig.dur;
   if (formationTrajectories.length === 0) return;
 
-  // 1. Takeoff Phase: Drones lift off from ground pad into formation 1 & initial leaf cycle positions
+  // 1. Takeoff Phase: Drones start pure white on ground pad and gracefully transition into Formation 1 & leaf colors
   if (t <= takeoffConfig.dur) {
     activePhaseLabel = "Takeoff";
-    const u = Math.max(0, t / takeoffConfig.dur);
+    const u = THREE.MathUtils.clamp(t / takeoffConfig.dur, 0, 1);
     const ease = u * u * (3 - 2 * u);
+    const uCol = THREE.MathUtils.clamp((u - 0.15) / 0.75, 0, 1);
+    const colorEase = uCol * uCol * (3 - 2 * uCol);
+
     const firstTargets = formationTrajectories[0];
     const firstSwatches = formationSwatchStore[0];
     const b0 = timelineData.formationBlocks[0];
     const alt = b0.altitude || 16.0;
     const scl = b0.scale || 1.0;
     const v0y = THREE.MathUtils.degToRad(b0.rotStartY || 0);
-    const pal0 = b0.palette || ["#ffd54f"];
+    const pal0 = b0.palette || ["#ffcc00"];
 
     for (let i = 0; i < formationCount; i++) {
       const gx = groundPositions[i * 3], gy = groundPositions[i * 3 + 1], gz = groundPositions[i * 3 + 2];
@@ -928,27 +947,45 @@ function evaluateTimeline(t) {
       const sw = firstSwatches ? firstSwatches[i] : 0;
       droneSwatchIndices[i] = sw;
       tempColor.set(pal0[sw % pal0.length]);
-      targetColors[i * 3]     = tempColor.r * (0.25 + 0.75 * ease);
-      targetColors[i * 3 + 1] = tempColor.g * (0.25 + 0.75 * ease);
-      targetColors[i * 3 + 2] = tempColor.b * (0.25 + 0.75 * ease);
+      // Smoothly transition from pure white (1, 1, 1) on the ground pad into Formation 1's palette
+      targetColors[i * 3]     = 1.0 + (tempColor.r - 1.0) * colorEase;
+      targetColors[i * 3 + 1] = 1.0 + (tempColor.g - 1.0) * colorEase;
+      targetColors[i * 3 + 2] = 1.0 + (tempColor.b - 1.0) * colorEase;
       isDroneVisible[i] = 1;
     }
 
-    // Precipitation Drones: Ascend invisibly from ground pad into their tInShow=0 cycle positions
+    // Precipitation Drones: Start pure white on ground pad; transition into leaf color (if falling) or fade out (if rising)
     if (precipConfig.enabled) {
+      const uFade = THREE.MathUtils.clamp((u - 0.12) / 0.50, 0, 1);
+      const fadeEase = uFade * uFade * (3 - 2 * uFade);
       for (let i = formationCount; i < activeDroneCount; i++) {
         const gx = groundPositions[i * 3], gy = groundPositions[i * 3 + 1], gz = groundPositions[i * 3 + 2];
         evaluateLeafDrone(i, 0.0, targetPositions, targetColors, isDroneVisible);
         const tx = targetPositions[i * 3], ty = targetPositions[i * 3 + 1], tz = targetPositions[i * 3 + 2];
+        const cr = targetColors[i * 3], cg = targetColors[i * 3 + 1], cb = targetColors[i * 3 + 2];
+        const vis0 = isDroneVisible[i];
 
         targetPositions[i * 3]     = gx + (tx - gx) * ease;
         targetPositions[i * 3 + 1] = gy + (ty - gy) * ease;
         targetPositions[i * 3 + 2] = gz + (tz - gz) * ease;
-        // Keep rising leaf drones dark during takeoff so they only appear as they drift down
-        targetColors[i * 3]     = 0.0;
-        targetColors[i * 3 + 1] = 0.0;
-        targetColors[i * 3 + 2] = 0.0;
-        isDroneVisible[i] = 0;
+
+        if (vis0 === 1) {
+          targetColors[i * 3]     = 1.0 + (cr - 1.0) * colorEase;
+          targetColors[i * 3 + 1] = 1.0 + (cg - 1.0) * colorEase;
+          targetColors[i * 3 + 2] = 1.0 + (cb - 1.0) * colorEase;
+          isDroneVisible[i] = 1;
+        } else if (fadeEase < 0.96) {
+          const w = 1.0 - fadeEase;
+          targetColors[i * 3]     = w;
+          targetColors[i * 3 + 1] = w;
+          targetColors[i * 3 + 2] = w;
+          isDroneVisible[i] = 1;
+        } else {
+          targetColors[i * 3]     = 0.0;
+          targetColors[i * 3 + 1] = 0.0;
+          targetColors[i * 3 + 2] = 0.0;
+          isDroneVisible[i] = 0;
+        }
       }
     }
   }
@@ -1270,13 +1307,16 @@ function evaluateTimeline(t) {
       }
     }
   }
-  // 3. Finale Undulating Swarm & Helix Landing
+  // 3. Finale Undulating Swarm & Helix Landing (gracefully transitions into pure white on the pad)
   else {
     activePhaseLabel = "Finale Swarm & Landing";
     const landT = t - showBodyEnd;
     const u = THREE.MathUtils.clamp(landT / landingConfig.dur, 0, 1);
-    const lastTargets = formationTrajectories[formationTrajectories.length - 1];
-    const lastB = timelineData.formationBlocks[timelineData.formationBlocks.length - 1];
+    const lastIdx = formationTrajectories.length - 1;
+    const lastTargets = formationTrajectories[lastIdx];
+    const lastSwatches = formationSwatchStore[lastIdx];
+    const lastB = timelineData.formationBlocks[lastIdx];
+    const palLast = lastB.palette || ["#ffffff"];
     const alt = lastB.altitude || 16.0;
     const scl = lastB.scale || 1.0;
     const v1y = THREE.MathUtils.degToRad(lastB.rotEndY || 0);
@@ -1285,6 +1325,8 @@ function evaluateTimeline(t) {
     const easeExpand = uExpand * uExpand * (3 - 2 * uExpand);
     const uDesc = Math.max(0.0, (u - 0.35) / 0.65);
     const easeDesc = uDesc * uDesc * (3 - 2 * uDesc);
+    const uWhite = THREE.MathUtils.clamp((uDesc - 0.20) / 0.70, 0, 1);
+    const easeWhite = uWhite * uWhite * (3 - 2 * uWhite);
 
     for (let i = 0; i < activeDroneCount; i++) {
       const gx = groundPositions[i * 3], gy = groundPositions[i * 3 + 1], gz = groundPositions[i * 3 + 2];
@@ -1293,8 +1335,12 @@ function evaluateTimeline(t) {
       if (i < formationCount) {
         transformToSky(lastTargets[i * 3], lastTargets[i * 3 + 1], lastTargets[i * 3 + 2], alt, scl, v1y, skyPosA);
         tX = skyPosA.x; tY = skyPosA.y; tZ = skyPosA.z;
+        const sw = lastSwatches ? (lastSwatches[i] % palLast.length) : 0;
+        prevBlockColor.set(palLast[sw]);
       } else {
         tX = precipPositions[i * 3]; tY = 20.0; tZ = precipPositions[i * 3 + 2];
+        const lc = leafColors[i % leafColors.length];
+        prevBlockColor.copy(lc);
       }
 
       const phi = Math.acos(1.0 - 2.0 * ((i + 0.5) / activeDroneCount));
@@ -1317,10 +1363,13 @@ function evaluateTimeline(t) {
       targetPositions[i * 3 + 2] = THREE.MathUtils.lerp(curSwarmZ, gz, easeDesc) + Math.sin(spiralAngle) * spiralRadius;
 
       const hue = (landT * 0.4 + (i / activeDroneCount) * 0.6) % 1.0;
-      tempColor.setHSL(hue, 1.0, 0.58);
-      targetColors[i * 3]     = tempColor.r;
-      targetColors[i * 3 + 1] = tempColor.g;
-      targetColors[i * 3 + 2] = tempColor.b;
+      nextBlockColor.setHSL(hue, 1.0, 0.58);
+      // 1) Cross-fade smoothly from Finale color into Swarm color during expansion
+      tempColor.lerpColors(prevBlockColor, nextBlockColor, easeExpand);
+      // 2) Cross-fade smoothly from Swarm color into pure white (1, 1, 1) during descent to ground pad
+      targetColors[i * 3]     = tempColor.r + (1.0 - tempColor.r) * easeWhite;
+      targetColors[i * 3 + 1] = tempColor.g + (1.0 - tempColor.g) * easeWhite;
+      targetColors[i * 3 + 2] = tempColor.b + (1.0 - tempColor.b) * easeWhite;
       isDroneVisible[i] = 1;
     }
   }
