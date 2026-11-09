@@ -3,6 +3,7 @@ Shader "Custom/DroneSamhainEmissive"
     Properties
     {
         _BaseIntensity ("Emission Brightness", Range(0.5, 3.0)) = 1.0
+        _ColorContrast ("Color Saturation / Gamma", Range(0.8, 2.2)) = 1.35
         _DroneRadiusScale ("Drone Size Multiplier", Range(0.2, 3.0)) = 1.0
     }
 
@@ -43,6 +44,7 @@ Shader "Custom/DroneSamhainEmissive"
 
             CBUFFER_START(UnityPerMaterial)
                 float _BaseIntensity;
+                float _ColorContrast;
                 float _DroneRadiusScale;
             CBUFFER_END
 
@@ -80,13 +82,18 @@ Shader "Custom/DroneSamhainEmissive"
             half4 frag(Varyings input) : SV_Target
             {
                 half maxVal = max(input.colorRGB.r, max(input.colorRGB.g, input.colorRGB.b));
-                if (maxVal < 0.03)
+                if (maxVal < 0.03h)
                 {
                     discard;
                 }
 
-                half3 finalRGB = input.colorRGB * _BaseIntensity;
-                return half4(finalRGB, 1.0);
+                // Normalize by the dominant channel so _BaseIntensity never clips R at 1.0
+                // while boosting G or B (which previously shifted orange -> yellow and green -> blue).
+                half3 unitRGB = saturate(input.colorRGB / max(maxVal, 0.0001h));
+                unitRGB = pow(unitRGB, max(0.8h, (half)_ColorContrast));
+
+                half3 finalRGB = unitRGB * maxVal * (half)_BaseIntensity;
+                return half4(finalRGB, 1.0h);
             }
             ENDHLSL
         }
